@@ -62,7 +62,7 @@ async def run_model():
     opt.n_rows = 1
     opt.n_iter = 1
     opt.from_file = False
-    opt.ws_uri = "ws://jump.tenshu.net:9999/"
+    opt.ws_uri = "wss://jump.tenshu.net:9999/"
 
     seed_everything(opt.seed)
 
@@ -73,6 +73,7 @@ async def run_model():
     model = model.to(device)
     sampler = PLMSSampler(model)
 
+    print(f"Connecting to {opt.ws_uri}")
     async for websocket in websockets.connect(opt.ws_uri):
         try:
             async for x in websocket:
@@ -127,4 +128,4 @@ async def run_model():
             continue
 
 if __name__ == "__main__":
-    asyncio.run(boot_model())
+    asyncio.run(run_model())
