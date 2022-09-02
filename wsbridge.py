@@ -143,7 +143,7 @@ if __name__ == "__main__":
     "realname": "I've dreamed things you people wouldn't believe",
     "channel": "#dreambot",
     "trigger": "!dream ",
-    "websocket_host": "localhost",
+    "websocket_host": "0.0.0.0",
     "websocket_port": 9999,
   }
   asyncio.run(boot(options))
