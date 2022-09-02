@@ -3,6 +3,8 @@ import asyncio
 import functools
 import json
 import websockets
+import base64
+import os
 from collections import namedtuple
 
 # TODO:
@@ -23,10 +25,13 @@ async def ws_boot(sendcmd, options):
 # Websocket message handler
 async def ws_receive(websocket, sendcmd, options):
   async for message in websocket:
-    # FIXME: This should receive JSON and process it accordingly
-    # It will either contain an error message or a nick, a prompt and an encoded dream image to store
-    print(message)
-    sendcmd('PRIVMSG', *[options["channel"], message])
+    x = json.loads(message)
+    print("Received response for: {} <{}> {}".format(x["channel"], x["user"], x["prompt"]))
+    image_bytes = base64.standard_b64decode(x["image"])
+    filename = "{}.png".format(x["prompt"].replace(' ', '_').replace('?', '').replace('\\', ''))
+    with open(os.path.join("/data/", filename), "wb") as f:
+        f.write(image_bytes)
+    sendcmd('PRIVMSG', *[x["channel"], "{}: I dreamed this for '{}': https://dreams.tenshu.net/{}".format(x["user"], x["prompt"], filename)])
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')

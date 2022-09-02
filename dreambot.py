@@ -58,10 +58,17 @@ async def run_model():
     opt.config = "configs/stable-diffusion/v1-inference.yaml"
     opt.ckpt = "models/ldm/stable-diffusion-v1/model.ckpt"
     opt.plms = True
+    opt.precision = "autocast"
+    opt.scale = 7.5
     opt.n_samples = 1
     opt.n_rows = 1
     opt.n_iter = 1
     opt.ddim_eta = 0.0
+    opt.ddim_steps = 50
+    opt.H = 512
+    opt.W = 512
+    opt.C = 4
+    opt.f = 8
     opt.ws_uri = "wss://jump.tenshu.net:9999/"
 
     seed_everything(opt.seed)
@@ -77,12 +84,8 @@ async def run_model():
     async for websocket in websockets.connect(opt.ws_uri):
         try:
             async for x in websocket:
-                if isinstance(x, websockets.StreamNone):
-                    continue
-                elif not x or isinstance(x, websockets.StreamEnd):
-                    break
-                
                 x = json.loads(x)
+                print("Generating for: " + str(x))
                 start_code = None
                 precision_scope = autocast if opt.precision=="autocast" else nullcontext
                 with torch.no_grad():
@@ -122,8 +125,8 @@ async def run_model():
                                 "image": base64.b64encode(mem_fp.getvalue()).decode(),
                                 "time": toc - tic
                             }
-
-                            websocket.send(json.dumps(packet))
+                            print(f"Generation complete in {toc-tic} seconds. Sending reply.")
+                            await websocket.send(json.dumps(packet))
         except websockets.ConnectionClosed:
             continue
 
