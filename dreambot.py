@@ -61,7 +61,7 @@ async def run_model():
     opt.n_samples = 1
     opt.n_rows = 1
     opt.n_iter = 1
-    opt.from_file = False
+    opt.ddim_eta = 0.0
     opt.ws_uri = "wss://jump.tenshu.net:9999/"
 
     seed_everything(opt.seed)
