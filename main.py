@@ -5,34 +5,33 @@ import json
 import websockets
 from collections import namedtuple
 
-  # import code
-  # code.interact(local=dict(globals(), **locals()))
+# TODO:
+# - Attempt support for multiple channels and privmsgs (the latter requires detecting that target is our nick)
+# - Decode JSON in ws_receive and process accordingly
 
-# Websocket message handler
-async def receive(websocket, sendcmd, options):
-  async for message in websocket:
-    # FIXME: This should receive JSON and process it accordingly
-    # It will either contain an error message or a nick, a prompt and a dream image
-    print(message)
-    sendcmd('PRIVMSG', *[options["channel"], message])
+# Add this in places where you want to drop to a REPL to investigate something
+# import code ; code.interact(local=dict(globals(), **locals()))
 
 # Websocket entrypoint
-async def main_websocket(port, sendcmd, options):
+async def ws_boot(sendcmd, options):
   print("Starting websocket server...")
-  return await websockets.serve(functools.partial(receive, sendcmd=sendcmd, options=options),
-                                'localhost',
-                                port,
-                                ping_interval=2,
-                                ping_timeout=300,
-                                max_size=None,
-                                max_queue=None,
-                                close_timeout=1,
-                                read_limit=2 ** 24)
+  return await websockets.serve(functools.partial(ws_receive, sendcmd=sendcmd, options=options),
+                                options["websocket_host"], options["websocket_port"],
+                                ping_interval=2, ping_timeout=300,
+                                max_size=None, max_queue=None,
+                                close_timeout=1, read_limit=2 ** 24)
+# Websocket message handler
+async def ws_receive(websocket, sendcmd, options):
+  async for message in websocket:
+    # FIXME: This should receive JSON and process it accordingly
+    # It will either contain an error message or a nick, a prompt and an encoded dream image to store
+    print(message)
+    sendcmd('PRIVMSG', *[options["channel"], message])
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
 Prefix = namedtuple('Prefix', 'nick ident host')
-def parse_line(line):
+def irc_parse_line(line):
     # parses an irc line based on RFC:
     # https://tools.ietf.org/html/rfc2812#section-2.3.1
     prefix = None
@@ -68,22 +67,23 @@ def parse_line(line):
                     line = line[0]
 
     return Message(prefix, command, params)
-def send_line_to_writer(writer: asyncio.StreamWriter, line):
+def irc_send_line(writer: asyncio.StreamWriter, line):
     print('->', line)
     writer.write(line.encode('utf-8') + b'\r\n')
-def send_cmd_to_writer(writer: asyncio.StreamWriter, cmd, *params):
+def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
     params = list(params)  # copy
     if params:
         if ' ' in params[-1]:
             params[-1] = ':' + params[-1]
     params = [cmd] + params
-    send_line_to_writer(writer, ' '.join(params))
+    irc_send_line(writer, ' '.join(params))
 
 # IRC entrypoint
-async def main_irc(options):
+async def irc_boot(options):
     print("Starting IRC client...")
     reader, writer = await asyncio.open_connection(options["host"], options["port"], ssl=options["ssl"])
     return reader, writer
+# IRC message handler
 async def irc_loop(reader, sendline, sendcmd, websocket, options):
     sendline('NICK ' + options["nickname"])
     sendline('USER ' + options["ident"] + ' * * :' + options["realname"])
@@ -99,7 +99,7 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
 
         line = line.strip()
         if line:
-            message = parse_line(line)
+            message = irc_parse_line(line)
             if message.command.isdigit() and int(message.command) >= 400:
                 # might be an error
                 print("ERROR: " + str(message))
@@ -114,19 +114,26 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
                 source = message.prefix.nick
                 if text.startswith(options["trigger"]):
                     print('{} <{}> {}'.format(target, source, text))
+                    if len(websocket.websockets) == 0:
+                      sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
+                      continue
+
                     prompt = text[len(options["trigger"]):]
-                    packet = {
-                        "channel": target,
-                        "user": source,
-                        "prompt": prompt,
-                    }
-
-                    if len(websocket.websockets) == 0 :
-                      sendcmd('PRIVMSG', *[options["channel"], "Dream sequence collapsed: No websocket connection from backend"])
+                    packet = json.dumps({"channel": target, "user": source, "prompt": prompt})
                     for ws in websocket.websockets:
-                      await ws.send(json.dumps(packet))
+                      await ws.send(packet)
 
-async def main():
+# Main entrypoint
+async def boot(options):
+  reader, writer = await irc_boot(options)
+  sendline = functools.partial(irc_send_line, writer)
+  sendcmd = functools.partial(irc_send_cmd, writer)
+
+  websocket = await ws_boot(sendcmd, options)
+  await irc_loop(reader, sendline, sendcmd, websocket, options)
+
+if __name__ == "__main__":
+  print("WebSocket bridge starting up...")
   options = {
     "host": "irc.pl0rt.org",
     "port": 6667,
@@ -136,16 +143,7 @@ async def main():
     "realname": "I've dreamed things you people wouldn't believe",
     "channel": "#dreambot",
     "trigger": "!dream ",
+    "websocket_host": "localhost",
     "websocket_port": 9999,
   }
-  
-  reader, writer = await main_irc(options)
-  sendline = functools.partial(send_line_to_writer, writer)
-  sendcmd = functools.partial(send_cmd_to_writer, writer)
-
-  websocket = await main_websocket(options["websocket_port"], sendcmd, options)
-  await irc_loop(reader, sendline, sendcmd, websocket, options)
-
-if __name__ == "__main__":
-  print("WebSocket bridge starting up...")
-  asyncio.run(main())
+  asyncio.run(boot(options))
