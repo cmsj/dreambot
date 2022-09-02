@@ -127,6 +127,7 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
                     packet = json.dumps({"channel": target, "user": source, "prompt": prompt})
                     for ws in websocket.websockets:
                       await ws.send(packet)
+                      sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted: {}}".format(source, prompt)])
 
 # Main entrypoint
 async def boot(options):
