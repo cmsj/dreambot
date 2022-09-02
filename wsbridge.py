@@ -19,7 +19,7 @@ async def ws_boot(sendcmd, options):
   print("Starting websocket server...")
   return await websockets.serve(functools.partial(ws_receive, sendcmd=sendcmd, options=options),
                                 options["websocket_host"], options["websocket_port"],
-                                ping_interval=2, ping_timeout=300,
+                                ping_interval=2, ping_timeout=3000,
                                 max_size=None, max_queue=None,
                                 close_timeout=1, read_limit=2 ** 24)
 # Websocket message handler
