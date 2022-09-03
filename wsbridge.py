@@ -24,12 +24,15 @@ async def ws_boot(sendcmd, options):
                                 close_timeout=1, read_limit=2 ** 24)
 # Websocket message handler
 async def ws_receive(websocket, sendcmd, options):
+  f_namemax = os.statvfs(options["output_dir"]).f_namemax
+
   async for message in websocket:
     x = json.loads(message)
     print("Received response for: {} <{}> {}".format(x["channel"], x["user"], x["prompt"]))
     image_bytes = base64.standard_b64decode(x["image"])
-    filename = "{}.png".format(x["prompt"].replace(' ', '_').replace('?', '').replace('\\', ''))
-    with open(os.path.join("/data/", filename), "wb") as f:
+    filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '')
+    filename = "{}.png".format(filename_base[:f_namemax])
+    with open(os.path.join(options["output_dir"], filename), "wb") as f:
         f.write(image_bytes)
     sendcmd('PRIVMSG', *[x["channel"], "{}: I dreamed this for '{}': https://dreams.tenshu.net/{}".format(x["user"], x["prompt"], filename)])
 
@@ -151,5 +154,6 @@ if __name__ == "__main__":
     "trigger": "!dream ",
     "websocket_host": "0.0.0.0",
     "websocket_port": 9999,
+    "output_dir": "/data"
   }
   asyncio.run(boot(options))
