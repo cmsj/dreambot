@@ -14,7 +14,7 @@ from ldm.simplet2i import T2I
 def stabdiff(queue_prompts, queue_results, opt):
     print("Stable Diffusion booting...")
     t2i = T2I(weights=opt["model"], config=opt["config"], iterations=opt["n_iter"],
-              seed=opt["seed"], grid=False, width=opt["W"], height=opt["H"], 
+              steps=opt["steps"], seed=opt["seed"], grid=False, width=opt["W"], height=opt["H"], 
               cfg_scale=opt["scale"], sampler_name=opt["sampler"], 
               precision=opt["precision"], full_precision=opt["full_precision"])
     t2i.load_model()
@@ -108,15 +108,11 @@ if __name__ == "__main__":
         'config': "configs/stable-diffusion/v1-inference.yaml",
         'model': "models/ldm/stable-diffusion-v1/model.ckpt",
         'sampler': 'plms',
-        'plms': True,
         'precision': "autocast",
         'full_precision': True,
         'scale': 7.5,
-        'n_samples': 1,
-        'n_rows': 1,
         'n_iter': 1,
-        'ddim_eta': 0.0,
-        'ddim_steps': 50,
+        'steps': 50,
         'H': 512,
         'W': 512,
         'C': 4,
