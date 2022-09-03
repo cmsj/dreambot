@@ -61,8 +61,8 @@ class Dreambot:
             print("Websocket connected")
             try:
                 async for message in self.websocket:
-                    print("Received message: " + message)
                     await self.queue_prompts.async_q.put(message)
+                    print(f"Queued message (qsize {self.queue_prompts.async_q.qsize()}): {message}")
             except websockets.ConnectionClosed:
                 continue
 
@@ -85,12 +85,12 @@ class Dreambot:
     async def main(self):
         print("Creating queues")
         self.queue_prompts: janus.Queue[str] = janus.Queue()
-        self.queue_results: janus.queue[str] = janus.Queue()
+        self.queue_results: janus.Queue[str] = janus.Queue()
 
         print("Creating tasks")
         task_websocket = asyncio.create_task(self.run_websocket())
-        task_results = asyncio.create_task(self.run_results())
-        task_stabdiff = asyncio.create_task(self.run_stabdiff())
+        task_results   = asyncio.create_task(self.run_results())
+        task_stabdiff  = asyncio.create_task(self.run_stabdiff())
 
         await task_stabdiff
         await task_websocket
