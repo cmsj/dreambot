@@ -37,7 +37,6 @@ def stabdiff(queue_prompts, queue_results, opt):
         mem_fp.close()
 
         toc = time.time()
-        print(f"Generation complete in {toc-tic} seconds.")
 
         packet = {
             "prompt": x["prompt"],
@@ -47,6 +46,7 @@ def stabdiff(queue_prompts, queue_results, opt):
             "time": toc - tic
         }
         queue_results.put(json.dumps(packet))
+        print(f"Generation complete in {toc-tic} seconds, results queue size is {queue_results.qsize()}")
         queue_prompts.task_done()
 
 class Dreambot:
@@ -55,7 +55,7 @@ class Dreambot:
         self.websocket = None
         self.queue_prompts = None
         self.queue_results = None
-    
+
     async def run_websocket(self):
         async for self.websocket in websockets.connect(self.options["ws_uri"]):
             print("Websocket connected")
