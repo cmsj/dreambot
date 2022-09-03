@@ -35,7 +35,7 @@ async def ws_receive(websocket, sendcmd, options):
     filename = "{}.png".format(filename_base[:f_namemax])
     with open(os.path.join(options["output_dir"], filename), "wb") as f:
         f.write(image_bytes)
-    sendcmd('PRIVMSG', *[x["channel"], "{}: I dreamed this for '{}': https://dreams.tenshu.net/{}".format(x["user"], x["prompt"], filename)])
+    sendcmd('PRIVMSG', *[x["channel"], "{}: I dreamed this: https://dreams.tenshu.net/{}".format(x["user"], filename)])
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
