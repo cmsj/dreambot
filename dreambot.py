@@ -18,8 +18,10 @@ async def run_model():
     opt.seed = 42
     opt.config = "configs/stable-diffusion/v1-inference.yaml"
     opt.model = "models/ldm/stable-diffusion-v1/model.ckpt"
+    opt.sampler = 'plms'
     opt.plms = True
     opt.precision = "autocast"
+    opt.full_precision = True
     opt.scale = 7.5
     opt.n_samples = 1
     opt.n_rows = 1
@@ -32,7 +34,7 @@ async def run_model():
     opt.f = 8
     opt.ws_uri = "wss://jump.tenshu.net:9999/"
 
-    t2i = T2I(weights=opt.model, config=opt.config, iterations=opt.n_iter, seed=opt.seed, grid=False, width=opt.W, height=opt.H, cfg_scale=opt.scale)
+    t2i = T2I(weights=opt.model, config=opt.config, iterations=opt.n_iter, seed=opt.seed, grid=False, width=opt.W, height=opt.H, cfg_scale=opt.scale, sampler_name=opt.sampler, precision=opt.precision, full_precision=opt.full_precision)
     t2i.load_model()
 
     print(f"Connecting to {opt.ws_uri}")

@@ -147,7 +147,7 @@ if __name__ == "__main__":
     "nickname": "dreambot",
     "ident": "dreambot",
     "realname": "I've dreamed things you people wouldn't believe",
-    "channel": "#dreambot",
+    "channel": "#ed",
     "trigger": "!dream ",
     "websocket_host": "0.0.0.0",
     "websocket_port": 9999,
