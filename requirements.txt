@@ -1,1 +1,2 @@
 websockets==10.3
+janus==1.0.0
