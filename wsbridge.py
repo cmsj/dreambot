@@ -24,9 +24,10 @@ async def ws_boot(sendcmd, options):
                                 close_timeout=1, read_limit=2 ** 24)
 # Websocket message handler
 async def ws_receive(websocket, sendcmd, options):
-  f_namemax = os.statvfs(options["output_dir"]).f_namemax
+  f_namemax = os.statvfs(options["output_dir"]).f_namemax - 4
 
   async for message in websocket:
+    # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
     x = json.loads(message)
     print("Received response for: {} <{}> {}".format(x["channel"], x["user"], x["prompt"]))
     image_bytes = base64.standard_b64decode(x["image"])
