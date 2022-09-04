@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - 'main'
+    paths:
+      - 'Dockerfile'
+      - 'dreambot_frontend.py'
+      - 'requirements.txt'
 
 env:
   REGISTRY: ghcr.io
