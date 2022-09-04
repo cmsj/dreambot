@@ -5,6 +5,7 @@ import json
 import websockets
 import base64
 import os
+import sys
 from collections import namedtuple
 
 # TODO:
