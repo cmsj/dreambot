@@ -47,7 +47,6 @@ def stabdiff(queue_prompts, queue_results, opt):
         }
         queue_results.put(json.dumps(packet))
         print(f"Generation complete in {toc-tic} seconds, results queue size is {queue_results.qsize()}")
-        queue_prompts.task_done()
 
 class Dreambot:
     def __init__(self, options):
@@ -81,9 +80,12 @@ class Dreambot:
             result_x = json.loads(result)
             print("Sending result for: " + result_x["prompt"])
             await self.websocket.send(result)
-            self.queue_results.task_done()
+            print("Result sent")
 
     async def main(self):
+        # loop = asyncio.get_running_loop()
+        # loop.set_debug(True)
+
         print("Creating queues")
         self.queue_prompts: janus.Queue[str] = janus.Queue()
         self.queue_results: janus.Queue[str] = janus.Queue()
