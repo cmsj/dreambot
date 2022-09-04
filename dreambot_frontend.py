@@ -144,18 +144,25 @@ async def boot(options):
   await irc_loop(reader, sendline, sendcmd, websocket, options)
 
 if __name__ == "__main__":
+  if len(sys.argv) != 2:
+    print("Usage: {} <config.json>".format(sys.argv[0]))
+    sys.exit(1)
+
+  with open(sys.argv[1]) as f:
+    options = json.load(f)
+
   print("WebSocket bridge starting up...")
-  options = {
-    "host": "irc.pl0rt.org",
-    "port": 6667,
-    "ssl": False,
-    "nickname": "dreambot",
-    "ident": "dreambot",
-    "realname": "I've dreamed things you people wouldn't believe",
-    "channel": "#ed",
-    "trigger": "!dream ",
-    "websocket_host": "0.0.0.0",
-    "websocket_port": 9999,
-    "output_dir": "/data"
-  }
+#   options = {
+#     "host": "irc.pl0rt.org",
+#     "port": 6667,
+#     "ssl": False,
+#     "nickname": "dreambot",
+#     "ident": "dreambot",
+#     "realname": "I've dreamed things you people wouldn't believe",
+#     "channel": "#ed",
+#     "trigger": "!dream ",
+#     "websocket_host": "0.0.0.0",
+#     "websocket_port": 9999,
+#     "output_dir": "/data"
+#   }
   asyncio.run(boot(options))
