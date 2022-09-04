@@ -153,14 +153,16 @@ if __name__ == "__main__":
     options = json.load(f)
 
   print("WebSocket bridge starting up...")
-#   options = {
-#     "host": "irc.pl0rt.org",
+
+# Example JSON config:
+# {
+#     "host": "irc.server.com",
 #     "port": 6667,
-#     "ssl": False,
+#     "ssl": false,
 #     "nickname": "dreambot",
 #     "ident": "dreambot",
 #     "realname": "I've dreamed things you people wouldn't believe",
-#     "channel": "#ed",
+#     "channel": "#somechannel",
 #     "trigger": "!dream ",
 #     "websocket_host": "0.0.0.0",
 #     "websocket_port": 9999,

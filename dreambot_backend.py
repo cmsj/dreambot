@@ -114,21 +114,22 @@ if __name__ == "__main__":
     with open(sys.argv[1]) as f:
         opt = json.load(f)
 
-    # opt = {
-    #     'seed': 42,
-    #     'config': "configs/stable-diffusion/v1-inference.yaml",
-    #     'model': "models/ldm/stable-diffusion-v1/model.ckpt",
-    #     'sampler': 'plms',
-    #     'precision': "autocast",
-    #     'full_precision': True,
-    #     'scale': 7.5,
-    #     'n_iter': 1,
-    #     'steps': 50,
-    #     'H': 512,
-    #     'W': 512,
-    #     'C': 4,
-    #     'f': 8,
-    #     'ws_uri': "wss://jump.tenshu.net:9999/"
+    # Sample JSON config file:
+    # {
+    #    "seed": 42,
+    #    "config": "configs/stable-diffusion/v1-inference.yaml",
+    #    "model": "models/ldm/stable-diffusion-v1/model.ckpt",
+    #    "sampler": "plms",
+    #    "precision": "autocast",
+    #    "full_precision": true,
+    #    "scale": 7.5,
+    #    "n_iter": 1,
+    #    "steps": 50,
+    #    "H": 512,
+    #    "W": 512,
+    #    "C": 4,
+    #    "f": 8,
+    #    "ws_uri": "wss://ws.server.com:9999/"
     # }
 
     bot = Dreambot(opt)
