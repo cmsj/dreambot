@@ -5,6 +5,7 @@ import janus
 import json
 import time
 import io
+import sys
 import base64
 import concurrent.futures
 
@@ -106,22 +107,29 @@ class Dreambot:
         await self.queue_results.wait_closed()
 
 if __name__ == "__main__":
-    opt = {
-        'seed': 42,
-        'config': "configs/stable-diffusion/v1-inference.yaml",
-        'model': "models/ldm/stable-diffusion-v1/model.ckpt",
-        'sampler': 'plms',
-        'precision': "autocast",
-        'full_precision': True,
-        'scale': 7.5,
-        'n_iter': 1,
-        'steps': 50,
-        'H': 512,
-        'W': 512,
-        'C': 4,
-        'f': 8,
-        'ws_uri': "wss://jump.tenshu.net:9999/"
-    }
+    if len(sys.argv) != 2:
+        print("Usage: {} <config.json>".format(sys.argv[0]))
+        sys.exit(1)
+
+    with open(sys.argv[1]) as f:
+        opt = json.load(f)
+
+    # opt = {
+    #     'seed': 42,
+    #     'config': "configs/stable-diffusion/v1-inference.yaml",
+    #     'model': "models/ldm/stable-diffusion-v1/model.ckpt",
+    #     'sampler': 'plms',
+    #     'precision': "autocast",
+    #     'full_precision': True,
+    #     'scale': 7.5,
+    #     'n_iter': 1,
+    #     'steps': 50,
+    #     'H': 512,
+    #     'W': 512,
+    #     'C': 4,
+    #     'f': 8,
+    #     'ws_uri': "wss://jump.tenshu.net:9999/"
+    # }
 
     bot = Dreambot(opt)
     asyncio.run(bot.main())
