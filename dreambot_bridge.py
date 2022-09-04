@@ -76,6 +76,7 @@ class Dreambot:
     async def run_results(self):
         print("Watching for results")
         while True:
+            print("Awaiting next result...")
             result = await self.queue_results.async_q.get()
             result_x = json.loads(result)
             print("Sending result for: " + result_x["prompt"])
