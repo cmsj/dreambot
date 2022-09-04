@@ -6,6 +6,7 @@ import websockets
 import base64
 import os
 import sys
+import logging
 from collections import namedtuple
 
 # TODO:
@@ -15,9 +16,12 @@ from collections import namedtuple
 # Add this in places where you want to drop to a REPL to investigate something
 # import code ; code.interact(local=dict(globals(), **locals()))
 
+logger = logging.getLogger('dreambot')
+logger.setLevel(logging.DEBUG)
+
 # Websocket entrypoint
 async def ws_boot(sendcmd, options):
-  print("Starting websocket server...")
+  logger.info("Starting websocket server...")
   return await websockets.serve(functools.partial(ws_receive, sendcmd=sendcmd, options=options),
                                 options["websocket_host"], options["websocket_port"],
                                 ping_interval=2, ping_timeout=3000,
@@ -30,13 +34,15 @@ async def ws_receive(websocket, sendcmd, options):
   async for message in websocket:
     # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
     x = json.loads(message)
-    print("Received response for: {} <{}> {}".format(x["channel"], x["user"], x["prompt"]))
     image_bytes = base64.standard_b64decode(x["image"])
     filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '')
     filename = "{}.png".format(filename_base[:f_namemax])
+    url = "{}/{}".format(options["uri_base"], filename)
+
     with open(os.path.join(options["output_dir"], filename), "wb") as f:
         f.write(image_bytes)
-    sendcmd('PRIVMSG', *[x["channel"], "{}: I dreamed this: https://dreams.tenshu.net/{}".format(x["user"], filename)])
+    logger.info("{} <{}> {}".format(x["channel"], x["user"], url))
+    sendcmd('PRIVMSG', *[x["channel"], "{}: I dreamed this: {}".format(x["user"], url)])
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
@@ -78,7 +84,7 @@ def irc_parse_line(line):
 
     return Message(prefix, command, params)
 def irc_send_line(writer: asyncio.StreamWriter, line):
-    print('->', line)
+    #print('->', line)
     writer.write(line.encode('utf-8') + b'\r\n')
 def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
     params = list(params)  # copy
@@ -90,7 +96,7 @@ def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
 
 # IRC entrypoint
 async def irc_boot(options):
-    print("Starting IRC client...")
+    logger.info("Starting IRC client...")
     reader, writer = await asyncio.open_connection(options["host"], options["port"], ssl=options["ssl"])
     return reader, writer
 # IRC message handler
@@ -112,7 +118,7 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
             message = irc_parse_line(line)
             if message.command.isdigit() and int(message.command) >= 400:
                 # might be an error
-                print("ERROR: " + str(message))
+                logger.error(str(message))
 
             if message.command == 'PING':
                 sendcmd('PONG', *message.params)
@@ -123,7 +129,7 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
                 text = message.params[1]
                 source = message.prefix.nick
                 if text.startswith(options["trigger"]):
-                    print('{} <{}> {}'.format(target, source, text))
+                    logger.info('{} <{}> {}'.format(target, source, text))
                     if len(websocket.websockets) == 0:
                       sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
                       continue
@@ -152,7 +158,7 @@ if __name__ == "__main__":
   with open(sys.argv[1]) as f:
     options = json.load(f)
 
-  print("WebSocket bridge starting up...")
+  logger.info("WebSocket bridge starting up...")
 
 # Example JSON config:
 # {
@@ -166,6 +172,7 @@ if __name__ == "__main__":
 #     "trigger": "!dream ",
 #     "websocket_host": "0.0.0.0",
 #     "websocket_port": 9999,
-#     "output_dir": "/data"
+#     "output_dir": "/data",
+#     "uri_base": "http://localhost:8080/dreams"
 #   }
   asyncio.run(boot(options))
