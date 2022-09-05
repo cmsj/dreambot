@@ -140,6 +140,9 @@ class DreamBot:
                 elif message.command == '001':
                     for channel in server["channels"]:
                         sendcmd('JOIN', channel)
+                elif message.command == '443':
+                    self.options["nickname"] = self.options["nickname"] + '_'
+                    sendline('NICK ' + self.options["nickname"])
                 elif message.command == 'PRIVMSG':
                     target = message.params[0]  # channel or
                     text = message.params[1]
