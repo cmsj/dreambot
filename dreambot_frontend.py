@@ -177,7 +177,9 @@ class DreamBot:
     
             self.sendcmds.append((server, sendcmd))
     
-            await self.irc_loop(server, reader, sendline, sendcmd)
+            asyncio.create_task(server, reader, sendline, sendcmd)
+        
+        asyncio.get_running_loop().run_forever()
 
 if __name__ == "__main__":
   if len(sys.argv) != 2:
