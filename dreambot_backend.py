@@ -7,8 +7,10 @@ import time
 import io
 import sys
 import base64
+import tempfile
 import concurrent.futures
 
+import requests
 from PIL import Image
 from ldm.simplet2i import T2I
 
@@ -27,7 +29,26 @@ def stabdiff(queue_prompts, queue_results, opt):
         print("Generating for: " + str(x))
         tic = time.time()
 
-        results = t2i.prompt2image(prompt=x["prompt"], ourdir = "./outputs/")
+        if x["prompt_type"] == "txt2img":
+            results = t2i.prompt2image(prompt=x["prompt"])
+        elif x["prompt_type"] == "img2img":
+            prompt_parts = x["prompt"].split(" ", 1)
+            tmpfile = tempfile.NamedTemporaryFile()
+            try:
+                r = requests.get(prompt_parts[0])
+                # FIXME: Check that r.headers['content-type'] starts with 'image/'
+
+                with open(tmpfile.name, 'wb') as f:
+                    f.write(r.content)
+
+                results = t2i.img2image(init_img=tmpfile.name, prompt=prompt_parts[1])
+                tmpfile.close()
+            except:
+                tmpfile.close()
+                print("Failed to fetch image: " + prompt_parts[0])
+                # FIXME: Really we should form an error packet and return it to the front end
+                continue
+
 
         image = results[0][0]
         seed = results[0][1]

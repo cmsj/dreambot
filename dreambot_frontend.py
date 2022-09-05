@@ -128,14 +128,21 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
                 target = message.params[0]  # channel or
                 text = message.params[1]
                 source = message.prefix.nick
-                if text.startswith(options["trigger"]):
+                if text.startswith(options["txt2img_trigger"]) or text.startswith(options["img2img_trigger"]):
                     logger.info('{} <{}> {}'.format(target, source, text))
                     if len(websocket.websockets) == 0:
                       sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
                       continue
 
-                    prompt = text[len(options["trigger"]):]
-                    packet = json.dumps({"channel": target, "user": source, "prompt": prompt})
+                    if text.startswith(options["txt2img_trigger"]):
+                        trigger = options["txt2img_trigger"]
+                        trigger_type = "txt2img"
+                    elif text.startswith(options["img2img_trigger"]):
+                        trigger = options["img2img_trigger"]
+                        trigger_type = "img2img"
+
+                    prompt = text[len(trigger):]
+                    packet = json.dumps({"channel": target, "user": source, "prompt": prompt, "prompt_type": trigger_type})
                     for ws in websocket.websockets:
                       # FIXME: Make this run on a random entry from websocket.websockets so we could have multiple backends
                       await ws.send(packet)
@@ -169,7 +176,8 @@ if __name__ == "__main__":
 #     "ident": "dreambot",
 #     "realname": "I've dreamed things you people wouldn't believe",
 #     "channel": "#somechannel",
-#     "trigger": "!dream ",
+#     "txt2img_trigger": "!dream ",
+#     "img2img_trigger": "!imgdream ",
 #     "websocket_host": "0.0.0.0",
 #     "websocket_port": 9999,
 #     "output_dir": "/data",
