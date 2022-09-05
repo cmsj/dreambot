@@ -61,7 +61,7 @@ def irc_parse_line(line):
     return Message(prefix, command, params)
 
 def irc_send_line(writer: asyncio.StreamWriter, line):
-    #print('->', line)
+    print('->', line)
     writer.write(line.encode('utf-8') + b'\r\n')
 
 def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
@@ -90,7 +90,7 @@ class DreamBot:
                                                 close_timeout=1, read_limit=2 ** 24)
     
     # Websocket message handler
-    async def ws_receive(self, websocket):
+    async def ws_receive(self, websocket, path):
       f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
     
       async for message in websocket:
