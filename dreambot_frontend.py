@@ -116,6 +116,7 @@ class DreamBot:
     
     # IRC message handler
     async def irc_loop(self, server, reader, sendline, sendcmd):
+        logger.debug("Starting irc_loop for {}".format(server["host"]))
         sendline('NICK ' + self.options["nickname"])
         sendline('USER ' + self.options["ident"] + ' * * :' + self.options["realname"])
     
@@ -175,6 +176,7 @@ class DreamBot:
         ws_task = asyncio.create_task(self.ws_boot())
 
         for server in self.options["irc"]:
+            logger.debug("Preparing IRC connection for {}".format(server["host"]))
             reader, writer = await self.irc_boot(server)
             sendline = functools.partial(irc_send_line, writer)
             sendcmd = functools.partial(irc_send_cmd, writer)
