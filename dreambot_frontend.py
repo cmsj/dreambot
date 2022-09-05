@@ -131,7 +131,7 @@ class DreamBot:
             line = line.strip()
             if line:
                 message = irc_parse_line(line)
-                print('<-', message)
+                print("{} <- {}".format(server["host"], message))
                 if message.command.isdigit() and int(message.command) >= 400:
                     # might be an error
                     logger.error(str(message))
