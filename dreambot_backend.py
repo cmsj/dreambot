@@ -80,6 +80,7 @@ def stabdiff(queue_prompts, queue_results, opt):
 
         packet = {
             "prompt": x["prompt"],
+            "server": x["server"],
             "channel": x["channel"],
             "user": x["user"],
             "image": img_b64,
@@ -118,7 +119,7 @@ class Dreambot:
             print("Awaiting next result...")
             result = await self.queue_results.async_q.get()
             result_x = json.loads(result)
-            print("Sending result for: " + result_x["prompt"])
+            print("Sending result to {}:{}:{} for: {}".format(result_x["server"], result_x["channel"], result_x["user"], result_x["prompt"]))
             await self.websocket.send(result)
             print("Result sent")
 

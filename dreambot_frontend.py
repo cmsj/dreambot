@@ -6,6 +6,7 @@ import websockets
 import base64
 import os
 import sys
+import random
 import logging
 from collections import namedtuple
 
@@ -20,15 +21,16 @@ logger = logging.getLogger('dreambot')
 logger.setLevel(logging.DEBUG)
 
 # Websocket entrypoint
-async def ws_boot(sendcmd, options):
+async def ws_boot(sendcmds, options):
   logger.info("Starting websocket server...")
-  return await websockets.serve(functools.partial(ws_receive, sendcmd=sendcmd, options=options),
+  return await websockets.serve(functools.partial(ws_receive, sendcmd=sendcmds, options=options),
                                 options["websocket_host"], options["websocket_port"],
                                 ping_interval=2, ping_timeout=3000,
                                 max_size=None, max_queue=None,
                                 close_timeout=1, read_limit=2 ** 24)
+
 # Websocket message handler
-async def ws_receive(websocket, sendcmd, options):
+async def ws_receive(websocket, sendcmds, options):
   f_namemax = os.statvfs(options["output_dir"]).f_namemax - 4
 
   async for message in websocket:
@@ -41,8 +43,10 @@ async def ws_receive(websocket, sendcmd, options):
 
     with open(os.path.join(options["output_dir"], filename), "wb") as f:
         f.write(image_bytes)
-    logger.info("{} <{}> {}".format(x["channel"], x["user"], url))
-    sendcmd('PRIVMSG', *[x["channel"], "{}: I dreamed this: {}".format(x["user"], url)])
+    logger.info("{}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
+    for sendcmd in sendcmds:
+        if sendcmd[0]["host"] == x["server"]:
+            sendcmd[1]('PRIVMSG', *[x["channel"], "{}: I dreamed this: {}".format(x["user"], url)])
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
@@ -83,9 +87,11 @@ def irc_parse_line(line):
                     line = line[0]
 
     return Message(prefix, command, params)
+
 def irc_send_line(writer: asyncio.StreamWriter, line):
     #print('->', line)
     writer.write(line.encode('utf-8') + b'\r\n')
+
 def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
     params = list(params)  # copy
     if params:
@@ -95,12 +101,13 @@ def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
     irc_send_line(writer, ' '.join(params))
 
 # IRC entrypoint
-async def irc_boot(options):
-    logger.info("Starting IRC client...")
-    reader, writer = await asyncio.open_connection(options["host"], options["port"], ssl=options["ssl"])
+async def irc_boot(server, options):
+    logger.info("Starting IRC client for {}...".format(server["host"]))
+    reader, writer = await asyncio.open_connection(server["host"], server["port"], ssl=server["ssl"])
     return reader, writer
+
 # IRC message handler
-async def irc_loop(reader, sendline, sendcmd, websocket, options):
+async def irc_loop(server, reader, sendline, sendcmd, websocket, options):
     sendline('NICK ' + options["nickname"])
     sendline('USER ' + options["ident"] + ' * * :' + options["realname"])
 
@@ -123,7 +130,8 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
             if message.command == 'PING':
                 sendcmd('PONG', *message.params)
             elif message.command == '001':
-                sendcmd('JOIN', options["channel"])
+                for channel in server["channels"]:
+                    sendcmd('JOIN', channel)
             elif message.command == 'PRIVMSG':
                 target = message.params[0]  # channel or
                 text = message.params[1]
@@ -142,20 +150,26 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
                         trigger_type = "img2img"
 
                     prompt = text[len(trigger):]
-                    packet = json.dumps({"channel": target, "user": source, "prompt": prompt, "prompt_type": trigger_type})
-                    for ws in websocket.websockets:
-                      # FIXME: Make this run on a random entry from websocket.websockets so we could have multiple backends
-                      await ws.send(packet)
-                      sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+                    packet = json.dumps({"server": server["host"], "channel": target, "user": source, "prompt": prompt, "prompt_type": trigger_type})
+
+                    ws = random.choice(websocket.websockets)
+                    await ws.send(packet)
+                    sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
 
 # Main entrypoint
 async def boot(options):
-  reader, writer = await irc_boot(options)
-  sendline = functools.partial(irc_send_line, writer)
-  sendcmd = functools.partial(irc_send_cmd, writer)
+    sendcmds = []
 
-  websocket = await ws_boot(sendcmd, options)
-  await irc_loop(reader, sendline, sendcmd, websocket, options)
+    for server in options["irc"]:
+        reader, writer = await irc_boot(server, options)
+        sendline = functools.partial(irc_send_line, writer)
+        sendcmd = functools.partial(irc_send_cmd, writer)
+
+        sendcmds.append((server, sendcmd))
+
+        await irc_loop(server, reader, sendline, sendcmd, websocket, options)
+    
+    websocket = await ws_boot(sendcmds, options)
 
 if __name__ == "__main__":
   if len(sys.argv) != 2:
@@ -166,6 +180,7 @@ if __name__ == "__main__":
     options = json.load(f)
 
   logger.info("WebSocket bridge starting up...")
+  asyncio.run(boot(options))
 
 # Example JSON config:
 # {
@@ -181,6 +196,24 @@ if __name__ == "__main__":
 #     "websocket_host": "0.0.0.0",
 #     "websocket_port": 9999,
 #     "output_dir": "/data",
-#     "uri_base": "http://localhost:8080/dreams"
+#     "uri_base": "http://localhost:8080/dreams",
+    # "irc": [
+    #         {
+    #                 "host": "irc.pl0rt.org",
+    #                 "port": 6697,
+    #                 "ssl": true,
+    #                 "channels": [
+    #                         "#ed",
+    #                         "#dreambot"
+    #                 ]
+    #         },
+    #         {
+    #                 "host": "de1.arcnet.org",
+    #                 "port": 6667,
+    #                 "ssl": false,
+    #                 "channels": [
+    #                         "#worms"
+    #                 ]
+    #         }
+    # ]
 #   }
-  asyncio.run(boot(options))
