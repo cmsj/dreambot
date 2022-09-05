@@ -104,7 +104,7 @@ class DreamBot:
     
         with open(os.path.join(options["output_dir"], filename), "wb") as f:
             f.write(image_bytes)
-        logger.info("{}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
+        logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
         for sendcmd in self.sendcmds:
             if sendcmd[0]["host"] == x["server"]:
                 sendcmd[1]('PRIVMSG', *[x["channel"], "{}: I dreamed this: {}".format(x["user"], url)])
@@ -151,7 +151,7 @@ class DreamBot:
                     text = message.params[1]
                     source = message.prefix.nick
                     if text.startswith(self.options["txt2img_trigger"]) or text.startswith(self.options["img2img_trigger"]):
-                        logger.info('{} <{}> {}'.format(target, source, text))
+                        logger.info('irc_loop: {}:{} <{}> {}'.format(server["host"], target, source, text))
                         if len(self.websocket.websockets) == 0:
                           sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
                           continue
