@@ -20,34 +20,6 @@ from collections import namedtuple
 logger = logging.getLogger('dreambot')
 logger.setLevel(logging.DEBUG)
 
-# Websocket entrypoint
-async def ws_boot(sendcmds, options):
-  logger.info("Starting websocket server...")
-  return await websockets.serve(functools.partial(ws_receive, sendcmd=sendcmds, options=options),
-                                options["websocket_host"], options["websocket_port"],
-                                ping_interval=2, ping_timeout=3000,
-                                max_size=None, max_queue=None,
-                                close_timeout=1, read_limit=2 ** 24)
-
-# Websocket message handler
-async def ws_receive(websocket, sendcmds, options):
-  f_namemax = os.statvfs(options["output_dir"]).f_namemax - 4
-
-  async for message in websocket:
-    # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
-    x = json.loads(message)
-    image_bytes = base64.standard_b64decode(x["image"])
-    filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '')
-    filename = "{}.png".format(filename_base[:f_namemax])
-    url = "{}/{}".format(options["uri_base"], filename)
-
-    with open(os.path.join(options["output_dir"], filename), "wb") as f:
-        f.write(image_bytes)
-    logger.info("{}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
-    for sendcmd in sendcmds:
-        if sendcmd[0]["host"] == x["server"]:
-            sendcmd[1]('PRIVMSG', *[x["channel"], "{}: I dreamed this: {}".format(x["user"], url)])
-
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
 Prefix = namedtuple('Prefix', 'nick ident host')
@@ -100,76 +72,115 @@ def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
     params = [cmd] + params
     irc_send_line(writer, ' '.join(params))
 
-# IRC entrypoint
-async def irc_boot(server, options):
-    logger.info("Starting IRC client for {}...".format(server["host"]))
-    reader, writer = await asyncio.open_connection(server["host"], server["port"], ssl=server["ssl"])
-    return reader, writer
+class DreamBot:
+    websocket = None
+    sendcmds = None
+    options = None
 
-# IRC message handler
-async def irc_loop(server, reader, sendline, sendcmd, websocket, options):
-    sendline('NICK ' + options["nickname"])
-    sendline('USER ' + options["ident"] + ' * * :' + options["realname"])
+    def __init__(self, options):
+        self.options = options
 
-    while not reader.at_eof():
-        line = await reader.readline()
-        try:
-            # try utf-8 first
-            line = line.decode('utf-8')
-        except UnicodeDecodeError:
-            # fall back that always works (but might not be correct)
-            line = line.decode('latin1')
-
-        line = line.strip()
-        if line:
-            message = irc_parse_line(line)
-            if message.command.isdigit() and int(message.command) >= 400:
-                # might be an error
-                logger.error(str(message))
-
-            if message.command == 'PING':
-                sendcmd('PONG', *message.params)
-            elif message.command == '001':
-                for channel in server["channels"]:
-                    sendcmd('JOIN', channel)
-            elif message.command == 'PRIVMSG':
-                target = message.params[0]  # channel or
-                text = message.params[1]
-                source = message.prefix.nick
-                if text.startswith(options["txt2img_trigger"]) or text.startswith(options["img2img_trigger"]):
-                    logger.info('{} <{}> {}'.format(target, source, text))
-                    if len(websocket.websockets) == 0:
-                      sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
-                      continue
-
-                    if text.startswith(options["txt2img_trigger"]):
-                        trigger = options["txt2img_trigger"]
-                        trigger_type = "txt2img"
-                    elif text.startswith(options["img2img_trigger"]):
-                        trigger = options["img2img_trigger"]
-                        trigger_type = "img2img"
-
-                    prompt = text[len(trigger):]
-                    packet = json.dumps({"server": server["host"], "channel": target, "user": source, "prompt": prompt, "prompt_type": trigger_type})
-
-                    ws = random.choice(websocket.websockets)
-                    await ws.send(packet)
-                    sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
-
-# Main entrypoint
-async def boot(options):
-    sendcmds = []
-
-    for server in options["irc"]:
-        reader, writer = await irc_boot(server, options)
-        sendline = functools.partial(irc_send_line, writer)
-        sendcmd = functools.partial(irc_send_cmd, writer)
-
-        sendcmds.append((server, sendcmd))
-
-        await irc_loop(server, reader, sendline, sendcmd, websocket, options)
+    # Websocket entrypoint
+    async def ws_boot(self):
+      logger.info("Starting websocket server...")
+      self.websocket = await websockets.serve(functools.partial(self.ws_receive, self),
+                                                self.options["websocket_host"], self.options["websocket_port"],
+                                                ping_interval=2, ping_timeout=3000,
+                                                max_size=None, max_queue=None,
+                                                close_timeout=1, read_limit=2 ** 24)
     
-    websocket = await ws_boot(sendcmds, options)
+    # Websocket message handler
+    async def ws_receive(self):
+      f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
+    
+      if not self.websocket:
+        return
+
+      async for message in self.websocket:
+        # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
+        x = json.loads(message)
+        image_bytes = base64.standard_b64decode(x["image"])
+        filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '')
+        filename = "{}.png".format(filename_base[:f_namemax])
+        url = "{}/{}".format(self.options["uri_base"], filename)
+    
+        with open(os.path.join(options["output_dir"], filename), "wb") as f:
+            f.write(image_bytes)
+        logger.info("{}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
+        for sendcmd in self.sendcmds:
+            if sendcmd[0]["host"] == x["server"]:
+                sendcmd[1]('PRIVMSG', *[x["channel"], "{}: I dreamed this: {}".format(x["user"], url)])
+    
+    # IRC entrypoint
+    async def irc_boot(self, server):
+        logger.info("Starting IRC client for {}...".format(server["host"]))
+        reader, writer = await asyncio.open_connection(server["host"], server["port"], ssl=server["ssl"])
+        return reader, writer
+    
+    # IRC message handler
+    async def irc_loop(self, server, reader, sendline, sendcmd):
+        sendline('NICK ' + self.options["nickname"])
+        sendline('USER ' + self.options["ident"] + ' * * :' + self.options["realname"])
+    
+        while not reader.at_eof():
+            line = await reader.readline()
+            try:
+                # try utf-8 first
+                line = line.decode('utf-8')
+            except UnicodeDecodeError:
+                # fall back that always works (but might not be correct)
+                line = line.decode('latin1')
+    
+            line = line.strip()
+            if line:
+                message = irc_parse_line(line)
+                if message.command.isdigit() and int(message.command) >= 400:
+                    # might be an error
+                    logger.error(str(message))
+    
+                if message.command == 'PING':
+                    sendcmd('PONG', *message.params)
+                elif message.command == '001':
+                    for channel in server["channels"]:
+                        sendcmd('JOIN', channel)
+                elif message.command == 'PRIVMSG':
+                    target = message.params[0]  # channel or
+                    text = message.params[1]
+                    source = message.prefix.nick
+                    if text.startswith(self.options["txt2img_trigger"]) or text.startswith(self.options["img2img_trigger"]):
+                        logger.info('{} <{}> {}'.format(target, source, text))
+                        if len(self.websocket.websockets) == 0:
+                          sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
+                          continue
+    
+                        if text.startswith(self.options["txt2img_trigger"]):
+                            trigger = self.options["txt2img_trigger"]
+                            trigger_type = "txt2img"
+                        elif text.startswith(self.options["img2img_trigger"]):
+                            trigger = self.options["img2img_trigger"]
+                            trigger_type = "img2img"
+    
+                        prompt = text[len(trigger):]
+                        packet = json.dumps({"server": server["host"], "channel": target, "user": source, "prompt": prompt, "prompt_type": trigger_type})
+    
+                        ws = random.choice(self.websocket.websockets)
+                        await ws.send(packet)
+                        sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+    
+    # Main entrypoint
+    async def boot(self):
+        self.sendcmds = []
+
+        self.websocket = await self.ws_boot()
+
+        for server in self.options["irc"]:
+            reader, writer = await self.irc_boot(server)
+            sendline = functools.partial(irc_send_line, writer)
+            sendcmd = functools.partial(irc_send_cmd, writer)
+    
+            self.sendcmds.append((server, sendcmd))
+    
+            await self.irc_loop(server, reader, sendline, sendcmd)
 
 if __name__ == "__main__":
   if len(sys.argv) != 2:
@@ -180,7 +191,8 @@ if __name__ == "__main__":
     options = json.load(f)
 
   logger.info("WebSocket bridge starting up...")
-  asyncio.run(boot(options))
+  dreambot = DreamBot(options)
+  asyncio.run(dreambot.boot())
 
 # Example JSON config:
 # {
