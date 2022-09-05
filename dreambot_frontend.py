@@ -90,13 +90,10 @@ class DreamBot:
                                                 close_timeout=1, read_limit=2 ** 24)
     
     # Websocket message handler
-    async def ws_receive(self):
+    async def ws_receive(self, websocket):
       f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
     
-      if not self.websocket:
-        return
-
-      async for message in self.websocket:
+      async for message in websocket:
         # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
         x = json.loads(message)
         image_bytes = base64.standard_b64decode(x["image"])
