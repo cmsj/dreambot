@@ -171,7 +171,7 @@ class DreamBot:
     async def boot(self):
         self.sendcmds = []
 
-        self.websocket = await self.ws_boot()
+        self.websocket = asyncio.create_task(self.ws_boot())
 
         for server in self.options["irc"]:
             reader, writer = await self.irc_boot(server)
@@ -182,7 +182,8 @@ class DreamBot:
     
             asyncio.create_task(self.irc_loop(server, reader, sendline, sendcmd))
         
-        asyncio.get_running_loop().run_forever()
+        await self.websocket
+
 
 if __name__ == "__main__":
   if len(sys.argv) != 2:
