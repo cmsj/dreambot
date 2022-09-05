@@ -17,6 +17,7 @@ from collections import namedtuple
 # Add this in places where you want to drop to a REPL to investigate something
 # import code ; code.interact(local=dict(globals(), **locals()))
 
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dreambot')
 logger.setLevel(logging.DEBUG)
 
@@ -168,10 +169,13 @@ class DreamBot:
                         ws = random.choice(self.websocket.websockets)
                         await ws.send(packet)
                         sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+        
+        logger.debug("Ended irc_loop for {}".format(server["host"]))
     
     # Main entrypoint
     async def boot(self):
         self.sendcmds = []
+        ircloops = []
 
         ws_task = asyncio.create_task(self.ws_boot())
 
@@ -183,9 +187,11 @@ class DreamBot:
     
             self.sendcmds.append((server, sendcmd))
     
-            asyncio.create_task(self.irc_loop(server, reader, sendline, sendcmd))
+            ircloops.append(asyncio.create_task(self.irc_loop(server, reader, sendline, sendcmd)))
         
         await ws_task
+        for ircloop in ircloops:
+            await ircloop
 
 
 if __name__ == "__main__":
