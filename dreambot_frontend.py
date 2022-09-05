@@ -83,7 +83,7 @@ class DreamBot:
     # Websocket entrypoint
     async def ws_boot(self):
       logger.info("Starting websocket server...")
-      self.websocket = await websockets.serve(functools.partial(self.ws_receive, self),
+      self.websocket = await websockets.serve(self.ws_receive,
                                                 self.options["websocket_host"], self.options["websocket_port"],
                                                 ping_interval=2, ping_timeout=3000,
                                                 max_size=None, max_queue=None,
