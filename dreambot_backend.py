@@ -6,9 +6,13 @@ import json
 import time
 import io
 import sys
+import os
+import traceback
 import base64
 import tempfile
 import concurrent.futures
+
+from urllib.parse import urlparse, unquote
 
 import requests
 from PIL import Image
@@ -33,19 +37,33 @@ def stabdiff(queue_prompts, queue_results, opt):
             results = t2i.prompt2image(prompt=x["prompt"])
         elif x["prompt_type"] == "img2img":
             prompt_parts = x["prompt"].split(" ", 1)
+
+            url_parts = urlparse(prompt_parts[0])
+            x["prompt"] = "{}_{}".format(os.path.basename(unquote(url_parts.path)), prompt_parts[1])
             tmpfile = tempfile.NamedTemporaryFile()
             try:
                 r = requests.get(prompt_parts[0])
                 # FIXME: Check that r.headers['content-type'] starts with 'image/'
 
-                with open(tmpfile.name, 'wb') as f:
-                    f.write(r.content)
+                tmpfile.write(r.content)
+                tmpfile.flush()
+                tmpfile.seek(0)
 
-                results = t2i.img2image(init_img=tmpfile.name, prompt=prompt_parts[1])
+                image = Image.open(tmpfile)
+                image.thumbnail((opt["W"], opt["H"]), Image.Resampling.LANCZOS)
+
+                tmpfile.seek(0)
+                tmpfile.truncate(0)
+                image.save(tmpfile, format="PNG")
+                tmpfile.flush()
+                tmpfile.seek(0)
+
+                results = t2i.prompt2image(init_img=tmpfile.name, prompt=prompt_parts[1])
                 tmpfile.close()
             except:
                 tmpfile.close()
                 print("Failed to fetch image: " + prompt_parts[0])
+                print(traceback.format_exc())
                 # FIXME: Really we should form an error packet and return it to the front end
                 continue
 

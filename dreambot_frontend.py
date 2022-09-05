@@ -146,7 +146,7 @@ async def irc_loop(reader, sendline, sendcmd, websocket, options):
                     for ws in websocket.websockets:
                       # FIXME: Make this run on a random entry from websocket.websockets so we could have multiple backends
                       await ws.send(packet)
-                      sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted: {}".format(source, prompt)])
+                      sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
 
 # Main entrypoint
 async def boot(options):
