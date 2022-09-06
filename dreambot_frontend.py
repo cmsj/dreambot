@@ -96,17 +96,27 @@ class DreamBot:
       async for message in websocket:
         # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
         x = json.loads(message)
-        image_bytes = base64.standard_b64decode(x["image"])
-        filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '')
-        filename = "{}.png".format(filename_base[:f_namemax])
-        url = "{}/{}".format(self.options["uri_base"], filename)
-    
-        with open(os.path.join(options["output_dir"], filename), "wb") as f:
-            f.write(image_bytes)
-        logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
+        message = ""
+
+        if "image" in x:
+            image_bytes = base64.standard_b64decode(x["image"])
+            filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '')
+            filename = "{}.png".format(filename_base[:f_namemax])
+            url = "{}/{}".format(self.options["uri_base"], filename)
+        
+            with open(os.path.join(options["output_dir"], filename), "wb") as f:
+                f.write(image_bytes)
+            logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
+            message = "{}: I dreamed this: {}".format(x["user"], url)
+        elif "error" in x:
+            message = "{}: Dream sequence collapsed: {}".format(x["user"], x["error"])
+            logger.error("{}:{}: ".format(x["server"], x["channel"], message))
+        else:
+            message = "{}: Dream sequence collapsed, unknown reason.".format(x["user"])
+
         for sendcmd in self.sendcmds:
             if sendcmd[0]["host"] == x["server"]:
-                sendcmd[1]('PRIVMSG', *[x["channel"], "{}: I dreamed this: {}".format(x["user"], url)])
+                sendcmd[1]('PRIVMSG', *[x["channel"], message])
     
     # IRC entrypoint
     async def irc_boot(self, server):
