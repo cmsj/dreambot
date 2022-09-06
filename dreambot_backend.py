@@ -1,7 +1,8 @@
 import websockets
 import asyncio
-import functools
 import janus
+import requests
+
 import json
 import time
 import io
@@ -14,7 +15,6 @@ import concurrent.futures
 
 from urllib.parse import urlparse, unquote
 
-import requests
 from PIL import Image
 from ldm.simplet2i import T2I
 
