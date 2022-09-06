@@ -18,6 +18,14 @@ import requests
 from PIL import Image
 from ldm.simplet2i import T2I
 
+# TODO
+# - Add argument parsing to prompt strings so we can:
+#   - Get rid of !imgdream
+#   - Expose SD parameters to users
+#   - Maybe add upscaling?
+# - Make image fetching substantially less fragile
+# - Return an error packet when errors happen
+
 def stabdiff(queue_prompts, queue_results, opt):
     print("Stable Diffusion booting...")
     t2i = T2I(weights=opt["model"], config=opt["config"], iterations=opt["n_iter"],

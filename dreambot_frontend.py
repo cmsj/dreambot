@@ -11,7 +11,6 @@ import logging
 from collections import namedtuple
 
 # TODO:
-# - argument parsing of prompt string so we can start exposing backend parameters
 # - Decode JSON in ws_receive and process accordingly
 
 # Add this in places where you want to drop to a REPL to investigate something
