@@ -11,7 +11,7 @@ import logging
 from collections import namedtuple
 
 # TODO:
-# - Attempt support for multiple channels and privmsgs (the latter requires detecting that target is our nick)
+# - argument parsing of prompt string so we can start exposing backend parameters
 # - Decode JSON in ws_receive and process accordingly
 
 # Add this in places where you want to drop to a REPL to investigate something
@@ -208,36 +208,32 @@ if __name__ == "__main__":
 
 # Example JSON config:
 # {
-#     "host": "irc.server.com",
-#     "port": 6667,
-#     "ssl": false,
 #     "nickname": "dreambot",
 #     "ident": "dreambot",
 #     "realname": "I've dreamed things you people wouldn't believe",
-#     "channel": "#somechannel",
 #     "txt2img_trigger": "!dream ",
 #     "img2img_trigger": "!imgdream ",
 #     "websocket_host": "0.0.0.0",
 #     "websocket_port": 9999,
 #     "output_dir": "/data",
 #     "uri_base": "http://localhost:8080/dreams",
-    # "irc": [
-    #         {
-    #                 "host": "irc.pl0rt.org",
-    #                 "port": 6697,
-    #                 "ssl": true,
-    #                 "channels": [
-    #                         "#ed",
-    #                         "#dreambot"
-    #                 ]
-    #         },
-    #         {
-    #                 "host": "de1.arcnet.org",
-    #                 "port": 6667,
-    #                 "ssl": false,
-    #                 "channels": [
-    #                         "#worms"
-    #                 ]
-    #         }
-    # ]
-#   }
+#     "irc": [
+#         {
+#                 "host": "irc.pl0rt.org",
+#                 "port": 6697,
+#                 "ssl": true,
+#                 "channels": [
+#                         "#ed",
+#                         "#dreambot"
+#                 ]
+#         },
+#         {
+#                 "host": "de1.arcnet.org",
+#                 "port": 6667,
+#                 "ssl": false,
+#                 "channels": [
+#                         "#worms"
+#                 ]
+#         }
+#     ]
+# }
