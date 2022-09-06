@@ -219,20 +219,20 @@ if __name__ == "__main__":
 #     "uri_base": "http://localhost:8080/dreams",
 #     "irc": [
 #         {
-#                 "host": "irc.pl0rt.org",
+#                 "host": "irc.server.com",
 #                 "port": 6697,
 #                 "ssl": true,
 #                 "channels": [
-#                         "#ed",
+#                         "#friends",
 #                         "#dreambot"
 #                 ]
 #         },
 #         {
-#                 "host": "de1.arcnet.org",
+#                 "host": "other.ircplace.org",
 #                 "port": 6667,
 #                 "ssl": false,
 #                 "channels": [
-#                         "#worms"
+#                         "#dreambot"
 #                 ]
 #         }
 #     ]
