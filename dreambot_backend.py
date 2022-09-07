@@ -50,8 +50,9 @@ def send_error(queue, server, channel, user, message, key="error"):
         "channel": channel,
         "user": user
     }
-    queue.put(json.dumps(packet))
-    print("{}: {}".format(key, message))
+    x = json.dumps(packet)
+    print("Enqueueing result: {}, results queue size is: {}".format(str(x), queue.qsize()))
+    queue.put(x)
 
 def send_usage(queue, server, channel, user, message):
     send_error(queue, server, channel, user, message, key="usage")
@@ -72,6 +73,8 @@ def stabdiff(queue_prompts, queue_results, opt):
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while True:
+        # print("Waiting for results queue to drain...")
+        # queue_results.join()
         print("StabDiff waiting for work...")
         x = queue_prompts.get()
         x = json.loads(x)
@@ -81,17 +84,18 @@ def stabdiff(queue_prompts, queue_results, opt):
         try:
             args = argparser.parse_args(x["prompt"].split())
             args.prompt = ' '.join(args.prompt)
-        # except UsageException as ex:
-        #     send_usage(queue_results, x["server"], x["channel"], x["user"], str(ex))
-        #     continue
-        # except (ValueError, argparse.ArgumentError) as ex:
-        #     send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
-        #     continue
-        except:
-            print("ERROR TOTAL FAIL")
+        except UsageException as ex:
+            send_usage(queue_results, x["server"], x["channel"], x["user"], str(ex))
+            continue
+        except (ValueError, argparse.ArgumentError) as ex:
+            send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
+            continue
+        except Exception as ex:
+            print("ERROR: Unexpected exception: {}".format(str(ex)))
             continue
 
 
+        print("Generating image...")
         if args.img is None:
             results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale)
         else:
@@ -161,7 +165,7 @@ class Dreambot:
             try:
                 async for message in self.websocket:
                     await self.queue_prompts.async_q.put(message)
-                    print(f"Queued message (qsize {self.queue_prompts.async_q.qsize()}): {message}")
+                    print(f"Queued prompt (qsize {self.queue_prompts.async_q.qsize()}): {message}")
             except websockets.ConnectionClosed:
                 continue
 

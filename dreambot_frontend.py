@@ -16,9 +16,9 @@ from collections import namedtuple
 # Add this in places where you want to drop to a REPL to investigate something
 # import code ; code.interact(local=dict(globals(), **locals()))
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('dreambot')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
