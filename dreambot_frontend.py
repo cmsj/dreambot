@@ -111,6 +111,8 @@ class DreamBot:
         elif "error" in x:
             message = "{}: Dream sequence collapsed: {}".format(x["user"], x["error"])
             logger.error("{}:{}: ".format(x["server"], x["channel"], message))
+        elif "usage" in x:
+            message = "{}: {}".format(x["user"], x["usage"])
         else:
             message = "{}: Dream sequence collapsed, unknown reason.".format(x["user"])
 
@@ -159,23 +161,18 @@ class DreamBot:
                     target = message.params[0]  # channel or
                     text = message.params[1]
                     source = message.prefix.nick
-                    if text.startswith(self.options["txt2img_trigger"]) or text.startswith(self.options["img2img_trigger"]):
+                    if text.startswith(self.options["trigger"]):
                         logger.info('irc_loop: {}:{} <{}> {}'.format(server["host"], target, source, text))
                         if len(self.websocket.websockets) == 0:
+                          logger.error("No websocket connections to send to!")
                           sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
                           continue
     
-                        if text.startswith(self.options["txt2img_trigger"]):
-                            trigger = self.options["txt2img_trigger"]
-                            trigger_type = "txt2img"
-                        elif text.startswith(self.options["img2img_trigger"]):
-                            trigger = self.options["img2img_trigger"]
-                            trigger_type = "img2img"
-    
-                        prompt = text[len(trigger):]
-                        packet = json.dumps({"server": server["host"], "channel": target, "user": source, "prompt": prompt, "prompt_type": trigger_type})
+                        prompt = text[len(self.options["trigger"]):]
+                        packet = json.dumps({"server": server["host"], "channel": target, "user": source, "trigger": self.options["trigger"], "prompt": prompt})
     
                         for ws in self.websocket.websockets:
+                            # FIXME: Make this a random choice of websocket
                             await ws.send(packet)
                             sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
         
@@ -220,8 +217,7 @@ if __name__ == "__main__":
 #     "nickname": "dreambot",
 #     "ident": "dreambot",
 #     "realname": "I've dreamed things you people wouldn't believe",
-#     "txt2img_trigger": "!dream ",
-#     "img2img_trigger": "!imgdream ",
+#     "trigger": "!dream ",
 #     "websocket_host": "0.0.0.0",
 #     "websocket_port": 9999,
 #     "output_dir": "/data",
