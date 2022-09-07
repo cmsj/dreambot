@@ -16,9 +16,9 @@ from collections import namedtuple
 # Add this in places where you want to drop to a REPL to investigate something
 # import code ; code.interact(local=dict(globals(), **locals()))
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dreambot')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
@@ -113,6 +113,7 @@ class DreamBot:
             logger.error("{}:{}: ".format(x["server"], x["channel"], message))
         elif "usage" in x:
             message = "{}: {}".format(x["user"], x["usage"])
+            logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
         else:
             message = "{}: Dream sequence collapsed, unknown reason.".format(x["user"])
 

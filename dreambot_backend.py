@@ -43,23 +43,18 @@ class ErrorCatchingArgumentParser(argparse.ArgumentParser):
     def print_help(self, file=None):
         raise UsageException(self.format_usage())
 
+def send_error(queue, server, channel, user, message, key="error"):
+    packet = {
+        key: message,
+        "server": server,
+        "channel": channel,
+        "user": user
+    }
+    queue.put(json.dumps(packet))
+    print("{}: {}".format(key, message))
+
 def send_usage(queue, server, channel, user, message):
-    packet = {
-        "usage": message,
-        "server": server,
-        "channel": channel,
-        "user": user
-    }
-    queue.put(json.dumps(packet))
-def send_error(queue, server, channel, user, message):
-    packet = {
-        "error": message,
-        "server": server,
-        "channel": channel,
-        "user": user
-    }
-    queue.put(json.dumps(packet))
-    print("ERROR: {}".format(message))
+    send_error(queue, server, channel, user, message, key="usage")
 
 def stabdiff(queue_prompts, queue_results, opt):
     print("Stable Diffusion booting...")
@@ -70,26 +65,30 @@ def stabdiff(queue_prompts, queue_results, opt):
     t2i.load_model()
     print("Stable Diffusion booted")
 
-    argparser = ErrorCatchingArgumentParser(prog=opt["trigger"], exit_on_error=False)
+    argparser = ErrorCatchingArgumentParser(prog="dreambot", exit_on_error=False)
     argparser.add_argument("--img", type=str)
     argparser.add_argument("--seed", type=int, default=opt["seed"])
     argparser.add_argument("--cfgscale", type=float, default=opt["scale"])
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while True:
+        print("StabDiff waiting for work...")
         x = queue_prompts.get()
         x = json.loads(x)
-        print("Generating for: " + str(x))
+        print("Dequeued prompt: " + str(x))
         tic = time.time()
 
         try:
             args = argparser.parse_args(x["prompt"].split())
             args.prompt = ' '.join(args.prompt)
-        except UsageException as ex:
-            send_usage(queue_results, x["server"], x["channel"], x["user"], str(ex))
-            continue
-        except (ValueError, argparse.ArgumentError) as ex:
-            send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
+        # except UsageException as ex:
+        #     send_usage(queue_results, x["server"], x["channel"], x["user"], str(ex))
+        #     continue
+        # except (ValueError, argparse.ArgumentError) as ex:
+        #     send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
+        #     continue
+        except:
+            print("ERROR TOTAL FAIL")
             continue
 
 
