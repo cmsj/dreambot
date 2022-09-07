@@ -61,7 +61,7 @@ def irc_parse_line(line):
     return Message(prefix, command, params)
 
 def irc_send_line(writer: asyncio.StreamWriter, line):
-    logger.debug('->', line)
+    logger.debug('-> {}'.format(line))
     writer.write(line.encode('utf-8') + b'\r\n')
 
 def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
