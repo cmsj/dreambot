@@ -18,6 +18,8 @@ import argparse
 from urllib.parse import urlparse, unquote
 
 from PIL import Image
+from PIL.PngImagePlugin import PngInfo
+
 from ldm.simplet2i import T2I
 
 # TODO
@@ -150,8 +152,14 @@ def stabdiff(die, queue_prompts, queue_results, opt):
         image = results[0][0]
         seed = results[0][1]
 
+        metadata = PngInfo()
+        metadata.add_text("prompt", args.prompt)
+        metadata.add_text("seed", str(seed))
+        metadata.add_text("cfgscale", str(args.cfgscale))
+        metadata.add_text("steps", str(args.steps))
+
         mem_fp = io.BytesIO()
-        image.save(mem_fp, format='png')
+        image.save(mem_fp, format='png', pnginfo=metadata)
         img_b64 = base64.b64encode(mem_fp.getvalue()).decode()
         mem_fp.close()
 
