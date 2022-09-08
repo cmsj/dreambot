@@ -73,9 +73,9 @@ def stabdiff(queue_prompts, queue_results, opt):
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while True:
-        # print("Waiting for results queue to drain...")
-        # queue_results.join()
         print("StabDiff waiting for work...")
+
+        # Block until a prompt becomes available
         x = queue_prompts.get()
         x = json.loads(x)
         print("Dequeued prompt: " + str(x))
