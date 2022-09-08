@@ -111,7 +111,11 @@ def stabdiff(die, queue_prompts, queue_results, opt):
 
         print("Generating image...")
         if args.img is None:
-            results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps)
+            try:
+                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps)
+            except Exception as ex:
+                send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
+                continue
         else:
             url_parts = urlparse(args.img)
             x["prompt"] = "{}_{}".format(os.path.basename(unquote(url_parts.path)), args.prompt)
