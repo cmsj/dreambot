@@ -113,7 +113,7 @@ class DreamBot:
             logger.error("{}:{}: ".format(x["server"], x["channel"], message))
         elif "usage" in x:
             message = "{}: {}".format(x["user"], x["usage"])
-            logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
+            logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], x["usage"]))
         else:
             message = "{}: Dream sequence collapsed, unknown reason.".format(x["user"])
 
