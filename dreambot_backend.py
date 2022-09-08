@@ -57,11 +57,11 @@ def send_error(queue, server, channel, user, message, key="error"):
 def send_usage(queue, server, channel, user, message):
     send_error(queue, server, channel, user, message, key="usage")
 
-def stabdiff(queue_prompts, queue_results, opt):
+def stabdiff(die, queue_prompts, queue_results, opt):
     print("Stable Diffusion booting...")
     t2i = T2I(weights=opt["model"], config=opt["config"], iterations=opt["n_iter"],
-              steps=opt["steps"], seed=opt["seed"], grid=False, width=opt["W"], height=opt["H"], 
-              cfg_scale=opt["scale"], sampler_name=opt["sampler"], 
+              steps=opt["steps"], seed=opt["seed"], grid=False, width=opt["W"], height=opt["H"],
+              cfg_scale=opt["scale"], sampler_name=opt["sampler"],
               precision=opt["precision"], full_precision=opt["full_precision"])
     t2i.load_model()
     print("Stable Diffusion booted")
@@ -72,11 +72,14 @@ def stabdiff(queue_prompts, queue_results, opt):
     argparser.add_argument("--cfgscale", type=float, default=opt["scale"])
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
-    while True:
-        print("StabDiff waiting for work...")
+    while not die.is_set():
+        # Wait until a prompt becomes available, but regularly loop
+        # to check whether the Event has happened yet.
+        try:
+            x = queue_prompts.get(timeout=1)
+        except janus.SyncQueueEmpty:
+            continue
 
-        # Block until a prompt becomes available
-        x = queue_prompts.get()
         x = json.loads(x)
         print("Dequeued prompt: " + str(x))
         tic = time.time()
@@ -158,6 +161,8 @@ class Dreambot:
         self.websocket = None
         self.queue_prompts = None
         self.queue_results = None
+        self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self.die = async.Event()
 
     async def run_websocket(self):
         async for self.websocket in websockets.connect(self.options["ws_uri"]):
@@ -172,13 +177,12 @@ class Dreambot:
     async def run_stabdiff(self):
         print("Preparing ProcessPoolExecutor")
         loop = asyncio.get_running_loop()
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            await loop.run_in_executor(pool, stabdiff, self.queue_prompts.sync_q, 
+        await loop.run_in_executor(self.pool, stabdiff, self.die, self.queue_prompts.sync_q,
                                        self.queue_results.sync_q, self.options)
-    
+
     async def run_results(self):
         print("Watching for results")
-        while True:
+        while self.die.not_set():
             print("Awaiting next result...")
             result = await self.queue_results.async_q.get()
             result_x = json.loads(result)
@@ -195,19 +199,21 @@ class Dreambot:
         self.queue_results: janus.Queue[str] = janus.Queue()
 
         print("Creating tasks")
-        task_websocket = asyncio.create_task(self.run_websocket())
-        task_results   = asyncio.create_task(self.run_results())
-        task_stabdiff  = asyncio.create_task(self.run_stabdiff())
+        try:
+            await asyncio.gather(
+                self.run_websocket(),
+                self.run_results(),
+                self.run_stabdiff())
+        except Exception as ex:
+            print(f"arrgh i died: {e}")
+            self.die.set()
+            self.pool.shutdown(wait=True, cancel_futures=True)
+            self.queue_prompts.close()
+            await self.queue_prompts.wait_closed()
+            self.queue_results.close()
+            await self.queue_results.wait_closed()
+            print("i think it's all dead")
 
-        await task_stabdiff
-        await task_websocket
-        await task_results
-
-        self.queue_prompts.close()
-        await self.queue_prompts.wait_closed()
-
-        self.queue_results.close()
-        await self.queue_results.wait_closed()
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
