@@ -48,7 +48,7 @@ def send_error(queue, server, channel, user, message, key="error"):
         key: message,
         "server": server,
         "channel": channel,
-        "user": user
+        "user": user,
     }
     x = json.dumps(packet)
     print("Enqueueing result: {}, results queue size is: {}".format(str(x), queue.qsize()))
@@ -162,7 +162,7 @@ class Dreambot:
         self.queue_prompts = None
         self.queue_results = None
         self.pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-        self.die = async.Event()
+        self.die = asyncio.Event()
 
     async def run_websocket(self):
         async for self.websocket in websockets.connect(self.options["ws_uri"]):
@@ -182,11 +182,16 @@ class Dreambot:
 
     async def run_results(self):
         print("Watching for results")
-        while self.die.not_set():
+        while not self.die.is_set():
             print("Awaiting next result...")
             result = await self.queue_results.async_q.get()
             result_x = json.loads(result)
-            print("Sending result to {}:{}:{} for: {}".format(result_x["server"], result_x["channel"], result_x["user"], result_x["prompt"]))
+            if "usage" in result_x:
+                print("Sending usage")
+            elif "error" in result_x:
+                print("Sending error")
+            else:
+                print("Sending result to {}:{}:{} for: {}".format(result_x["server"], result_x["channel"], result_x["user"], result_x["prompt"]))
             await self.websocket.send(result)
             print("Result sent")
 
@@ -205,7 +210,8 @@ class Dreambot:
                 self.run_results(),
                 self.run_stabdiff())
         except Exception as ex:
-            print(f"arrgh i died: {e}")
+            print(f"arrgh i died: {ex}")
+            print(traceback.print_exc())
             self.die.set()
             self.pool.shutdown(wait=True, cancel_futures=True)
             self.queue_prompts.close()
