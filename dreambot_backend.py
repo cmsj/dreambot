@@ -21,10 +21,8 @@ from PIL import Image
 from ldm.simplet2i import T2I
 
 # TODO
-# - Add argument parsing to prompt strings so we can:
-#   - Get rid of !imgdream
-#   - Expose SD parameters to users
-#   - Maybe add upscaling?
+# - Expose sampler choice as an argument
+# - Maybe add upscaling?
 # - Make image fetching substantially less fragile
 # - Return an error packet when errors happen
 
@@ -42,6 +40,18 @@ class ErrorCatchingArgumentParser(argparse.ArgumentParser):
         raise UsageException(self.format_usage())
     def print_help(self, file=None):
         raise UsageException(self.format_usage())
+
+# Validate various arguments
+def check_steps(value):
+    ivalue = int(value)
+    if ivalue <= 0 or ivalue > 50:
+        raise argparse.ArgumentTypeError("steps must be between 1 and 50")
+    return ivalue
+def check_cfgscale(value):
+    ivalue = float(value)
+    if ivalue < 1.0:
+        raise argparse.ArgumentTypeError("cfgscale must be at least 1.0")
+    return ivalue
 
 def send_error(queue, server, channel, user, message, key="error"):
     packet = {
@@ -69,7 +79,8 @@ def stabdiff(die, queue_prompts, queue_results, opt):
     argparser = ErrorCatchingArgumentParser(prog="dreambot", exit_on_error=False)
     argparser.add_argument("--img", type=str)
     argparser.add_argument("--seed", type=int, default=opt["seed"])
-    argparser.add_argument("--cfgscale", type=float, default=opt["scale"])
+    argparser.add_argument("--cfgscale", type=check_cfgscale, default=opt["scale"])
+    argparser.add_argument("--steps", type=check_steps, default=opt["steps"])
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while not die.is_set():
@@ -100,7 +111,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
 
         print("Generating image...")
         if args.img is None:
-            results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale)
+            results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, setps=args.steps)
         else:
             url_parts = urlparse(args.img)
             x["prompt"] = "{}_{}".format(os.path.basename(unquote(url_parts.path)), args.prompt)
@@ -124,7 +135,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
                 tmpfile.flush()
                 tmpfile.seek(0)
 
-                results = t2i.prompt2image(init_img=tmpfile.name, prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale)
+                results = t2i.prompt2image(init_img=tmpfile.name, prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps)
                 tmpfile.close()
             except Exception as ex:
                 tmpfile.close()
@@ -189,7 +200,7 @@ class Dreambot:
             if "usage" in result_x:
                 print("Sending usage")
             elif "error" in result_x:
-                print("Sending error")
+                print("Sending error: {}".format(result_x["error"]))
             else:
                 print("Sending result to {}:{}:{} for: {}".format(result_x["server"], result_x["channel"], result_x["user"], result_x["prompt"]))
             await self.websocket.send(result)
