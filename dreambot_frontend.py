@@ -100,7 +100,7 @@ class DreamBot:
 
         if "image" in x:
             image_bytes = base64.standard_b64decode(x["image"])
-            filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '')
+            filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '').replace('-', '_')
             filename = "{}.png".format(filename_base[:f_namemax])
             url = "{}/{}".format(self.options["uri_base"], filename)
         
