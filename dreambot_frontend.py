@@ -8,6 +8,8 @@ import os
 import sys
 import random
 import logging
+import unicodedata
+import string
 from collections import namedtuple
 
 # TODO:
@@ -72,6 +74,20 @@ def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
     params = [cmd] + params
     irc_send_line(writer, ' '.join(params))
 
+# Filename sanitisation
+valid_filename_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_limit=255):
+    # replace undesired characters
+    for r in replace:
+        filename = filename.replace(r,'_')
+
+    # keep only valid ascii chars
+    cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
+
+    # keep only whitelisted chars
+    cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist)
+    return cleaned_filename[:char_limit]
+
 class DreamBot:
     websocket = None
     sendcmds = None
@@ -88,11 +104,11 @@ class DreamBot:
                                                 ping_interval=2, ping_timeout=3000,
                                                 max_size=None, max_queue=None,
                                                 close_timeout=1, read_limit=2 ** 24)
-    
+
     # Websocket message handler
     async def ws_receive(self, websocket, path):
       f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
-    
+
       async for message in websocket:
         # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
         x = json.loads(message)
@@ -100,10 +116,10 @@ class DreamBot:
 
         if "image" in x:
             image_bytes = base64.standard_b64decode(x["image"])
-            filename_base = x["prompt"].replace(' ', '_').replace('?', '').replace('\\', '').replace(',', '').replace('-', '_')
+            filename_base = clean_filename(x["prompt"], char_limit = f_namemax)
             filename = "{}.png".format(filename_base[:f_namemax])
             url = "{}/{}".format(self.options["uri_base"], filename)
-        
+
             with open(os.path.join(options["output_dir"], filename), "wb") as f:
                 f.write(image_bytes)
             logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
@@ -120,19 +136,19 @@ class DreamBot:
         for sendcmd in self.sendcmds:
             if sendcmd[0]["host"] == x["server"]:
                 sendcmd[1]('PRIVMSG', *[x["channel"], message])
-    
+
     # IRC entrypoint
     async def irc_boot(self, server):
         logger.info("Starting IRC client for {}...".format(server["host"]))
         reader, writer = await asyncio.open_connection(server["host"], server["port"], ssl=server["ssl"])
         return reader, writer
-    
+
     # IRC message handler
     async def irc_loop(self, server, reader, sendline, sendcmd):
         logger.info("Starting irc_loop for {}".format(server["host"]))
         sendline('NICK ' + self.options["nickname"])
         sendline('USER ' + self.options["ident"] + ' * * :' + self.options["realname"])
-    
+
         while not reader.at_eof():
             line = await reader.readline()
             try:
@@ -141,7 +157,7 @@ class DreamBot:
             except UnicodeDecodeError:
                 # fall back that always works (but might not be correct)
                 line = line.decode('latin1')
-    
+
             line = line.strip()
             if line:
                 message = irc_parse_line(line)
@@ -149,7 +165,7 @@ class DreamBot:
                 if message.command.isdigit() and int(message.command) >= 400:
                     # might be an error
                     logger.error(str(message))
-    
+
                 if message.command == 'PING':
                     sendcmd('PONG', *message.params)
                 elif message.command == '001':
@@ -168,17 +184,17 @@ class DreamBot:
                           logger.error("No websocket connections to send to!")
                           sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
                           continue
-    
+
                         prompt = text[len(self.options["trigger"]):]
                         packet = json.dumps({"server": server["host"], "channel": target, "user": source, "trigger": self.options["trigger"], "prompt": prompt})
-    
+
                         for ws in self.websocket.websockets:
                             # FIXME: Make this a random choice of websocket
                             await ws.send(packet)
                             sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
-        
+
         logger.info("Ended irc_loop for {}".format(server["host"]))
-    
+
     # Main entrypoint
     async def boot(self):
         self.sendcmds = []
@@ -191,11 +207,11 @@ class DreamBot:
             reader, writer = await self.irc_boot(server)
             sendline = functools.partial(irc_send_line, writer)
             sendcmd = functools.partial(irc_send_cmd, writer)
-    
+
             self.sendcmds.append((server, sendcmd))
-    
+
             ircloops.append(asyncio.create_task(self.irc_loop(server, reader, sendline, sendcmd)))
-        
+
         await ws_task
         for ircloop in ircloops:
             await ircloop
