@@ -75,7 +75,7 @@ def irc_send_cmd(writer: asyncio.StreamWriter, cmd, *params):
     irc_send_line(writer, ' '.join(params))
 
 # Filename sanitisation
-valid_filename_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
+valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
 def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_limit=255):
     # replace undesired characters
     for r in replace:
@@ -85,7 +85,7 @@ def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_l
     cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
 
     # keep only whitelisted chars
-    cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist)
+    cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
     return cleaned_filename[:char_limit]
 
 class DreamBot:
