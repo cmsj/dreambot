@@ -122,14 +122,14 @@ class DreamBot:
 
             with open(os.path.join(options["output_dir"], filename), "wb") as f:
                 f.write(image_bytes)
-            logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
+            logger.info("OUTPUT: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
             message = "{}: I dreamed this: {}".format(x["user"], url)
         elif "error" in x:
             message = "{}: Dream sequence collapsed: {}".format(x["user"], x["error"])
-            logger.error("{}:{}: ".format(x["server"], x["channel"], message))
+            logger.error("OUTPUT: {}:{}: ".format(x["server"], x["channel"], message))
         elif "usage" in x:
             message = "{}: {}".format(x["user"], x["usage"])
-            logger.info("ws_receive: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], x["usage"]))
+            logger.info("OUTPUT: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], x["usage"]))
         else:
             message = "{}: Dream sequence collapsed, unknown reason.".format(x["user"])
 
@@ -179,7 +179,7 @@ class DreamBot:
                     text = message.params[1]
                     source = message.prefix.nick
                     if text.startswith(self.options["trigger"]):
-                        logger.info('irc_loop: {}:{} <{}> {}'.format(server["host"], target, source, text))
+                        logger.info('INPUT: {}:{} <{}> {}'.format(server["host"], target, source, text))
                         if len(self.websocket.websockets) == 0:
                           logger.error("No websocket connections to send to!")
                           sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
