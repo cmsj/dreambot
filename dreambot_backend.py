@@ -56,12 +56,14 @@ def check_cfgscale(value):
 def check_aspect(value):
     aspect = str(value).split(":")
     if len(aspect) != 2:
-        raise argparse.ArgumentTypeError("aspect must be in the form: width:height (both integers)")
+        raise argparse.ArgumentTypeError("aspect must be in the form: width:height (both positive integers)")
     try:
         aspect[0] = int(aspect[0])
         aspect[1] = int(aspect[1])
+        if aspect[0] < 1 or aspect[1] < 1:
+            raise argparse.ArgumentTypeError("aspect must be in the form: width:height (both positive integers)")
     except ValueError:
-        raise argparse.ArgumentTypeError("aspect must be in the form: width:height (both integers)")
+        raise argparse.ArgumentTypeError("aspect must be in the form: width:height (both positive integers)")
     return aspect
 
 
@@ -125,7 +127,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
         # Calculate the width/height from the aspect ratio (width and height must end up being multiples of 64 and the total number of pixels must be less than opt["W"]*opt["H"] (typically 512x512)
         width = 64 * math.floor((opt["W"] / args.aspect[1] * args.aspect[0])/64)
         height = 64 * math.floor((opt["H"] / args.aspect[0] * args.aspect[1])/64)
-        print("Calculated width/height: {}x{} from aspect: {}".format(width, height, ':'.join(args.aspect)))
+        print("Calculated width/height: {}x{} from aspect: {}:{}".format(width, height, str(args.aspect[0]), str(args.aspect[1])))
 
         print("Generating image...")
         if args.img is None:
