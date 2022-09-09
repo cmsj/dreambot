@@ -26,7 +26,6 @@ from ldm.simplet2i import T2I
 # - Expose sampler choice as an argument
 # - Maybe add upscaling?
 # - Make image fetching substantially less fragile
-# - Return an error packet when errors happen
 
 # Argument parsing scaffolding
 class UsageException(Exception):
@@ -83,6 +82,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
     argparser.add_argument("--seed", type=int, default=opt["seed"])
     argparser.add_argument("--cfgscale", type=check_cfgscale, default=opt["scale"])
     argparser.add_argument("--steps", type=check_steps, default=opt["steps"])
+    argparser.add_argument('--sampler', default=opt["sampler"], nargs='?', choices=['ddim', 'k_dpm_2_a', 'k_dpm_2', 'k_euler_a', 'k_euler', 'k_heun', 'k_lms', 'plms'])
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while not die.is_set():
@@ -114,7 +114,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
         print("Generating image...")
         if args.img is None:
             try:
-                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps)
+                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler)
             except Exception as ex:
                 send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
                 continue
@@ -141,7 +141,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
                 tmpfile.flush()
                 tmpfile.seek(0)
 
-                results = t2i.prompt2image(init_img=tmpfile.name, prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps)
+                results = t2i.prompt2image(init_img=tmpfile.name, prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler)
                 tmpfile.close()
             except Exception as ex:
                 tmpfile.close()
