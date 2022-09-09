@@ -6,6 +6,7 @@ import requests
 
 import json
 import time
+import math
 import io
 import sys
 import os
@@ -52,6 +53,17 @@ def check_cfgscale(value):
     if ivalue < 1.0:
         raise argparse.ArgumentTypeError("cfgscale must be at least 1.0")
     return ivalue
+def check_aspect(value):
+    aspect = str(value).split(":")
+    if len(aspect) != 2:
+        raise argparse.ArgumentTypeError("aspect must be in the form: width:height (both integers)")
+    try:
+        aspect[0] = int(aspect[0])
+        aspect[1] = int(aspect[1])
+    except ValueError:
+        raise argparse.ArgumentTypeError("aspect must be in the form: width:height (both integers)")
+    return aspect
+
 
 def send_error(queue, server, channel, user, message, key="error"):
     packet = {
@@ -82,6 +94,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
     argparser.add_argument("--cfgscale", type=check_cfgscale, default=opt["scale"])
     argparser.add_argument("--steps", type=check_steps, default=opt["steps"])
     argparser.add_argument('--sampler', default=opt["sampler"], nargs='?', choices=['ddim', 'k_dpm_2_a', 'k_dpm_2', 'k_euler_a', 'k_euler', 'k_heun', 'k_lms', 'plms'])
+    argparser.add_argument('--aspect', type=check_aspect, default="1:1")
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while not die.is_set():
@@ -109,11 +122,15 @@ def stabdiff(die, queue_prompts, queue_results, opt):
             print("ERROR: Unexpected exception: {}".format(str(ex)))
             continue
 
+        # Calculate the width/height from the aspect ratio
+        width = 64 * math.floor((opt["W"] / args.aspect[1] * args.aspect[0])/64)
+        height = 64 * math.floor((opt["H"] / args.aspect[0] * args.aspect[1])/64)
+        print("Calculated width/height: {}x{} from aspect: {}".format(width, height, ':'.join(args.aspect)))
 
         print("Generating image...")
         if args.img is None:
             try:
-                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler)
+                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, width=width, height=height)
             except Exception as ex:
                 send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
                 continue
