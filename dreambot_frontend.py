@@ -188,10 +188,10 @@ class DreamBot:
                         prompt = text[len(self.options["trigger"]):]
                         packet = json.dumps({"server": server["host"], "channel": target, "user": source, "trigger": self.options["trigger"], "prompt": prompt})
 
-                        for ws in self.websocket.websockets:
-                            # FIXME: Make this a random choice of websocket
-                            await ws.send(packet)
-                            sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+                        # Send to a random backend
+                        ws = random.choice(tuple(self.websocket.websockets))
+                        await ws.send(packet)
+                        sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
 
         logger.info("Ended irc_loop for {}".format(server["host"]))
 
