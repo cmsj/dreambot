@@ -23,7 +23,6 @@ from PIL.PngImagePlugin import PngInfo
 from ldm.simplet2i import T2I
 
 # TODO
-# - Expose sampler choice as an argument
 # - Maybe add upscaling?
 # - Make image fetching substantially less fragile
 
