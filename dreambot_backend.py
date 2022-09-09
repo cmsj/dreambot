@@ -122,7 +122,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
             print("ERROR: Unexpected exception: {}".format(str(ex)))
             continue
 
-        # Calculate the width/height from the aspect ratio
+        # Calculate the width/height from the aspect ratio (width and height must end up being multiples of 64 and the total number of pixels must be less than opt["W"]*opt["H"] (typically 512x512)
         width = 64 * math.floor((opt["W"] / args.aspect[1] * args.aspect[0])/64)
         height = 64 * math.floor((opt["H"] / args.aspect[0] * args.aspect[1])/64)
         print("Calculated width/height: {}x{} from aspect: {}".format(width, height, ':'.join(args.aspect)))
