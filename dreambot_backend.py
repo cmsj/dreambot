@@ -4,6 +4,7 @@ import asyncio
 import janus
 import requests
 
+import bisect
 import json
 import time
 import math
@@ -26,6 +27,31 @@ from ldm.simplet2i import T2I
 # TODO
 # - Maybe add upscaling?
 # - Make image fetching substantially less fragile
+
+# Scaffolding for allowing selection of aspect ratios, which have to result in image dimensions in multiples of 64 pixels
+class ImageRatioSizer:
+    def __init__(self, max_pixels=512 * 512, step=64):
+        ratios = dict()
+        for width in range(step, sys.maxsize, step):
+            if width * step > max_pixels:
+                break
+
+            for height in range(step, sys.maxsize, step):
+                if width * height > max_pixels:
+                    break
+
+                ratio = width / float(height)
+                ratios[ratio] = (width, height)
+
+        self._ratios = list(sorted(ratios.keys()))
+        self._ratio_to_resolution = ratios
+
+    def ratio_to_resolution(self, w, h):
+        ratio = w / float(h)
+        nearest = min(bisect.bisect_left(self._ratios, ratio), len(self._ratios) - 1)
+        if nearest > 0 and abs(self._ratios[nearest - 1] - ratio) < abs(self._ratios[nearest] - ratio):
+            nearest -= 1
+        return self._ratio_to_resolution[self._ratios[nearest]]
 
 # Argument parsing scaffolding
 class UsageException(Exception):
@@ -88,6 +114,9 @@ def stabdiff(die, queue_prompts, queue_results, opt):
               cfg_scale=opt["scale"], sampler_name=opt["sampler"],
               precision=opt["precision"], full_precision=opt["full_precision"])
     t2i.load_model()
+
+    sizer = ImageRatioSizer(max_pixels=opt["W"] * opt["H"])
+
     print("Stable Diffusion booted")
 
     argparser = ErrorCatchingArgumentParser(prog="dreambot", exit_on_error=False)
@@ -125,8 +154,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
             continue
 
         # Calculate the width/height from the aspect ratio (width and height must end up being multiples of 64 and the total number of pixels must be less than opt["W"]*opt["H"] (typically 512x512)
-        width = 64 * math.floor((opt["W"] / args.aspect[1] * args.aspect[0])/64)
-        height = 64 * math.floor((opt["H"] / args.aspect[0] * args.aspect[1])/64)
+        width, height = sizer.ratio_to_resolution(args.aspect[0], args.aspect[1])
         print("Calculated width/height: {}x{} from aspect: {}:{}".format(width, height, str(args.aspect[0]), str(args.aspect[1])))
 
         print("Generating image...")
