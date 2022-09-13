@@ -22,7 +22,7 @@ from urllib.parse import urlparse, unquote
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 
-from ldm.simplet2i import T2I
+from ldm.generate import Generate
 
 # TODO
 # - Maybe add upscaling?
@@ -109,8 +109,8 @@ def send_usage(queue, server, channel, user, message):
 
 def stabdiff(die, queue_prompts, queue_results, opt):
     print("Stable Diffusion booting...")
-    t2i = T2I(weights=opt["model"], config=opt["config"], iterations=opt["n_iter"],
-              steps=opt["steps"], seed=opt["seed"], grid=False, width=opt["W"], height=opt["H"],
+    t2i = Generate(weights=opt["model"], config=opt["config"], iterations=opt["n_iter"],
+              steps=opt["steps"], grid=False, width=opt["W"], height=opt["H"],
               cfg_scale=opt["scale"], sampler_name=opt["sampler"],
               precision=opt["precision"], full_precision=opt["full_precision"])
     t2i.load_model()
@@ -126,6 +126,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
     argparser.add_argument("--steps", type=check_steps, default=opt["steps"])
     argparser.add_argument('--sampler', default=opt["sampler"], nargs='?', choices=['ddim', 'k_dpm_2_a', 'k_dpm_2', 'k_euler_a', 'k_euler', 'k_heun', 'k_lms', 'plms'])
     argparser.add_argument('--aspect', type=check_aspect, default="1:1")
+    argparser.add_argument('--upscale', type=bool, default=False)
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while not die.is_set():
@@ -143,14 +144,23 @@ def stabdiff(die, queue_prompts, queue_results, opt):
         try:
             args = argparser.parse_args(x["prompt"].split())
             args.prompt = ' '.join(args.prompt)
+
+            if args.upscale:
+                args.upscale = [2, 0.75] # Scale factor (2x), scale strength (0.75)
+                args.gfpgan_strength = 0.75 # Face restoration strength (0.75)
+            else:
+                args.upscale = None
+                args.gfpgan_strength = 0.0
         except UsageException as ex:
             send_usage(queue_results, x["server"], x["channel"], x["user"], str(ex))
             continue
         except (ValueError, argparse.ArgumentError) as ex:
+            print(traceback.format_exc())
             send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
             continue
         except Exception as ex:
             print("ERROR: Unexpected exception: {}".format(str(ex)))
+            print(traceback.format_exc())
             continue
 
         # Calculate the width/height from the aspect ratio (width and height must end up being multiples of 64 and the total number of pixels must be less than opt["W"]*opt["H"] (typically 512x512)
@@ -159,12 +169,16 @@ def stabdiff(die, queue_prompts, queue_results, opt):
 
         print("Generating image...")
         if args.img is None:
+            # This is a simple text prompt
             try:
-                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, width=width, height=height)
+                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, width=width, height=height, upscale=args.upscale, gfpgan_strength=args.gfpgan_strength)
             except Exception as ex:
+                print(traceback.format_exc())
+                print(args)
                 send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
                 continue
         else:
+            # We've been given a URL for an initial image, so fetch that and then generate.
             url_parts = urlparse(args.img)
             x["prompt"] = "{}_{}".format(os.path.basename(unquote(url_parts.path)), args.prompt)
             x["img_url"] = args.img
@@ -187,9 +201,10 @@ def stabdiff(die, queue_prompts, queue_results, opt):
                 tmpfile.flush()
                 tmpfile.seek(0)
 
-                results = t2i.prompt2image(init_img=tmpfile.name, prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler)
+                results = t2i.prompt2image(init_img=tmpfile.name, prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, upscale=args.upscale, gfpgan_strength=args.gfpgan_strength)
                 tmpfile.close()
             except Exception as ex:
+                print(traceback.format_exc())
                 tmpfile.close()
                 print("Failed to fetch image: " + args.img)
                 send_error(queue_results, x["server"], x["channel"], x["user"], str(ex))
