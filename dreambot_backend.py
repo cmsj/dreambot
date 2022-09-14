@@ -108,16 +108,28 @@ def send_usage(queue, server, channel, user, message):
     send_error(queue, server, channel, user, message, key="usage")
 
 def stabdiff(die, queue_prompts, queue_results, opt):
+    gfpgan = None
+    esrgan = None
+    try:
+        from ldm.restoration.realesrgan import ESRGAN
+        esrgan = ESRGAN(opt["esrgan_bg_tile"])
+        print("ESRGAN booted")
+        from ldm.restoration.gfpgan import GFPGAN
+        gfpgan = GFPGAN(opt["gfpgan_dir"], opt["gfpgan_model"])
+        print("GFPGAN booted")
+    except Exception as e:
+        print(traceback.format_exc())
+        print("Failed to load ESRGAN/GFPGAN, continuing without")
+
     print("Stable Diffusion booting...")
     t2i = Generate(weights=opt["model"], config=opt["config"], iterations=opt["n_iter"],
               steps=opt["steps"], grid=False, width=opt["W"], height=opt["H"],
               cfg_scale=opt["scale"], sampler_name=opt["sampler"],
-              precision=opt["precision"], full_precision=opt["full_precision"])
+              full_precision=opt["full_precision"], gfpgan=gfpgan, esrgan=esrgan)
     t2i.load_model()
+    print("Stable Diffusion booted")
 
     sizer = ImageRatioSizer(max_pixels=opt["W"] * opt["H"])
-
-    print("Stable Diffusion booted")
 
     argparser = ErrorCatchingArgumentParser(prog="dreambot", exit_on_error=False)
     argparser.add_argument("--img", type=str)
@@ -146,8 +158,8 @@ def stabdiff(die, queue_prompts, queue_results, opt):
             args.prompt = ' '.join(args.prompt)
 
             if args.upscale:
-                args.upscale = [2, 0.75] # Scale factor (2x), scale strength (0.75)
-                args.gfpgan_strength = 0.75 # Face restoration strength (0.75)
+                args.upscale = [opt["esrgan_scale"], opt["esrgan_strength"]]
+                args.gfpgan_strength = opt["gfpgan_strength"]
             else:
                 args.upscale = None
                 args.gfpgan_strength = 0.0
@@ -171,7 +183,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
         if args.img is None:
             # This is a simple text prompt
             try:
-                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, width=width, height=height, upscale=args.upscale, gfpgan_strength=args.gfpgan_strength, upscale_model=opt["model_upscale"], upscale_path=opt["path_upscale"], upscale_sampler=opt["sampler_upscale"], upscale_tilesize=opt["upscale_tilesize"])
+                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, width=width, height=height, upscale=args.upscale, gfpgan_strength=args.gfpgan_strength)
             except Exception as ex:
                 print(traceback.format_exc())
                 print(args)
@@ -318,13 +330,8 @@ if __name__ == "__main__":
     #    "seed": 42,
     #    "config": "configs/stable-diffusion/v1-inference.yaml",
     #    "model": "models/ldm/stable-diffusion-v1/model.ckpt",
-    #    "model_upscale": "experiments/pretrained_models/GFPGANv1.3.pth",
-    #    "path_upscale": "./src/gfpgan",
     #    "sampler": "plms",
-    #    "sampler_upscale": "realesrgan",
-    #    "precision": "autocast",
     #    "full_precision": true,
-    #    "upscale_tilesize": 400,
     #    "scale": 7.5,
     #    "n_iter": 1,
     #    "steps": 50,
@@ -332,6 +339,12 @@ if __name__ == "__main__":
     #    "W": 512,
     #    "C": 4,
     #    "f": 8,
+    #    "gfpgan_model": "experiments/pretrained_models/GFPGANv1.3.pth",
+    #    "gfpgan_dir": "./src/gfpgan",
+    #    "gfpgan_strength": 0.75,
+    #    "esrgan_scale": 2,
+    #    "esrgan_strength": 0.75,
+    #    "esrgan_bg_tile": 400,
     #    "ws_uri": "wss://ws.server.com:9999/"
     # }
 
