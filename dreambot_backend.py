@@ -126,7 +126,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
     argparser.add_argument("--steps", type=check_steps, default=opt["steps"])
     argparser.add_argument('--sampler', default=opt["sampler"], nargs='?', choices=['ddim', 'k_dpm_2_a', 'k_dpm_2', 'k_euler_a', 'k_euler', 'k_heun', 'k_lms', 'plms'])
     argparser.add_argument('--aspect', type=check_aspect, default="1:1")
-    argparser.add_argument('--upscale', type=bool, default=False)
+    argparser.add_argument('--upscale', default=False, action="store_true")
     argparser.add_argument("prompt", nargs=argparse.REMAINDER)
 
     while not die.is_set():
@@ -171,7 +171,7 @@ def stabdiff(die, queue_prompts, queue_results, opt):
         if args.img is None:
             # This is a simple text prompt
             try:
-                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, width=width, height=height, upscale=args.upscale, gfpgan_strength=args.gfpgan_strength)
+                results = t2i.prompt2image(prompt=args.prompt, seed=args.seed, cfg_scale=args.cfgscale, steps=args.steps, sampler_name=args.sampler, width=width, height=height, upscale=args.upscale, gfpgan_strength=args.gfpgan_strength, upscale_model=opt["model_upscale"], upscale_path=opt["path_upscale"], upscale_sampler=opt["sampler_upscale"], upscale_tilesize=opt["upscale_tilesize"])
             except Exception as ex:
                 print(traceback.format_exc())
                 print(args)
@@ -318,9 +318,13 @@ if __name__ == "__main__":
     #    "seed": 42,
     #    "config": "configs/stable-diffusion/v1-inference.yaml",
     #    "model": "models/ldm/stable-diffusion-v1/model.ckpt",
+    #    "model_upscale": "experiments/pretrained_models/GFPGANv1.3.pth",
+    #    "path_upscale": "./src/gfpgan",
     #    "sampler": "plms",
+    #    "sampler_upscale": "realesrgan",
     #    "precision": "autocast",
     #    "full_precision": true,
+    #    "upscale_tilesize": 400,
     #    "scale": 7.5,
     #    "n_iter": 1,
     #    "steps": 50,
