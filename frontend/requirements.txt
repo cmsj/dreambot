@@ -1,4 +1,2 @@
 websockets==10.3
-janus==1.0.0
-requests==2.28.1
 asyncio==3.4.3
