@@ -6,7 +6,6 @@ VOLUME [ "/config" ]
 COPY requirements.txt requirements.txt
 RUN pip3 install -r requirements.txt
 
-COPY . .
+COPY dreambot_frontend.py dreambot_frontend.py
 
-CMD [ "python3", "dreambot_frontend.py", "/config/config.json" ]
-
+CMD [ "python3", "/app/dreambot_frontend.py", "/config/config.json" ]
