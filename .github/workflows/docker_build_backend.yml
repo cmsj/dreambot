@@ -8,6 +8,7 @@ on:
       - 'backend/Dockerfile'
       - 'backend/dreambot_backend.py'
       - 'backend/requirements.txt'
+      - '.github/workflows/docker_build_backend.yml'
 
 env:
   REGISTRY: ghcr.io
