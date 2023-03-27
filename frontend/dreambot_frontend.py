@@ -2,7 +2,6 @@
 import asyncio
 import functools
 import json
-import websockets
 import base64
 import os
 import sys
@@ -10,6 +9,7 @@ import random
 import logging
 import unicodedata
 import string
+import nats
 from collections import namedtuple
 
 # TODO:
@@ -18,9 +18,9 @@ from collections import namedtuple
 # Add this in places where you want to drop to a REPL to investigate something
 # import code ; code.interact(local=dict(globals(), **locals()))
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dreambot')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 # Various IRC support types/functions
 Message = namedtuple('Message', 'prefix command params')
@@ -89,27 +89,22 @@ def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_l
     return cleaned_filename[:char_limit]
 
 class DreamBot:
-    websocket = None
+    nats = None
     sendcmds = None
     options = None
 
     def __init__(self, options):
         self.options = options
 
-    # Websocket entrypoint
-    async def ws_boot(self):
-      logger.info("Starting websocket server...")
-      self.websocket = await websockets.serve(self.ws_receive,
-                                                self.options["websocket_host"], self.options["websocket_port"],
-                                                ping_interval=2, ping_timeout=3000,
-                                                max_size=None, max_queue=None,
-                                                close_timeout=1, read_limit=2 ** 24)
-
-    # Websocket message handler
-    async def ws_receive(self, websocket, path):
+    # NATS entrypoint
+    async def nats_boot(self):
+      logger.info("Starting NATS subscriber...")
       f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
-      async for message in websocket:
+      self.nats = await nats.connect(self.options["nats_host"], self.options["nats_port"])
+      sub = await self.nats.subscribe("irc")
+
+      async for message in sub.messages:
         # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
         x = json.loads(message)
         message = ""
@@ -178,20 +173,15 @@ class DreamBot:
                     target = message.params[0]  # channel or
                     text = message.params[1]
                     source = message.prefix.nick
-                    if text.startswith(self.options["trigger"]):
-                        logger.info('INPUT: {}:{} <{}> {}'.format(server["host"], target, source, text))
-                        if len(self.websocket.websockets) == 0:
-                          logger.error("No websocket connections to send to!")
-                          sendcmd('PRIVMSG', *[target, "Dream sequence collapsed: No websocket connection from backend"])
-                          continue
+                    for trigger in self.options["triggers"]:
+                        if text.startswith(trigger):
+                            logger.info('INPUT: {}:{} <{}> {}'.format(server["host"], target, source, text))
+                            prompt = text[len(trigger):]
+                            packet = json.dumps({"frontend": "irc", "server": server["host"], "channel": target, "user": source, "trigger": trigger, "prompt": prompt})
 
-                        prompt = text[len(self.options["trigger"]):]
-                        packet = json.dumps({"server": server["host"], "channel": target, "user": source, "trigger": self.options["trigger"], "prompt": prompt})
-
-                        # Send to a random backend
-                        ws = random.choice(tuple(self.websocket.websockets))
-                        await ws.send(packet)
-                        sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+                            # Send request to NATS queue
+                            await self.nats.publish(trigger, packet.encode())
+                            sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
 
         logger.info("Ended irc_loop for {}".format(server["host"]))
 
@@ -200,7 +190,7 @@ class DreamBot:
         self.sendcmds = []
         ircloops = []
 
-        ws_task = asyncio.create_task(self.ws_boot())
+        nats_task = asyncio.create_task(self.nats_boot())
 
         for server in self.options["irc"]:
             logger.info("Preparing IRC connection for {}".format(server["host"]))
@@ -212,7 +202,7 @@ class DreamBot:
 
             ircloops.append(asyncio.create_task(self.irc_loop(server, reader, sendline, sendcmd)))
 
-        await ws_task
+        await nats_task
         for ircloop in ircloops:
             await ircloop
 
@@ -225,7 +215,7 @@ if __name__ == "__main__":
   with open(sys.argv[1]) as f:
     options = json.load(f)
 
-  logger.info("WebSocket bridge starting up...")
+  logger.info("Dreamboot IRC frontend starting up...")
   dreambot = DreamBot(options)
   asyncio.run(dreambot.boot())
 
@@ -234,9 +224,12 @@ if __name__ == "__main__":
 #     "nickname": "dreambot",
 #     "ident": "dreambot",
 #     "realname": "I've dreamed things you people wouldn't believe",
-#     "trigger": "!dream ",
-#     "websocket_host": "0.0.0.0",
-#     "websocket_port": 9999,
+#     "triggers": [
+#           "!dream ",
+#           "!gpt "
+#     ],
+#     "nats_host": "nats",
+#     "nats_port": 4222,
 #     "output_dir": "/data",
 #     "uri_base": "http://localhost:8080/dreams",
 #     "irc": [
