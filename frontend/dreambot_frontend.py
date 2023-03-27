@@ -101,7 +101,7 @@ class DreamBot:
       logger.info("Starting NATS subscriber...")
       f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
-      self.nats = await nats.connect(self.options["nats_host"], self.options["nats_port"])
+      self.nats = await nats.connect(self.options["nats_uri"])
       sub = await self.nats.subscribe("irc")
 
       async for message in sub.messages:
@@ -228,8 +228,7 @@ if __name__ == "__main__":
 #           "!dream ",
 #           "!gpt "
 #     ],
-#     "nats_host": "nats",
-#     "nats_port": 4222,
+#     "nats_uri": "nats://nats:4222",
 #     "output_dir": "/data",
 #     "uri_base": "http://localhost:8080/dreams",
 #     "irc": [
