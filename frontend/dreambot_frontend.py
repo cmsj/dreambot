@@ -106,7 +106,7 @@ class DreamBot:
 
       async for message in sub.messages:
         # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
-        x = json.loads(message)
+        x = json.loads(message.data)
         message = ""
 
         if "image" in x:
