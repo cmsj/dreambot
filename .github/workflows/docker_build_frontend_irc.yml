@@ -37,6 +37,11 @@ jobs:
         run: |
           cd frontend_irc
           pytest --doctest-modules --junitxml=junit/test-results.xml --cov=dreambot_frontend_irc --cov-report=xml --cov-report=html
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: "dreambot/**/test-results.xml"
+        if: always()
 
   build-and-push-image:
     runs-on: ubuntu-latest
