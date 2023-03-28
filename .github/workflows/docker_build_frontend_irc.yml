@@ -40,7 +40,7 @@ jobs:
       - name: Test Summary
         uses: test-summary/action@v2
         with:
-          paths: "dreambot/**/test-results.xml"
+          paths: "/home/runner/work/dreambot/dreambot/frontend_irc/junit/test-results.xml"
         if: always()
 
   build-and-push-image:
