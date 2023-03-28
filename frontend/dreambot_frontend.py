@@ -90,6 +90,7 @@ def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_l
 
 class DreamBot:
     nats = None
+    js = None
     sendcmds = None
     options = None
 
@@ -101,8 +102,12 @@ class DreamBot:
       logger.info("Starting NATS subscriber...")
       f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
-      self.nats = await nats.connect(self.options["nats_uri"])
-      sub = await self.nats.subscribe("irc")
+      self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc")
+      self.js = self.nats.jetstream()
+
+      await self.js.add_stream(name='irc', subjects=['irc'])
+
+      sub = await self.js.subscribe("irc")
 
       async for message in sub.messages:
         # FIXME: Wrap this all in a try/except like mado_orig.py and sendcmd() the error
@@ -180,7 +185,7 @@ class DreamBot:
                             packet = json.dumps({"frontend": "irc", "server": server["host"], "channel": target, "user": source, "trigger": trigger, "prompt": prompt})
 
                             # Send request to NATS queue
-                            await self.nats.publish(trigger, packet.encode())
+                            await self.js.publish(trigger, packet.encode())
                             sendcmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
 
         logger.info("Ended irc_loop for {}".format(server["host"]))
