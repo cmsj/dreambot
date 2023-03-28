@@ -4,6 +4,7 @@ import functools
 import json
 import base64
 import os
+import signal
 import sys
 import random
 import logging
@@ -33,15 +34,16 @@ class DreambotFrontendIRC:
     writer = None
     reader = None
     logger = None
+    cb_publish = None
+    f_namemax = None
 
-    @classmethod
-    async def create(server, options):
-        self = DreambotFrontendIRC()
+    def __init__(self, server, options, cb_publish):
         self.logger = logging.getLogger('dreambot.irc.{}'.format(server["host"]))
         self.logger.setLevel(logging.DEBUG)
         self.server = server
         self.options = options
-        return self
+        self.cb_publish = cb_publish
+        self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
     async def boot(self):
         while self.reconnect:
@@ -49,8 +51,8 @@ class DreambotFrontendIRC:
             try:
                 self.reader, self.writer = await asyncio.open_connection(self.server["host"], self.server["port"], ssl=self.server["ssl"])
                 try:
-                    self.send_line('NICK ' + self.options["nickname"])
-                    self.send_line('USER ' + self.options["ident"] + ' * * :' + self.options["realname"])
+                    self.send_line('NICK ' + self.server["nickname"])
+                    self.send_line('USER ' + self.server["ident"] + ' * * :' + self.server["realname"])
                     self.logger.info("IRC connection booted.")
 
                     # Loop until the connection is closed
@@ -63,8 +65,12 @@ class DreambotFrontendIRC:
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
             else:
-                self.logger.error("IRC connection closed")
-            await asyncio.sleep(5)
+                self.logger.warning("IRC connection closed")
+            finally:
+                await asyncio.sleep(5)
+
+    def queue_name(self):
+        return "irc.{}".format(self.server["host"])
 
     def parse_line(self, line):
         # parses an irc line based on RFC:
@@ -157,11 +163,35 @@ class DreambotFrontendIRC:
                 prompt = text[len(trigger):]
                 packet = json.dumps({"frontend": "irc", "server": self.server["host"], "channel": target, "user": source, "trigger": trigger, "prompt": prompt})
 
-                # Send request to NATS queue
-                # FIXME: This doesn't work, we don't have a handle for the NATS connection yet
-                await self.nats.publish(trigger, packet.encode())
+                # Publish the trigger
+                await self.cb_publish(trigger, packet.encode())
                 self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
 
+    def handle_response(self, resp):
+        message = ""
+
+        if "image" in resp:
+            image_bytes = base64.standard_b64decode(resp["image"])
+            filename_base = clean_filename(resp["prompt"], char_limit = self.f_namemax)
+            filename = "{}.png".format(filename_base[:self.f_namemax])
+            url = "{}/{}".format(self.options["uri_base"], filename)
+
+            with open(os.path.join(self.options["output_dir"], filename), "wb") as f:
+                f.write(image_bytes)
+            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], url))
+            message = "{}: I dreamed this: {}".format(resp["user"], url)
+        elif "error" in resp:
+            message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
+            self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message))
+        elif "usage" in resp:
+            message = "{}: {}".format(resp["user"], resp["usage"])
+            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["usage"]))
+        else:
+            message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
+
+        self.send_cmd[1]('PRIVMSG', *[resp["channel"], message])
+
+# FIXME: Move this into the IRC class probably
 # Filename sanitisation
 valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
 def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_limit=255):
@@ -177,68 +207,90 @@ def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_l
     return cleaned_filename[:char_limit]
 
 class DreamBot:
+    logger = None
     nats = None
     js = None
     options = None
+    irc_servers = None
+    nats_tasks = None
 
     def __init__(self, options):
+        self.logger = logging.getLogger("dreambot.frontend")
+        self.logger.setLevel(logging.DEBUG)
         self.options = options
+        self.irc_servers = {}
+        self.nats_tasks = []
 
-    # NATS entrypoint
     async def nats_boot(self):
-      logger.info("Starting NATS subscriber...")
-      f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
+        while self.reconnect:
+            self.logger.info("Booting NATS subscriber...")
+            try:
+                self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc")
+                self.js = self.nats.jetstream()
 
-      self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc")
-      self.js = self.nats.jetstream()
+                for server in self.irc_servers:
+                    self.nats_tasks.append(asyncio.create_task(self.handle_nats_messages(server.queue_name())))
+            except nats.errors.NoServersError:
+                self.logger.error("No NATS servers available,")
+            else:
+                self.logger.warning("NATS connection close,")
+            finally:
+                [task.cancel() for task in self.nats_tasks]
+                self.nats_tasks = []
+                await asyncio.sleep(5)
 
-      await self.js.add_stream(name='irc', subjects=['irc'])
+    async def handle_nats_messages(self, queue_name):
+      await self.js.add_stream(name=queue_name, subjects=[queue_name])
+      sub = await self.js.subscribe(queue_name)
 
-      sub = await self.js.subscribe("irc")
-
-      async for message in sub.messages:
+      async for msg in sub.messages:
         try:
-            x = json.loads(message.data)
-        except:
-            logger.error("nats message is not json: {}".format(message.data))
+            x = json.loads(msg.data)
+            self.irc_servers[x["queue_name"]].handle_response(x)
+        except json.decoder.JSONDecodeError:
+            logger.error("nats message is not json: {}".format(msg.data))
             continue
-        message = ""
-
-        if "image" in x:
-            image_bytes = base64.standard_b64decode(x["image"])
-            filename_base = clean_filename(x["prompt"], char_limit = f_namemax)
-            filename = "{}.png".format(filename_base[:f_namemax])
-            url = "{}/{}".format(self.options["uri_base"], filename)
-
-            with open(os.path.join(options["output_dir"], filename), "wb") as f:
-                f.write(image_bytes)
-            logger.info("OUTPUT: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], url))
-            message = "{}: I dreamed this: {}".format(x["user"], url)
-        elif "error" in x:
-            message = "{}: Dream sequence collapsed: {}".format(x["user"], x["error"])
-            logger.error("OUTPUT: {}:{}: ".format(x["server"], x["channel"], message))
-        elif "usage" in x:
-            message = "{}: {}".format(x["user"], x["usage"])
-            logger.info("OUTPUT: {}:{} <{}> {}".format(x["server"], x["channel"], x["user"], x["usage"]))
+        except KeyError:
+            logger.error("nats message is for unknown server: {}".format(x["queue_name"]))
+            continue
         else:
-            message = "{}: Dream sequence collapsed, unknown reason.".format(x["user"])
+            self.logger.error("unknown nats message failure")
 
-        # FIXME: This doesn't work, sendcmds no longer exists
-        for sendcmd in self.sendcmds:
-            if sendcmd[0]["host"] == x["server"]:
-                sendcmd[1]('PRIVMSG', *[x["channel"], message])
+    def handle_exception(self, loop, context):
+        msg = context.get("exception", context["message"])
+        logger.error("Caught exception: %s", msg)
+        logger.debug("Exception context: %s", context)
+        asyncio.create_task(self.shutdown(loop))
+
+    async def shutdown(loop, signal=None):
+        if signal:
+            logger.info("Received exit signal %s...", signal.name)
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+
+        [task.cancel() for task in tasks]
+        await asyncio.gather(*tasks, return_exceptions=True)
+        loop.stop()
 
     # Main entrypoint
-    async def boot(self):
-        irc_servers = {}
-        for server in self.options["irc"]:
-            irc_servers[server["host"]] = await DreambotFrontendIRC.create(server, self.options)
+    def boot(self):
+        loop = asyncio.get_event_loop()
 
-        tasks = []
-        tasks.append(asyncio.create_task(self.nats_boot()))
-        for host in irc_servers:
-            tasks.append(asyncio.create_task(irc_servers[host].boot()))
-        await asyncio.gather(*tasks)
+        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+        for s in signals:
+            loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
+        loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
+
+        try:
+            for server in self.options["irc"]:
+                server = DreambotFrontendIRC(server, self.options, lambda subject, data: self.nats.publish(subject, data))
+                self.irc_servers[server.queue_name()] = server
+
+                asyncio.create_task(server.boot())
+            asyncio.create_task(self.nats_boot())
+            loop.run_forever()
+        finally:
+            loop.close()
+            logger.info("Dreambot IRC frontend shutting down...")
 
 
 if __name__ == "__main__":
@@ -251,7 +303,7 @@ if __name__ == "__main__":
 
   logger.info("Dreamboot IRC frontend starting up...")
   dreambot = DreamBot(options)
-  asyncio.run(dreambot.boot())
+  dreambot.boot()
 
 # Example JSON config:
 # {
