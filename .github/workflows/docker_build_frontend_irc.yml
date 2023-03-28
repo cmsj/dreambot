@@ -1,19 +1,19 @@
-name: Frontend CI Build
+name: IRC Frontend CI Build
 
 on:
   push:
     branches:
       - 'main'
     paths:
-      - 'frontend/Dockerfile'
-      - 'frontend/dreambot_frontend.py'
-      - 'frontend/requirements.txt'
-      - '.github/workflows/docker_build_frontend.yml'
+      - 'frontend_irc/Dockerfile'
+      - 'frontend_irc/dreambot_frontend_irc.py'
+      - 'frontend_irc/requirements.txt'
+      - '.github/workflows/docker_build_frontend_irc.yml'
 
 env:
   REGISTRY: ghcr.io
   REGISTRY_USER: cmsj
-  IMAGE_NAME: dreambot-frontend
+  IMAGE_NAME: dreambot-frontend-irc
   CONTEXT: frontend
 
 jobs:
