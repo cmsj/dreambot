@@ -122,28 +122,28 @@ class DreambotFrontendIRC:
         self.send_line(' '.join(params))
 
     async def handle_line(self, line):
-            try:
-                # try utf-8 first
-                line = line.decode('utf-8')
-            except UnicodeDecodeError:
-                # fall back that always works (but might not be correct)
-                line = line.decode('latin1')
+        try:
+            # try utf-8 first
+            line = line.decode('utf-8')
+        except UnicodeDecodeError:
+            # fall back that always works (but might not be correct)
+            line = line.decode('latin1')
 
-            line = line.strip()
-            if line:
-                message = self.parse_line(line)
-                logger.debug("{} <- {}".format(self.server["host"], message))
-                if message.command.isdigit() and int(message.command) >= 400:
-                    # might be an error
-                    self.logger.error("Possible server error: {}".format(str(message)))
-                if message.command == 'PING':
-                    self.send_cmd('PONG', *message.params)
-                elif message.command == '001':
-                    self.irc_join(self.server["channels"])
-                elif message.command == '443':
-                    self.irc_renick()
-                elif message.command == 'PRIVMSG':
-                    await self.irc_privmsg(message)
+        line = line.strip()
+        if line:
+            message = self.parse_line(line)
+            logger.debug("{} <- {}".format(self.server["host"], message))
+            if message.command.isdigit() and int(message.command) >= 400:
+                # might be an error
+                self.logger.error("Possible server error: {}".format(str(message)))
+            if message.command == 'PING':
+                self.send_cmd('PONG', *message.params)
+            elif message.command == '001':
+                self.irc_join(self.server["channels"])
+            elif message.command == '443':
+                self.irc_renick()
+            elif message.command == 'PRIVMSG':
+                await self.irc_privmsg(message)
 
     def irc_join(self, channels):
         for channel in channels:
@@ -189,7 +189,7 @@ class DreambotFrontendIRC:
         else:
             message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
 
-        self.send_cmd[1]('PRIVMSG', *[resp["channel"], message])
+        self.send_cmd('PRIVMSG', *[resp["channel"], message])
 
 # FIXME: Move this into the IRC class probably
 # Filename sanitisation
@@ -275,10 +275,10 @@ class DreamBot:
     def boot(self):
         loop = asyncio.get_event_loop()
 
+        loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
         signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in signals:
             loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
-        loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
 
         try:
             for server in self.options["irc"]:
