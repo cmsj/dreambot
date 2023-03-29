@@ -55,8 +55,11 @@ def test_parse_line():
     assert result.command == "PRIVMSG"
     assert result.params == ["#channel", "Some message"]
 
-    with pytest.raises(Exception):
+    with pytest.raises(ValueError):
         result = irc.parse_line(":::::::::")
+
+    with pytest.raises(ValueError):
+        result = irc.parse_line("")
 
 def test_irc_join(mocker):
     mocker.patch("dreambot_frontend_irc.DreambotFrontendIRC.send_cmd")
@@ -70,6 +73,10 @@ def test_irc_renick(mocker):
     irc.irc_renick()
     assert irc.server["nickname"] == "abc_"
     assert irc.send_line.call_count == 1
+
+    irc.irc_renick()
+    assert irc.server["nickname"] == "abc__"
+    assert irc.send_line.call_count == 2
 
 def test_irc_privmsg(mocker):
     async def cb_publish(trigger, packet):

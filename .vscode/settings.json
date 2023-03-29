@@ -1,0 +1,9 @@
+{
+    "python.testing.pytestArgs": [
+        "--cov=frontend_irc",
+        "--cov-report=html:htmlcov",
+        "frontend_irc"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}
