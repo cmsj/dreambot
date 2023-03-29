@@ -1,7 +1,10 @@
-import asyncio
 import pytest
+import asyncio
+import nats
 import dreambot_frontend_irc
 from unittest.mock import call, AsyncMock, MagicMock
+
+import sys
 
 # Various support functions and fixtures
 
@@ -63,10 +66,18 @@ def mock_asyncio_open_connection(mocker):
 # FIXME: Do a fixture for the DreambotFrontendIRC instantiation so we don't have to repeat it in every test.
 
 @pytest.fixture
+def mock_nats_jetstream(mocker):
+    yield mocker.patch("dreambot_frontend_irc.Dreambot.nats")
+
+@pytest.fixture
+def mock_nats_handle_nats_messages(mocker):
+    yield mocker.patch("dreambot_frontend_irc.Dreambot.handle_nats_messages")
+
+@pytest.fixture
 def mock_builtins_open(mocker):
     yield mocker.patch("builtins.open", mocker.mock_open())
 
-# Tests
+# DreambotFrontendIRC Tests
 
 def test_queue_name():
     irc = dreambot_frontend_irc.DreambotFrontendIRC(
@@ -368,3 +379,33 @@ async def test_irc_bootstrap_reconnect(mocker, mock_sleep):
     await irc.boot(max_reconnects=5)
 
     assert(mock_asyncio_open_connection.call_count == 5)
+
+
+@pytest.mark.asyncio
+async def test_dreambot_nats_boot_connect_failed(mocker, mock_sleep):
+    dreambot = dreambot_frontend_irc.Dreambot({"nats_uri": "nats://test:1234",
+                                               "name":"nats-test",
+                                               "irc": {}
+                                               })
+
+    mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError)
+
+    await dreambot.boot(max_reconnects=1)
+    assert mock_nats_connect.call_count == 1
+
+# FIXME: This seems like we would need a whole bunch more mocking of NATS, to be able to fully test Dreambot
+# @pytest.mark.asyncio
+# async def test_dreambot_nats_boot_connect_success(mocker, mock_sleep, mock_nats_jetstream, mock_nats_handle_nats_messages):
+#     dreambot = dreambot_frontend_irc.Dreambot({"nats_uri": "nats://test:1234",
+#                                                "name":"nats-test",
+#                                                "irc": {}
+#                                                })
+
+#     mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock())
+#     # mock_jetstream = mocker.patch("dreambot_frontend_irc.Dreambot.nats.jetstream", return_value=AsyncMock())
+#     # mock_handle_nats_message = mocker.patch("dreambot_frontend_irc.Dreambot.handle_nats_messages", return_value=AsyncMock())
+
+#     await dreambot.boot(max_reconnects=1)
+#     assert mock_nats_connect.call_count == 1
+#     assert mock_nats_jetstream.call_count == 1
+#     assert mock_nats_handle_nats_messages.call_count == 1

@@ -207,7 +207,7 @@ def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_l
     cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
     return cleaned_filename[:char_limit]
 
-class DreamBot:
+class Dreambot:
     logger = None
     nats = None
     js = None
@@ -222,46 +222,47 @@ class DreamBot:
         self.irc_servers = {}
         self.nats_tasks = []
 
-    async def nats_boot(self):
-        while self.reconnect:
-            self.logger.info("Booting NATS subscriber...")
-            try:
-                self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc")
-                self.js = self.nats.jetstream()
+    async def nats_boot(self, max_reconnects=0):
+        self.logger.info("Booting NATS subscriber...")
+        try:
+            self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc", max_reconnect_attempts=max_reconnects)
+            self.js = self.nats.jetstream()
 
-                for server in self.irc_servers:
-                    self.nats_tasks.append(asyncio.create_task(self.handle_nats_messages(server.queue_name())))
-            except nats.errors.NoServersError:
-                self.logger.error("No NATS servers available,")
-            else:
-                self.logger.warning("NATS connection close,")
-            finally:
-                [task.cancel() for task in self.nats_tasks]
-                self.nats_tasks = []
-                await asyncio.sleep(5)
+            for server in self.irc_servers:
+                self.nats_tasks.append(asyncio.create_task(self.handle_nats_messages(server.queue_name())))
+
+            await asyncio.gather(*self.nats_tasks)
+        except nats.errors.NoServersError:
+            self.logger.error("No NATS servers available.")
+        else:
+            self.logger.warning("NATS connection closed.")
+        finally:
+            [task.cancel() for task in self.nats_tasks]
+            self.nats_tasks = []
+            await asyncio.sleep(5)
 
     async def handle_nats_messages(self, queue_name):
-      await self.js.add_stream(name=queue_name, subjects=[queue_name])
-      sub = await self.js.subscribe(queue_name)
+        await self.js.add_stream(name=queue_name, subjects=[queue_name])
+        sub = await self.js.subscribe(queue_name)
 
-      async for msg in sub.messages:
-        try:
-            x = json.loads(msg.data)
-            self.irc_servers[x["queue_name"]].handle_response(x)
-        except json.decoder.JSONDecodeError:
-            logger.error("nats message is not json: {}".format(msg.data))
-            continue
-        except KeyError:
-            logger.error("nats message is for unknown server: {}".format(x["queue_name"]))
-            continue
-        else:
-            self.logger.error("unknown nats message failure")
+        async for msg in sub.messages:
+            try:
+                x = json.loads(msg.data)
+                self.irc_servers[x["queue_name"]].handle_response(x)
+            except json.decoder.JSONDecodeError:
+                logger.error("nats message is not json: {}".format(msg.data))
+                continue
+            except KeyError:
+                logger.error("nats message is for unknown server: {}".format(x["queue_name"]))
+                continue
+            else:
+                self.logger.error("unknown nats message failure")
 
     def handle_exception(self, loop, context):
         msg = context.get("exception", context["message"])
         logger.error("Caught exception: %s", msg)
         logger.debug("Exception context: %s", context)
-        asyncio.create_task(self.shutdown(loop))
+        # asyncio.create_task(self.shutdown(loop))
 
     async def shutdown(loop, signal=None):
         if signal:
@@ -273,7 +274,7 @@ class DreamBot:
         loop.stop()
 
     # Main entrypoint
-    def boot(self):
+    async def boot(self, max_reconnects=0):
         loop = asyncio.get_event_loop()
 
         loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
@@ -281,17 +282,13 @@ class DreamBot:
         for s in signals:
             loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
 
-        try:
             for server in self.options["irc"]:
                 server = DreambotFrontendIRC(server, self.options, lambda subject, data: self.nats.publish(subject, data))
                 self.irc_servers[server.queue_name()] = server
 
-                asyncio.create_task(server.boot())
-            asyncio.create_task(self.nats_boot())
-            loop.run_forever()
-        finally:
-            loop.close()
-            logger.info("Dreambot IRC frontend shutting down...")
+                await server.boot(max_reconnects=max_reconnects)
+
+        await self.nats_boot(max_reconnects=max_reconnects)
 
 
 if __name__ == "__main__":
@@ -302,9 +299,16 @@ if __name__ == "__main__":
   with open(sys.argv[1]) as f:
     options = json.load(f)
 
+  loop = asyncio.get_event_loop()
+
   logger.info("Dreamboot IRC frontend starting up...")
-  dreambot = DreamBot(options)
-  dreambot.boot()
+  try:
+    dreambot = Dreambot(options)
+    dreambot.boot()
+    loop.run_forever()
+  finally:
+    loop.close()
+    logger.info("Dreambot IRC frontend shutting down...")
 
 # Example JSON config:
 # {
