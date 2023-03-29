@@ -20,7 +20,7 @@ class DreambotBackendGPT:
     nats_uri = None
 
     def __init__(self, nats_options, gpt_options):
-        self.logger.getLogger("dreambot_backend", level=logging.DEBUG)
+        logging.getLogger("dreambot_backend", level=logging.DEBUG)
 
         self.api_key = gpt_options["api_key"]
         self.organization = gpt_options["organization"]
