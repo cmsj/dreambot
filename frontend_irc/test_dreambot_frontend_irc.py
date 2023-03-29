@@ -177,7 +177,7 @@ def test_handle_response_image(mock_builtins_open, mock_send_cmd):
     irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
-    irc.handle_response({"image": "UE5HIHRlc3QK", "prompt": "test prompt",
+    irc.handle_response({"reply-image": "UE5HIHRlc3QK", "prompt": "test prompt",
                         "server": "test.server.com", "channel": "#testchannel", "user": "testuser"})
 
     assert irc.send_cmd.call_count == 1

@@ -20,7 +20,7 @@ from collections import namedtuple
 # import code ; code.interact(local=dict(globals(), **locals()))
 
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger('dreambot')
+logger = logging.getLogger('dreambot_frontend_irc')
 logger.setLevel(logging.DEBUG)
 
 class DreambotFrontendIRC:
@@ -162,7 +162,7 @@ class DreambotFrontendIRC:
             if text.startswith(trigger):
                 self.logger.info('INPUT: {}:{} <{}> {}'.format(self.server["host"], target, source, text))
                 prompt = text[len(trigger):]
-                packet = json.dumps({"frontend": "irc", "server": self.server["host"], "channel": target, "user": source, "trigger": trigger, "prompt": prompt})
+                packet = json.dumps({"reply-to": self.queue_name(), "frontend": "irc", "server": self.server["host"], "channel": target, "user": source, "trigger": trigger, "prompt": prompt})
 
                 # Publish the trigger
                 await self.cb_publish(trigger, packet.encode())
@@ -171,7 +171,7 @@ class DreambotFrontendIRC:
     def handle_response(self, resp):
         message = ""
 
-        if "image" in resp:
+        if "reply-image" in resp:
             image_bytes = base64.standard_b64decode(resp["image"])
             filename_base = clean_filename(resp["prompt"], char_limit = self.f_namemax)
             filename = "{}.png".format(filename_base[:self.f_namemax])
@@ -181,6 +181,9 @@ class DreambotFrontendIRC:
                 f.write(image_bytes)
             self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], url))
             message = "{}: I dreamed this: {}".format(resp["user"], url)
+        elif "reply-text" in resp:
+            message = "{}: {}".format(resp["user"], resp["reply-text"])
+            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-text"]))
         elif "error" in resp:
             message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
             self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message))
@@ -304,8 +307,7 @@ if __name__ == "__main__":
   logger.info("Dreamboot IRC frontend starting up...")
   try:
     dreambot = Dreambot(options)
-    dreambot.boot()
-    loop.run_forever()
+    loop.run_until_complete(dreambot.boot())
   finally:
     loop.close()
     logger.info("Dreambot IRC frontend shutting down...")
