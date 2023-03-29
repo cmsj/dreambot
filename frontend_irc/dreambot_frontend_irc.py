@@ -28,7 +28,6 @@ class DreambotFrontendIRC:
     Message = namedtuple('Message', 'prefix command params')
     Prefix = namedtuple('Prefix', 'nick ident host')
 
-    reconnect = True
     options = None
     server = None
     writer = None
@@ -45,8 +44,9 @@ class DreambotFrontendIRC:
         self.cb_publish = cb_publish
         self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
-    async def boot(self):
-        while self.reconnect:
+    async def boot(self, max_reconnects=0):
+        reconnect = True
+        while reconnect and max_reconnects >= 0:
             self.logger.info("Booting IRC connection...")
             try:
                 self.reader, self.writer = await asyncio.open_connection(self.server["host"], self.server["port"], ssl=self.server["ssl"])
@@ -64,9 +64,10 @@ class DreambotFrontendIRC:
                     self.writer.close()
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
-            else:
-                self.logger.warning("IRC connection closed")
             finally:
+                if max_reconnects == 1:
+                    reconnect = False
+                max_reconnects -= 1
                 await asyncio.sleep(5)
 
     def queue_name(self):

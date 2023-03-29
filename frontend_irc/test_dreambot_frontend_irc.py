@@ -1,14 +1,14 @@
 import asyncio
 import pytest
 import dreambot_frontend_irc
-from unittest.mock import call
+from unittest.mock import call, AsyncMock, MagicMock
 
 # Various support functions and fixtures
 
 
 @pytest.fixture
 def create_mock_coro(mocker, monkeypatch):
-    def _create_mock_patch_coro(to_patch=None):
+    def _create_mock_patch_coro(to_patch=None, return_value=None):
         mock = mocker.Mock()
 
         async def _coro(*args, **kwargs):
@@ -20,12 +20,15 @@ def create_mock_coro(mocker, monkeypatch):
 
     return _create_mock_patch_coro
 
-# @pytest.fixture
-# def mock_sleep(create_mock_coro):
-#     # won't need the returned coroutine here
-#     mock, _ = create_mock_coro(to_patch="mayhem.asyncio.sleep")
-#     return mock
+@pytest.fixture
+def mock_sleep(create_mock_coro):
+    # won't need the returned coroutine here
+    mock, _ = create_mock_coro(to_patch="asyncio.sleep")
+    return mock
 
+@pytest.fixture
+def mock_stream_reader_ateof(mocker):
+    yield mocker.patch("asyncio.StreamReader.at_eof", return_value=True)
 
 @pytest.fixture
 def mock_send_cmd(mocker):
@@ -41,6 +44,23 @@ def mock_send_line(mocker):
 def mock_irc_privmsg(mocker):
     yield mocker.patch("dreambot_frontend_irc.DreambotFrontendIRC.irc_privmsg")
 
+@pytest.fixture
+def mock_handle_line(mocker):
+    yield mocker.patch("dreambot_frontend_irc.DreambotFrontendIRC.handle_line")
+
+@pytest.fixture
+def mock_asyncio_open_connection(mocker):
+    def at_eof():
+        return True
+    open_connection = mocker.patch("asyncio.open_connection")
+    reader = AsyncMock()
+    reader.at_eof.side_effect = at_eof
+    writer = AsyncMock()
+    writer.at_eof = at_eof
+    open_connection.return_value = (reader, writer)
+    yield open_connection
+
+# FIXME: Do a fixture for the DreambotFrontendIRC instantiation so we don't have to repeat it in every test.
 
 @pytest.fixture
 def mock_builtins_open(mocker):
@@ -259,3 +279,92 @@ def test_handle_line_nonunicode(mock_irc_privmsg, mock_send_cmd, mock_send_line)
     assert irc.irc_privmsg.call_count == 0
     assert irc.send_cmd.call_count == 0
     assert irc.send_line.call_count == 0
+
+def test_irc_bootstrap_never_connect(mocker, mock_asyncio_open_connection, mock_send_cmd, mock_send_line):
+    irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    asyncio.run(irc.boot(max_reconnects=-1))
+
+    mock_asyncio_open_connection.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_irc_bootstrap_single_loop_connection_refused(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
+    irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    # reader = asyncio.StreamReader()
+    # reader.feed_data(b'This is test junk')
+    # reader.feed_eof()
+
+    reader = AsyncMock()
+    writer = AsyncMock()
+
+    mock_open_connection =  mocker.patch("asyncio.open_connection", return_value=(reader, writer), side_effect=ConnectionRefusedError)
+
+    await irc.boot(max_reconnects=1)
+
+    mock_open_connection.assert_called_once()
+    mock_sleep.assert_called_once()
+    mock_send_line.assert_not_called()
+    mock_send_cmd.assert_not_called()
+    mock_stream_reader_ateof.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_irc_bootstrap_single_loop_handshake(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_handle_line):
+    irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    reader = asyncio.StreamReader()
+    reader.feed_data(b'Testing input line, does not need to be RFC compliant')
+    reader.feed_eof()
+
+    writer = MagicMock()
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
+
+    await irc.boot(max_reconnects=1)
+
+    mock_asyncio_open_connection.assert_called_once()
+    mock_sleep.assert_called_once()
+    mock_send_line.assert_has_calls([call('NICK abc'), call('USER testident * * :testrealname')])
+    mock_send_cmd.assert_not_called()
+    mock_handle_line.assert_has_calls([call(b'Testing input line, does not need to be RFC compliant')])
+
+
+@pytest.mark.asyncio
+async def test_irc_bootstrap_single_loop_with_reply(mocker, mock_sleep):
+    irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    reader = asyncio.StreamReader()
+    reader.feed_data(b'001')
+    reader.feed_eof()
+
+    writer = MagicMock()
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
+
+    await irc.boot(max_reconnects=1)
+
+    mock_asyncio_open_connection.assert_called_once()
+    mock_sleep.assert_called_once()
+    writer.assert_has_calls([call.write(b'NICK abc\r\n'),
+                            call.write(b'USER testident * * :testrealname\r\n'),
+                            call.write(b'JOIN #test1\r\n'),
+                            call.write(b'JOIN #test2\r\n'),
+                            call.close()])
+
+@pytest.mark.asyncio
+async def test_irc_bootstrap_reconnect(mocker, mock_sleep):
+    irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    reader = asyncio.StreamReader()
+    reader.feed_data(b'001')
+    reader.feed_eof()
+
+    writer = MagicMock()
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
+
+    await irc.boot(max_reconnects=5)
+
+    assert(mock_asyncio_open_connection.call_count == 5)
