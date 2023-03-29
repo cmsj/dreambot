@@ -248,10 +248,12 @@ def test_handle_line_unknown(mock_irc_privmsg, mock_send_cmd, mock_send_line):
     assert irc.send_cmd.call_count == 0
     assert irc.send_line.call_count == 0
 
+
 def test_handle_line_nonunicode(mock_irc_privmsg, mock_send_cmd, mock_send_line):
     irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
+    # This should be interpreted on the 'unknown' path, so no other calls will be made
     asyncio.run(irc.handle_line(b'\x9c'))
 
     assert irc.irc_privmsg.call_count == 0
