@@ -94,3 +94,16 @@ def test_irc_privmsg(mocker):
     message = irc.parse_line(":OtherUser^!other@2.3.4.5 PRIVMSG #place :!test")
     asyncio.run(irc.irc_privmsg(message))
     assert irc.send_cmd.call_count == 1
+
+def test_handle_response(mocker):
+    mocker.patch("builtins.open", mocker.mock_open())
+    mocker.patch("dreambot_frontend_irc.DreambotFrontendIRC.send_cmd")
+
+    irc = dreambot_frontend_irc.DreambotFrontendIRC({"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+    irc.handle_response({"image": "UE5HIHRlc3QK", "prompt": "test prompt", "server": "test.server.com", "channel": "#testchannel", "user": "testuser"})
+
+    assert irc.send_cmd.call_count == 1
+    assert open.call_count == 1
+    open.assert_has_calls([call('/tmp/test_prompt.png', 'wb')])
+    handle = open()
+    handle.write.assert_has_calls([call(b'PNG test\n')])
