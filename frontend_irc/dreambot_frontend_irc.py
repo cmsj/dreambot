@@ -172,7 +172,7 @@ class DreambotFrontendIRC:
         message = ""
 
         if "reply-image" in resp:
-            image_bytes = base64.standard_b64decode(resp["image"])
+            image_bytes = base64.standard_b64decode(resp["reply-image"])
             filename_base = clean_filename(resp["prompt"], char_limit = self.f_namemax)
             filename = "{}.png".format(filename_base[:self.f_namemax])
             url = "{}/{}".format(self.options["uri_base"], filename)
