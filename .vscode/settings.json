@@ -1,9 +1,10 @@
 {
     "python.testing.pytestArgs": [
         "--cov=frontend_irc",
-        "--cov-report=html:htmlcov",
+        "--cov-report=xml:coverage.xml",
         "frontend_irc"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "python.analysis.typeCheckingMode": "off"
 }
