@@ -111,7 +111,7 @@ class DreambotFrontendIRC:
         return self.Message(prefix, command, params)
 
     def send_line(self, line):
-        logger.debug('-> {}'.format(line))
+        self.logger.debug('-> {}'.format(line))
         self.writer.write(line.encode('utf-8') + b'\r\n')
 
     def send_cmd(self, cmd, *params):
@@ -133,7 +133,7 @@ class DreambotFrontendIRC:
         line = line.strip()
         if line:
             message = self.parse_line(line)
-            logger.debug("{} <- {}".format(self.server["host"], message))
+            self.logger.debug("{} <- {}".format(self.server["host"], message))
             if message.command.isdigit() and int(message.command) >= 400:
                 # might be an error
                 self.logger.error("Possible server error: {}".format(str(message)))
@@ -285,11 +285,12 @@ class Dreambot:
         for s in signals:
             loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
 
+            self.logger.debug("Found %d IRC servers to boot", len(self.options["irc"]))
             for server in self.options["irc"]:
                 server = DreambotFrontendIRC(server, self.options, lambda subject, data: self.nats.publish(subject, data))
                 self.irc_servers[server.queue_name()] = server
 
-                await server.boot(max_reconnects=max_reconnects)
+                await asyncio.create_task(server.boot(max_reconnects=max_reconnects))
 
         await self.nats_boot(max_reconnects=max_reconnects)
 
