@@ -36,12 +36,16 @@ jobs:
       - name: Test with pytest
         run: |
           cd frontend_irc
-          pytest --doctest-modules --junitxml=junit/test-results.xml --cov=dreambot_frontend_irc --cov-report=xml --cov-report=html
+          pytest --doctest-modules --junitxml=junit/test-results.xml --cov=dreambot_frontend_irc --cov-report=lcov:/home/runner/coverage.lcov
       - name: Test Summary
         uses: test-summary/action@v2
         with:
           paths: "/home/runner/work/dreambot/dreambot/frontend_irc/junit/test-results.xml"
         if: always()
+      - name: Coverage Summary
+        uses: livewing/lcov-job-summary@v1
+        with:
+          lcov: /home/runner/coverage.lcov
 
   build-and-push-image:
     runs-on: ubuntu-latest
