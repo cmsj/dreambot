@@ -14,7 +14,7 @@ env:
   REGISTRY: ghcr.io
   REGISTRY_USER: cmsj
   IMAGE_NAME: dreambot-frontend-irc
-  CONTEXT: frontend
+  CONTEXT: frontend_irc
 
 jobs:
   test:
