@@ -30,9 +30,9 @@ class DreambotBackendGPT:
 
         self.nats_uri = nats_options["nats_uri"]
 
-    def boot(self):
+    async def boot(self):
         self.logger.info("Booting Dreambot Backend GPT")
-        self.nats = nats.connect(self.nats_uri)
+        self.nats = await nats.connect(self.nats_uri)
         self.nats.subscribe(self.nats_queue_name, self.handle_message)
 
     def handle_message(self, msg):
