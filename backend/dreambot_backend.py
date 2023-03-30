@@ -64,10 +64,8 @@ if __name__ == "__main__":
   logger.info("Dreamboot backend starting up...")
   try:
     async_tasks = []
-    if "gpt" in options:
-        gpt = DreambotBackendGPT(options["nats"], options["gpt"])
-        async_tasks.append(asyncio.create_task(gpt.boot()))
-    loop.run_until_complete(asyncio.gather(*async_tasks))
+    gpt = DreambotBackendGPT(options["nats"], options["gpt"])
+    loop.run_until_complete(gpt.boot())
   finally:
     loop.close()
     logger.info("Dreambot backend shutting down...")
