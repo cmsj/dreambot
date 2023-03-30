@@ -31,24 +31,22 @@ class DreambotBackendGPT:
         self.nats_uri = nats_options["nats_uri"]
 
     async def boot(self):
+        async def handle_message(self, msg):
+            data = json.loads(msg.data.decode())
+            self.logger.debug("Received message: {}".format(data))
+            response = openai.ChatCompletion.create(
+                model = self.model,
+                messages = [
+                    {"role": "user", "text": "Limit your responses to 500 characters. {}".format(data["prompt"])},
+                ]
+            )
+            reply = response.choices[0].message.content
+            data["reply-text"] = reply
+            await self.nats.publish(data["reply_to"], json.dumps(data).encode())
+
         self.logger.info("Booting Dreambot Backend GPT")
-        self.nats = await nats.connect(self.nats_uri)
-        self.nats.subscribe(self.nats_queue_name, self.handle_message)
-
-    def handle_message(self, msg):
-        data = json.loads(msg.data.decode())
-        self.logger.debug("Received message: {}".format(data))
-
-        response = openai.ChatCompletion.create(
-            model = self.model,
-            messages = [
-                {"role": "user", "text": "Limit your responses to 500 characters. {}".format(data["prompt"])},
-            ]
-        )
-
-        reply = response.choices[0].message.content
-        data["reply-text"] = reply
-        self.nats.publish(data["reply_to"], json.dumps(data))
+        self.nats = await nats.connect(self.nats_uri, max_reconnect_attempts=-1)
+        await self.nats.subscribe(self.nats_queue_name, cb=handle_message)
 
 
 if __name__ == "__main__":
