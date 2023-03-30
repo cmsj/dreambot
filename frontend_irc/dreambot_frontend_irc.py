@@ -234,7 +234,8 @@ class Dreambot:
             self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc", max_reconnect_attempts=max_reconnects)
             self.js = self.nats.jetstream()
 
-            for server in self.irc_servers:
+            for server_name in self.irc_servers:
+                server = self.irc_servers[server_name]
                 self.nats_tasks.append(asyncio.create_task(self.handle_nats_messages(server.queue_name())))
 
             await asyncio.gather(*self.nats_tasks)
