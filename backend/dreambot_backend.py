@@ -41,7 +41,8 @@ class DreambotBackendGPT:
             await self.nats.publish(data["reply-to"], json.dumps(data).encode())
 
         logger.info("Booting Dreambot Backend GPT")
-        self.nats = await nats.connect(self.nats_uri, max_reconnect_attempts=-1, loop=loop)
+        self.nats = nats.io.Client()
+        await self.nats.connect(self.nats_uri, max_reconnect_attempts=-1, loop=loop)
         await self.nats.subscribe(self.nats_queue_name, cb=handle_message)
 
 
