@@ -10,7 +10,6 @@ logger = logging.getLogger('dreambot_backend')
 logger.setLevel(logging.DEBUG)
 
 class DreambotBackendGPT:
-    logger = None
     nats = None
 
     api_key = None
@@ -20,9 +19,6 @@ class DreambotBackendGPT:
     nats_uri = None
 
     def __init__(self, nats_options, gpt_options):
-        self.logger = logging.getLogger("dreambot_backend")
-        self.logger.setLevel(logging.DEBUG)
-
         self.api_key = gpt_options["api_key"]
         self.organization = gpt_options["organization"]
         self.model = gpt_options["model"]
@@ -30,10 +26,10 @@ class DreambotBackendGPT:
 
         self.nats_uri = nats_options["nats_uri"]
 
-    async def boot(self):
-        async def handle_message(self, msg):
+    async def boot(self, loop):
+        async def handle_message(msg):
             data = json.loads(msg.data.decode())
-            self.logger.debug("Received message: {}".format(data))
+            logger.debug("Received message: {}".format(data))
             response = openai.ChatCompletion.create(
                 model = self.model,
                 messages = [
@@ -42,10 +38,10 @@ class DreambotBackendGPT:
             )
             reply = response.choices[0].message.content
             data["reply-text"] = reply
-            await self.nats.publish(data["reply_to"], json.dumps(data).encode())
+            await self.nats.publish(data["reply-to"], json.dumps(data).encode())
 
-        self.logger.info("Booting Dreambot Backend GPT")
-        self.nats = await nats.connect(self.nats_uri, max_reconnect_attempts=-1)
+        logger.info("Booting Dreambot Backend GPT")
+        self.nats = await nats.connect(self.nats_uri, max_reconnect_attempts=-1, loop=loop)
         await self.nats.subscribe(self.nats_queue_name, cb=handle_message)
 
 
@@ -63,7 +59,8 @@ if __name__ == "__main__":
   try:
     async_tasks = []
     gpt = DreambotBackendGPT(options["nats"], options["gpt"])
-    loop.run_until_complete(gpt.boot())
+    loop.run_until_complete(gpt.boot(loop))
+    loop.run_forever()
   finally:
     loop.close()
     logger.info("Dreambot backend shutting down...")
