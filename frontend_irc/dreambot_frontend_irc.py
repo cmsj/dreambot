@@ -165,8 +165,11 @@ class DreambotFrontendIRC:
                 packet = json.dumps({"reply-to": self.queue_name(), "frontend": "irc", "server": self.server["host"], "channel": target, "user": source, "trigger": trigger, "prompt": prompt})
 
                 # Publish the trigger
-                await self.cb_publish(trigger, packet.encode())
-                self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+                try:
+                    await self.cb_publish(trigger, packet.encode())
+                    self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+                except:
+                    self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence failed.".format(source)])
 
     def handle_response(self, resp):
         message = ""
@@ -281,6 +284,7 @@ class Dreambot:
 
     # Main entrypoint
     async def boot(self, max_reconnects=0):
+        async_tasks = []
         loop = asyncio.get_event_loop()
 
         loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
@@ -293,9 +297,10 @@ class Dreambot:
                 server = DreambotFrontendIRC(server, self.options, self.publish_callback)
                 self.irc_servers[server.queue_name()] = server
 
-                await asyncio.create_task(server.boot(max_reconnects=max_reconnects))
+                async_tasks.append(asyncio.create_task(server.boot(max_reconnects=max_reconnects)))
 
-        await self.nats_boot(max_reconnects=max_reconnects)
+        async_tasks.append(self.nats_boot(max_reconnects=max_reconnects))
+        await asyncio.gather(async_tasks)
 
 
 if __name__ == "__main__":
