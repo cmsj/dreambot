@@ -293,12 +293,12 @@ class Dreambot:
         for s in signals:
             loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
 
-            self.logger.debug("Found %d IRC servers to boot", len(self.options["irc"]))
-            for server in self.options["irc"]:
-                server = DreambotFrontendIRC(server, self.options, self.publish_callback)
-                self.irc_servers[server.queue_name()] = server
+        self.logger.debug("Found %d IRC servers to boot", len(self.options["irc"]))
+        for server in self.options["irc"]:
+            server = DreambotFrontendIRC(server, self.options, self.publish_callback)
+            self.irc_servers[server.queue_name()] = server
 
-                async_tasks.append(asyncio.create_task(server.boot(max_reconnects=max_reconnects)))
+            async_tasks.append(asyncio.create_task(server.boot(max_reconnects=max_reconnects)))
 
         async_tasks.append(self.nats_boot(max_reconnects=max_reconnects))
         await asyncio.gather(*async_tasks)
@@ -318,6 +318,7 @@ if __name__ == "__main__":
   try:
     dreambot = Dreambot(options)
     loop.run_until_complete(dreambot.boot())
+    loop.run_forever()
   finally:
     loop.close()
     logger.info("Dreambot IRC frontend shutting down...")
