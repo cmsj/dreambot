@@ -276,6 +276,9 @@ class Dreambot:
         await asyncio.gather(*tasks, return_exceptions=True)
         loop.stop()
 
+    def publish_callback(self, subject, data):
+        self.nats.publish(subject, data)
+
     # Main entrypoint
     async def boot(self, max_reconnects=0):
         loop = asyncio.get_event_loop()
@@ -287,7 +290,7 @@ class Dreambot:
 
             self.logger.debug("Found %d IRC servers to boot", len(self.options["irc"]))
             for server in self.options["irc"]:
-                server = DreambotFrontendIRC(server, self.options, lambda subject, data: self.nats.publish(subject, data))
+                server = DreambotFrontendIRC(server, self.options, self.publish_callback)
                 self.irc_servers[server.queue_name()] = server
 
                 await asyncio.create_task(server.boot(max_reconnects=max_reconnects))
