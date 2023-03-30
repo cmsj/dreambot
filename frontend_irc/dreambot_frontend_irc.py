@@ -232,7 +232,10 @@ class Dreambot:
         self.logger.info("Booting NATS subscriber...")
         try:
             self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc", max_reconnect_attempts=max_reconnects)
+            self.logger.info("NATS connected to {}".format(self.nats.connected_url.netloc))
             self.js = self.nats.jetstream()
+            consumer_info = await self.js.consumer_info()
+            self.logger.info("JetStream connected to: {}::{}".format(consumer_info.cluster, consumer_info.stream_name))
 
             for server_name in self.irc_servers:
                 server = self.irc_servers[server_name]
