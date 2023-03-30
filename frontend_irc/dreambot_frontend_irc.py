@@ -300,7 +300,7 @@ class Dreambot:
                 async_tasks.append(asyncio.create_task(server.boot(max_reconnects=max_reconnects)))
 
         async_tasks.append(self.nats_boot(max_reconnects=max_reconnects))
-        await asyncio.gather(async_tasks)
+        await asyncio.gather(*async_tasks)
 
 
 if __name__ == "__main__":
