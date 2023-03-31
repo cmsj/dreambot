@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 import asyncio
-import functools
 import json
 import base64
 import os
-import signal
-import sys
-import random
 import logging
 import unicodedata
 import string
-import nats
+import traceback
 from collections import namedtuple
 
 # TODO:
@@ -23,10 +19,11 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dreambot_frontend_irc')
 logger.setLevel(logging.DEBUG)
 
-class DreambotFrontendIRC:
+class FrontendIRC:
     # Various IRC support types/functions
     Message = namedtuple('Message', 'prefix command params')
     Prefix = namedtuple('Prefix', 'nick ident host')
+    valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
 
     options = None
     server = None
@@ -35,6 +32,7 @@ class DreambotFrontendIRC:
     logger = None
     cb_publish = None
     f_namemax = None
+    full_ident = ""
 
     def __init__(self, server, options, cb_publish):
         self.logger = logging.getLogger('dreambot.irc.{}'.format(server["host"]))
@@ -71,7 +69,9 @@ class DreambotFrontendIRC:
                 await asyncio.sleep(5)
 
     def queue_name(self):
-        return "irc.{}".format(self.server["host"])
+        name = "irc.{}".format(self.server["host"])
+        name = name.replace('.', '_')
+        return name
 
     def parse_line(self, line):
         # parses an irc line based on RFC:
@@ -111,6 +111,8 @@ class DreambotFrontendIRC:
         return self.Message(prefix, command, params)
 
     def send_line(self, line):
+        if len(line) > 510:
+            self.logger.warning("Line length exceeds RFC limit of 512 characters: {}".format(len(line)))
         self.logger.debug('-> {}'.format(line))
         self.writer.write(line.encode('utf-8') + b'\r\n')
 
@@ -144,7 +146,9 @@ class DreambotFrontendIRC:
             elif message.command == '443':
                 self.irc_renick()
             elif message.command == 'PRIVMSG':
-                await self.irc_privmsg(message)
+                await self.irc_received_privmsg(message)
+            elif message.command == 'JOIN':
+                self.irc_received_join(message)
 
     def irc_join(self, channels):
         for channel in channels:
@@ -154,7 +158,13 @@ class DreambotFrontendIRC:
         self.server["nickname"] = self.server["nickname"] + '_'
         self.send_line('NICK ' + self.server["nickname"])
 
-    async def irc_privmsg(self, message):
+    def irc_received_join(self, message):
+        nick = message.prefix.nick
+        ident = message.prefix.ident
+        host = message.prefix.host
+        self.full_ident = ":{}!{}@{} ".format(nick, ident, host)
+
+    async def irc_received_privmsg(self, message):
         target = message.params[0]  # channel or
         text = message.params[1]
         source = message.prefix.nick
@@ -168,15 +178,37 @@ class DreambotFrontendIRC:
                 try:
                     await self.cb_publish(trigger, packet.encode())
                     self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
-                except:
+                except Exception as e:
+                    traceback.print_exc()
                     self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence failed.".format(source)])
 
-    def handle_response(self, resp):
+    def clean_filename(self, filename, whitelist=None, replace=' ', char_limit=255):
+        if not whitelist:
+            whitelist = self.valid_filename_chars
+        # replace undesired characters
+        for r in replace:
+            filename = filename.replace(r,'_')
+
+        # keep only valid ascii chars
+        cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
+
+        # keep only whitelisted chars
+        cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
+        return cleaned_filename[:char_limit]
+
+    def cb_handle_response(self, queue, data):
         message = ""
+
+        try:
+            resp = json.loads(data.decode())
+        except Exception as e:
+            self.logger.error("Failed to parse response: {}".format(e))
+            traceback.print_exc()
+            return
 
         if "reply-image" in resp:
             image_bytes = base64.standard_b64decode(resp["reply-image"])
-            filename_base = clean_filename(resp["prompt"], char_limit = self.f_namemax)
+            filename_base = self.clean_filename(resp["prompt"], char_limit = self.f_namemax)
             filename = "{}.png".format(filename_base[:self.f_namemax])
             url = "{}/{}".format(self.options["uri_base"], filename)
 
@@ -196,135 +228,54 @@ class DreambotFrontendIRC:
         else:
             message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
 
-        self.send_cmd('PRIVMSG', *[resp["channel"], message])
+        chunks = []
+        # We have to send multiline responses separately, so let's split the message into lines
+        for line in message.splitlines():
+            # IRC has a max line length of 512 bytes, so we need to split the line into chunks
+            max_chunk_size = 510 # Start with 510 because send_cmd() adds 2 bytes for the CRLF
+            max_chunk_size -= len("{} PRIVMSG {} :".format(self.full_ident, resp["channel"]))
+            chunks += [line[i:i+max_chunk_size] for i in range(0, len(line), max_chunk_size)]
 
-# FIXME: Move this into the IRC class probably
-# Filename sanitisation
-valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
-def clean_filename(filename, whitelist=valid_filename_chars, replace=' ', char_limit=255):
-    # replace undesired characters
-    for r in replace:
-        filename = filename.replace(r,'_')
-
-    # keep only valid ascii chars
-    cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
-
-    # keep only whitelisted chars
-    cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
-    return cleaned_filename[:char_limit]
-
-class Dreambot:
-    logger = None
-    nats = None
-    js = None
-    options = None
-    irc_servers = None
-    nats_tasks = None
-
-    def __init__(self, options):
-        self.logger = logging.getLogger("dreambot.frontend")
-        self.logger.setLevel(logging.DEBUG)
-        self.options = options
-        self.irc_servers = {}
-        self.nats_tasks = []
-
-    async def nats_boot(self, max_reconnects=0):
-        self.logger.info("Booting NATS subscriber...")
-        try:
-            self.nats = await nats.connect(self.options["nats_uri"], name="dreambot-frontend-irc", max_reconnect_attempts=max_reconnects)
-            self.logger.info("NATS connected to {}".format(self.nats.connected_url.netloc))
-            self.js = self.nats.jetstream()
-            consumer_info = await self.js.consumer_info()
-            self.logger.info("JetStream connected to: {}::{}".format(consumer_info.cluster, consumer_info.stream_name))
-
-            for server_name in self.irc_servers:
-                server = self.irc_servers[server_name]
-                self.nats_tasks.append(asyncio.create_task(self.handle_nats_messages(server.queue_name())))
-
-            await asyncio.gather(*self.nats_tasks)
-        except nats.errors.NoServersError:
-            self.logger.error("No NATS servers available.")
-        else:
-            self.logger.warning("NATS connection closed.")
-        finally:
-            [task.cancel() for task in self.nats_tasks]
-            self.nats_tasks = []
-            await asyncio.sleep(5)
-
-    async def handle_nats_messages(self, queue_name):
-        await self.js.add_stream(name=queue_name, subjects=[queue_name])
-        sub = await self.js.subscribe(queue_name)
-
-        async for msg in sub.messages:
-            try:
-                x = json.loads(msg.data)
-                self.irc_servers[x["queue_name"]].handle_response(x)
-            except json.decoder.JSONDecodeError:
-                logger.error("nats message is not json: {}".format(msg.data))
-                continue
-            except KeyError:
-                logger.error("nats message is for unknown server: {}".format(x["queue_name"]))
-                continue
-            else:
-                self.logger.error("unknown nats message failure")
-
-    def handle_exception(self, loop, context):
-        msg = context.get("exception", context["message"])
-        logger.error("Caught exception: %s", msg)
-        logger.debug("Exception context: %s", context)
-        # asyncio.create_task(self.shutdown(loop))
-
-    async def shutdown(loop, signal=None):
-        if signal:
-            logger.info("Received exit signal %s...", signal.name)
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-
-        [task.cancel() for task in tasks]
-        await asyncio.gather(*tasks, return_exceptions=True)
-        loop.stop()
-
-    def publish_callback(self, subject, data):
-        self.nats.publish(subject, data)
-
-    # Main entrypoint
-    async def boot(self, max_reconnects=0):
-        async_tasks = []
-        loop = asyncio.get_event_loop()
-
-        loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
-        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
-        for s in signals:
-            loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
-
-        self.logger.debug("Found %d IRC servers to boot", len(self.options["irc"]))
-        for server in self.options["irc"]:
-            server = DreambotFrontendIRC(server, self.options, self.publish_callback)
-            self.irc_servers[server.queue_name()] = server
-
-            async_tasks.append(asyncio.create_task(server.boot(max_reconnects=max_reconnects)))
-
-        async_tasks.append(self.nats_boot(max_reconnects=max_reconnects))
-        await asyncio.gather(*async_tasks)
+        for chunk in chunks:
+            self.send_cmd('PRIVMSG', *[resp["channel"], chunk])
+        # self.send_cmd('PRIVMSG', *[resp["channel"], message])
 
 
-if __name__ == "__main__":
-  if len(sys.argv) != 2:
-    print("Usage: {} <config.json>".format(sys.argv[0]))
-    sys.exit(1)
+    # # Main entrypoint
+    # async def boot(self, max_reconnects=0):
+    #     loop = asyncio.get_event_loop()
 
-  with open(sys.argv[1]) as f:
-    options = json.load(f)
+    #     # loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
+    #     # signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+    #     # for s in signals:
+    #     #     loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
 
-  loop = asyncio.get_event_loop()
+    #     asyncio.create_task(self.nats_boot(max_reconnects=max_reconnects))
+    #     self.logger.debug("Found %d IRC servers to boot", len(self.options["irc"]))
+    #     for server in self.options["irc"]:
+    #         server = FrontendIRC(server, self.options, self.publish_callback)
+    #         self.irc_servers[server.queue_name()] = server
 
-  logger.info("Dreamboot IRC frontend starting up...")
-  try:
-    dreambot = Dreambot(options)
-    loop.run_until_complete(dreambot.boot())
-    loop.run_forever()
-  finally:
-    loop.close()
-    logger.info("Dreambot IRC frontend shutting down...")
+    #         asyncio.create_task(server.boot(max_reconnects=max_reconnects))
+
+
+# if __name__ == "__main__":
+#   if len(sys.argv) != 2:
+#     print("Usage: {} <config.json>".format(sys.argv[0]))
+#     sys.exit(1)
+
+#   with open(sys.argv[1]) as f:
+#     options = json.load(f)
+
+#     logger.info("Dreamboot IRC frontend starting up...")
+#   try:
+#     loop = asyncio.get_event_loop()
+#     dreambot = Dreambot(options)
+#     loop.create_task(dreambot.boot())
+#     loop.run_forever()
+#   finally:
+#     loop.close()
+#     logger.info("Dreambot IRC frontend shutting down...")
 
 # Example JSON config:
 # {
@@ -332,7 +283,7 @@ if __name__ == "__main__":
 #           "!dream ",
 #           "!gpt "
 #     ],
-#     "nats_uri": "nats://nats:4222",
+#     "nats_uri": [ "nats://nats:4222", "nats://nats2:4222" ],
 #     "output_dir": "/data",
 #     "uri_base": "http://localhost:8080/dreams",
 #     "irc": [

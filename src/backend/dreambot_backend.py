@@ -27,13 +27,16 @@ class DreambotBackendGPT:
         self.nats_uri = nats_options["nats_uri"]
 
     async def boot(self, loop):
+        openai.api_key = self.api_key
+        openai.organization = self.organization
+
         async def handle_message(msg):
             data = json.loads(msg.data.decode())
             logger.debug("Received message: {}".format(data))
             response = openai.ChatCompletion.create(
                 model = self.model,
                 messages = [
-                    {"role": "user", "text": "Limit your responses to 500 characters. {}".format(data["prompt"])},
+                    {"role": "user", "content": "Limit your responses to 500 characters. {}".format(data["prompt"])},
                 ]
             )
             reply = response.choices[0].message.content
@@ -42,6 +45,8 @@ class DreambotBackendGPT:
 
         logger.info("Booting Dreambot Backend GPT")
         self.nats = await nats.connect(self.nats_uri, max_reconnect_attempts=-1)
+        logger.info("NATS connected to {}".format(self.nats.connected_url.netloc))
+        logger.info("Subscribing to: {}".format(self.nats_queue_name))
         await self.nats.subscribe(self.nats_queue_name, cb=handle_message)
 
 
@@ -74,6 +79,6 @@ if __name__ == "__main__":
 #       "nats_queue_name": "!gpt",
 #   },
 #   "nats": {
-#       "nats_uri": "nats://localhost:4222"
+#       "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 #   }
 # }
