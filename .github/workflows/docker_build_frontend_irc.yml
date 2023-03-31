@@ -13,7 +13,6 @@ env:
   REGISTRY: ghcr.io
   REGISTRY_USER: cmsj
   IMAGE_NAME: dreambot-frontend-irc
-  CONTEXT: frontend_irc
 
 jobs:
   test:
@@ -78,7 +77,6 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v3
         with:
-          context: ${{ env.CONTEXT }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
