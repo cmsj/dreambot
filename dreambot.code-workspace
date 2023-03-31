@@ -5,6 +5,15 @@
 		}
 	],
 	"settings": {
-		"pytest.command": ""
+		"pytest.command": "",
+		"python.testing.unittestEnabled": false,
+		"python.testing.pytestEnabled": true,
+		"python.testing.pytestArgs": [
+			"-v",
+			"--cov=src",
+			"--cov-report=xml",
+			"tests"
+		],
+		"pythonTestExplorer.testFramework": "pytest"
 	}
 }
