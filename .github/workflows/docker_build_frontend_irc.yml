@@ -5,9 +5,8 @@ on:
     branches:
       - 'main'
     paths:
-      - 'frontend_irc/Dockerfile'
-      - 'frontend_irc/dreambot_frontend_irc.py'
-      - 'frontend_irc/requirements.txt'
+      - 'docker/Dockerfile-frontend-irc'
+      - 'src/frontend'
       - '.github/workflows/docker_build_frontend_irc.yml'
 
 env:
@@ -31,8 +30,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r frontend_irc/requirements.txt
-          pip install -r frontend_irc/requirements-test.txt
+          pip install .
       - name: Test with pytest
         run: |
           cd frontend_irc
