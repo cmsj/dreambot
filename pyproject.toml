@@ -34,6 +34,16 @@ build-backend = "hatchling.build"
 "bin/dreambot_frontend_irc.py" = "dreambot/dreambot_frontend_irc.py"
 "bin/dreambot_backend_gpt.py" = "dreambot/dreambot_backend_gpt.py"
 
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests"
+]
+pythonpath = [
+  "src"
+]
+
 [project.scripts]
 dreambot_frontend_irc = "dreambot.dreambot_frontend_irc:main"
 dreambot_backend_gpt = "dreambot.dreambot_backend_gpt:main"

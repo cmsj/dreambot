@@ -32,7 +32,7 @@ def main():
             await nats_manager.nats_publish(queue_name, message)
 
         for server_config in options["irc"]:
-            server = frontend.irc.FrontendIRC(server_config, options, trigger_callback)#nats_manager.nats_publish)
+            server = frontend.irc.FrontendIRC(server_config, options, trigger_callback)
             servers.append(server)
             delegates.append({
                 "queue_name": server.queue_name(),

@@ -9,12 +9,6 @@ import string
 import traceback
 from collections import namedtuple
 
-# TODO:
-# Nothing
-
-# Add this in places where you want to drop to a REPL to investigate something
-# import code ; code.interact(local=dict(globals(), **locals()))
-
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dreambot_frontend_irc')
 logger.setLevel(logging.DEBUG)
@@ -42,9 +36,10 @@ class FrontendIRC:
         self.cb_publish = cb_publish
         self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
-    async def boot(self, max_reconnects=0):
-        reconnect = True
-        while reconnect and max_reconnects >= 0:
+    async def boot(self, reconnect=True):
+        should_reconnect = True
+        while should_reconnect:
+            should_reconnect = reconnect
             self.logger.info("Booting IRC connection...")
             try:
                 self.reader, self.writer = await asyncio.open_connection(self.server["host"], self.server["port"], ssl=self.server["ssl"])
@@ -62,15 +57,17 @@ class FrontendIRC:
                     self.writer.close()
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
+            except Exception as e:
+                self.logger.error("IRC connection error: {}".format(e))
+                traceback.print_exc()
             finally:
-                if max_reconnects == 1:
-                    reconnect = False
-                max_reconnects -= 1
-                await asyncio.sleep(5)
+                if reconnect:
+                    self.logger.info("Sleeping before reconnecting...")
+                    await asyncio.sleep(5)
 
     def queue_name(self):
         name = "irc.{}".format(self.server["host"])
-        name = name.replace('.', '_')
+        name = name.replace('.', '_') # This is important because periods are meaningful in NATS' subject names
         return name
 
     def parse_line(self, line):
@@ -196,7 +193,7 @@ class FrontendIRC:
         cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
         return cleaned_filename[:char_limit]
 
-    def cb_handle_response(self, queue, data):
+    def cb_handle_response(self, _, data):
         message = ""
 
         try:

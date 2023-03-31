@@ -1,8 +1,6 @@
 {
     "python.testing.pytestArgs": [
-        "--cov=frontend_irc",
-        "--cov-report=xml:coverage.xml",
-        "frontend_irc"
+        "tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
