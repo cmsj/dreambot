@@ -38,7 +38,7 @@ jobs:
       - name: Test Summary
         uses: test-summary/action@v2
         with:
-          paths: "/home/runner/work/dreambot/junit/test-results.xml"
+          paths: "/home/runner/work/dreambot/dreambot/junit/test-results.xml"
         if: always()
       - name: Coverage Summary
         uses: livewing/lcov-job-summary@v1
