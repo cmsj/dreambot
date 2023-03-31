@@ -176,6 +176,18 @@ def test_irc_privmsg(mock_send_cmd):
     assert irc.send_cmd.call_count == 1
 
 
+def test_long_irc_line(mocker):
+
+    mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(AsyncMock(), AsyncMock()))
+    irc = frontend.irc.FrontendIRC(
+        {"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp", "triggers": []}, None)
+    irc.logger.warning = MagicMock()
+    irc.writer = AsyncMock()
+
+    irc.send_line("a" * 512)
+
+    irc.logger.warning.assert_called_once()
+
 def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
     caplog.set_level(logging.DEBUG)
     irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
@@ -192,6 +204,16 @@ def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
     irc.send_cmd.assert_has_calls(
         [call('PRIVMSG', '#testchannel', 'testuser: I dreamed this: http://testuri//test_prompt.png')])
 
+def test_handle_response_text(mock_send_cmd):
+    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+                                                    "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    irc.cb_handle_response(None, json.dumps({"reply-text": "test text", "server": "test.server.com",
+                        "channel": "#testchannel", "user": "testuser"}).encode())
+
+    assert irc.send_cmd.call_count == 1
+    irc.send_cmd.assert_has_calls(
+        [call('PRIVMSG', '#testchannel', 'testuser: test text')])
 
 def test_handle_response_error(mock_send_cmd):
     irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
@@ -227,6 +249,15 @@ def test_handle_response_unknown(mock_send_cmd):
     assert irc.send_cmd.call_count == 1
     irc.send_cmd.assert_has_calls(
         [call('PRIVMSG', '#testchannel', 'testuser: Dream sequence collapsed, unknown reason.')])
+
+def test_handle_response_invalid_json(mock_send_cmd):
+    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+                                                    "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+    irc.logger.error = MagicMock()
+    irc.cb_handle_response(None, "{invalid, json,}".encode())
+
+    assert irc.send_cmd.call_count == 0
+    assert irc.logger.error.call_count == 1
 
 
 def test_handle_line_ping(mock_send_cmd):
@@ -272,6 +303,14 @@ def test_handle_line_privmsg(mock_irc_privmsg):
     irc.irc_received_privmsg.assert_has_calls([call(irc.Message(
         prefix=None, command='PRIVMSG', params=['#testchannel', '!test']))])
 
+def test_handle_line_privmsg_publish_raises(mock_send_cmd):
+    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": ["!test"], "uri_base": "http://testuri/"}, None)
+    irc.cb_publish = AsyncMock(side_effect=Exception("test exception"))
+    asyncio.run(irc.handle_line(b":testuser!testident@testhost PRIVMSG #testchannel :!test some text"))
+
+    assert irc.cb_publish.call_count == 1
+    irc.cb_publish.assert_has_calls([call('!test', b'{"reply-to": "irc_abc123", "frontend": "irc", "server": "abc123", "channel": "#testchannel", "user": "testuser", "trigger": "!test", "prompt": " some text"}')])
 
 def test_handle_line_unknown(mock_irc_privmsg, mock_send_cmd, mock_send_line):
     irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
@@ -295,19 +334,40 @@ def test_handle_line_nonunicode(mock_irc_privmsg, mock_send_cmd, mock_send_line)
     assert irc.send_cmd.call_count == 0
     assert irc.send_line.call_count == 0
 
+def test_handle_line_join():
+    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+    asyncio.run(irc.handle_line(b":testuser!~testident@testhost JOIN #testchannel"))
+
+    assert irc.full_ident == ":testuser!~testident@testhost "
+
 @pytest.mark.asyncio
 async def test_irc_bootstrap_single_loop_connection_refused(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
     irc = frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
-    # reader = asyncio.StreamReader()
-    # reader.feed_data(b'This is test junk')
-    # reader.feed_eof()
-
     reader = AsyncMock()
     writer = AsyncMock()
 
     mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer), side_effect=ConnectionRefusedError)
+
+    await irc.boot(reconnect=False)
+
+    mock_open_connection.assert_called_once()
+    mock_sleep.assert_not_called()
+    mock_send_line.assert_not_called()
+    mock_send_cmd.assert_not_called()
+    mock_stream_reader_ateof.assert_not_called()
+
+@pytest.mark.asyncio
+async def test_irc_bootstrap_single_loop_some_other_exception(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
+    irc = frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    reader = AsyncMock()
+    writer = AsyncMock()
+
+    mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer), side_effect=KeyError)
 
     await irc.boot(reconnect=False)
 

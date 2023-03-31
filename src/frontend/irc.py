@@ -235,44 +235,6 @@ class FrontendIRC:
 
         for chunk in chunks:
             self.send_cmd('PRIVMSG', *[resp["channel"], chunk])
-        # self.send_cmd('PRIVMSG', *[resp["channel"], message])
-
-
-    # # Main entrypoint
-    # async def boot(self, max_reconnects=0):
-    #     loop = asyncio.get_event_loop()
-
-    #     # loop.set_exception_handler(lambda loop,context: self.handle_exception(loop, context))
-    #     # signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
-    #     # for s in signals:
-    #     #     loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(loop, signal=s)))
-
-    #     asyncio.create_task(self.nats_boot(max_reconnects=max_reconnects))
-    #     self.logger.debug("Found %d IRC servers to boot", len(self.options["irc"]))
-    #     for server in self.options["irc"]:
-    #         server = FrontendIRC(server, self.options, self.publish_callback)
-    #         self.irc_servers[server.queue_name()] = server
-
-    #         asyncio.create_task(server.boot(max_reconnects=max_reconnects))
-
-
-# if __name__ == "__main__":
-#   if len(sys.argv) != 2:
-#     print("Usage: {} <config.json>".format(sys.argv[0]))
-#     sys.exit(1)
-
-#   with open(sys.argv[1]) as f:
-#     options = json.load(f)
-
-#     logger.info("Dreamboot IRC frontend starting up...")
-#   try:
-#     loop = asyncio.get_event_loop()
-#     dreambot = Dreambot(options)
-#     loop.create_task(dreambot.boot())
-#     loop.run_forever()
-#   finally:
-#     loop.close()
-#     logger.info("Dreambot IRC frontend shutting down...")
 
 # Example JSON config:
 # {
