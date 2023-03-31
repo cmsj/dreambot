@@ -5,7 +5,7 @@ VOLUME [ "/config" ]
 
 COPY pyproject.toml pyproject.toml
 COPY src src
-RUN pip3 install .
+RUN cd /app/src ; pip3 install . ; cd -
 RUN rm -rf /app
 
 CMD [ "dreambot_frontend_irc.py", "/config/config.json" ]
