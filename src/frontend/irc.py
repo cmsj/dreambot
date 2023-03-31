@@ -27,6 +27,7 @@ class FrontendIRC:
     cb_publish = None
     f_namemax = None
     full_ident = ""
+    should_reconnect = True
 
     def __init__(self, server, options, cb_publish):
         self.logger = logging.getLogger('dreambot.irc.{}'.format(server["host"]))
@@ -37,10 +38,9 @@ class FrontendIRC:
         self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
     async def boot(self, reconnect=True):
-        should_reconnect = True
-        while should_reconnect:
-            should_reconnect = reconnect
-            self.logger.info("Booting IRC connection...")
+        while self.should_reconnect:
+            self.should_reconnect = reconnect
+            self.logger.info("Booting IRC connection... (reconnect: {})".format(self.should_reconnect))
             try:
                 self.reader, self.writer = await asyncio.open_connection(self.server["host"], self.server["port"], ssl=self.server["ssl"])
                 try:
@@ -61,7 +61,7 @@ class FrontendIRC:
                 self.logger.error("IRC connection error: {}".format(e))
                 traceback.print_exc()
             finally:
-                if reconnect:
+                if self.should_reconnect:
                     self.logger.info("Sleeping before reconnecting...")
                     await asyncio.sleep(5)
 

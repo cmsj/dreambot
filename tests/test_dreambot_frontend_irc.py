@@ -55,7 +55,7 @@ def mock_handle_line(mocker):
     yield mocker.patch("frontend.irc.FrontendIRC.handle_line")
 
 @pytest.fixture
-def mock_asyncio_open_connection(mocker):
+def mock_asyncio_open_connection_read_eof(mocker):
     def at_eof():
         return True
     open_connection = mocker.patch("asyncio.open_connection")
@@ -372,7 +372,13 @@ async def test_irc_bootstrap_reconnect(mocker, mock_sleep):
     writer = MagicMock()
     mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
 
-    await irc.boot(reconnect=False)
+    def side_effect(*args, **kwargs):
+        if mock_asyncio_open_connection.call_count >= 5:
+            irc.should_reconnect = False
+        raise ConnectionRefusedError
+    mock_asyncio_open_connection.side_effect = side_effect
+
+    await irc.boot()
 
     assert(mock_asyncio_open_connection.call_count == 5)
 
