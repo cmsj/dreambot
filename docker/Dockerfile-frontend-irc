@@ -3,9 +3,8 @@ LABEL org.opencontainers.image.authors="cmsj@tenshu.net"
 WORKDIR /app
 VOLUME [ "/config" ]
 
-COPY pyproject.toml pyproject.toml
-COPY src src
-RUN cd /app/src ; pip3 install . ; cd -
+COPY . /app
+RUN cd /app ; pip3 install . ; cd -
 #RUN rm -rf /app
 
 CMD [ "dreambot_frontend_irc.py", "/config/config.json" ]
