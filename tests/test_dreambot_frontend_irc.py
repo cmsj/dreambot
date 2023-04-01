@@ -3,8 +3,8 @@ import asyncio
 import json
 import logging
 import nats
-import frontend.irc
-import frontend.nats_manager
+import dreambot.frontend.irc
+import dreambot.frontend.nats_manager
 from unittest.mock import call, AsyncMock, MagicMock
 
 import sys
@@ -38,21 +38,21 @@ def mock_stream_reader_ateof(mocker):
 
 @pytest.fixture
 def mock_send_cmd(mocker):
-    yield mocker.patch("frontend.irc.FrontendIRC.send_cmd")
+    yield mocker.patch("dreambot.frontend.irc.FrontendIRC.send_cmd")
 
 
 @pytest.fixture
 def mock_send_line(mocker):
-    yield mocker.patch("frontend.irc.FrontendIRC.send_line")
+    yield mocker.patch("dreambot.frontend.irc.FrontendIRC.send_line")
 
 
 @pytest.fixture
 def mock_irc_privmsg(mocker):
-    yield mocker.patch("frontend.irc.FrontendIRC.irc_received_privmsg")
+    yield mocker.patch("dreambot.frontend.irc.FrontendIRC.irc_received_privmsg")
 
 @pytest.fixture
 def mock_handle_line(mocker):
-    yield mocker.patch("frontend.irc.FrontendIRC.handle_line")
+    yield mocker.patch("dreambot.frontend.irc.FrontendIRC.handle_line")
 
 @pytest.fixture
 def mock_asyncio_open_connection_read_eof(mocker):
@@ -70,11 +70,11 @@ def mock_asyncio_open_connection_read_eof(mocker):
 
 @pytest.fixture
 def mock_nats_jetstream(mocker):
-    yield mocker.patch("frontend.irc.Dreambot.nats")
+    yield mocker.patch("dreambot.frontend.irc.Dreambot.nats")
 
 @pytest.fixture
 def mock_nats_handle_nats_messages(mocker):
-    yield mocker.patch("frontend.irc.Dreambot.handle_nats_messages")
+    yield mocker.patch("dreambot.frontend.irc.Dreambot.handle_nats_messages")
 
 @pytest.fixture
 def mock_builtins_open(mocker):
@@ -83,13 +83,13 @@ def mock_builtins_open(mocker):
 # FrontendIRC Tests
 
 def test_queue_name():
-    irc = frontend.irc.FrontendIRC(
+    irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123"}, {"output_dir": "/tmp"}, None)
     assert irc.queue_name() == "irc_abc123"
 
 
 def test_parse_line():
-    irc = frontend.irc.FrontendIRC(
+    irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123"}, {"output_dir": "/tmp"}, None)
     result = irc.parse_line("PRIVMSG #channel :hello world")
     assert result.prefix == None
@@ -136,7 +136,7 @@ def test_parse_line():
 
 
 def test_irc_join(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC(
+    irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123"}, {"output_dir": "/tmp"}, None)
     irc.irc_join(["#channel1", "#channel2"])
     irc.send_cmd.assert_has_calls(
@@ -144,7 +144,7 @@ def test_irc_join(mock_send_cmd):
 
 
 def test_irc_renick(mock_send_line):
-    irc = frontend.irc.FrontendIRC(
+    irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp"}, None)
 
     irc.irc_renick()
@@ -161,7 +161,7 @@ def test_irc_privmsg(mock_send_cmd):
     async def cb_publish(trigger, packet):
         pass
 
-    irc = frontend.irc.FrontendIRC(
+    irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp", "triggers": []}, None)
     irc.cb_publish = cb_publish
 
@@ -179,7 +179,7 @@ def test_irc_privmsg(mock_send_cmd):
 def test_long_irc_line(mocker):
 
     mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(AsyncMock(), AsyncMock()))
-    irc = frontend.irc.FrontendIRC(
+    irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp", "triggers": []}, None)
     irc.logger.warning = MagicMock()
     irc.writer = AsyncMock()
@@ -190,7 +190,7 @@ def test_long_irc_line(mocker):
 
 def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
     caplog.set_level(logging.DEBUG)
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     irc.cb_handle_response(None, json.dumps({"reply-image": "UE5HIHRlc3QK", "prompt": "test prompt",
@@ -205,7 +205,7 @@ def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
         [call('PRIVMSG', '#testchannel', 'testuser: I dreamed this: http://testuri//test_prompt.png')])
 
 def test_handle_response_text(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     irc.cb_handle_response(None, json.dumps({"reply-text": "test text", "server": "test.server.com",
@@ -216,7 +216,7 @@ def test_handle_response_text(mock_send_cmd):
         [call('PRIVMSG', '#testchannel', 'testuser: test text')])
 
 def test_handle_response_error(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     irc.cb_handle_response(None, json.dumps({"error": "test error", "server": "test.server.com",
@@ -228,7 +228,7 @@ def test_handle_response_error(mock_send_cmd):
 
 
 def test_handle_response_usage(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     irc.cb_handle_response(None, json.dumps({"usage": "test usage", "server": "test.server.com",
@@ -240,7 +240,7 @@ def test_handle_response_usage(mock_send_cmd):
 
 
 def test_handle_response_unknown(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     irc.cb_handle_response(None, json.dumps({"server": "test.server.com",
@@ -251,7 +251,7 @@ def test_handle_response_unknown(mock_send_cmd):
         [call('PRIVMSG', '#testchannel', 'testuser: Dream sequence collapsed, unknown reason.')])
 
 def test_handle_response_invalid_json(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
     irc.logger.error = MagicMock()
     irc.cb_handle_response(None, "{invalid, json,}".encode())
@@ -261,7 +261,7 @@ def test_handle_response_invalid_json(mock_send_cmd):
 
 
 def test_handle_line_ping(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     asyncio.run(irc.handle_line(b"PING :abc123"))
@@ -271,7 +271,7 @@ def test_handle_line_ping(mock_send_cmd):
 
 
 def test_handle_line_001(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     asyncio.run(irc.handle_line(b"001"))
@@ -282,7 +282,7 @@ def test_handle_line_001(mock_send_cmd):
 
 
 def test_handle_line_443(mock_send_cmd, mock_send_line):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     asyncio.run(irc.handle_line(b"443"))
@@ -294,7 +294,7 @@ def test_handle_line_443(mock_send_cmd, mock_send_line):
 
 
 def test_handle_line_privmsg(mock_irc_privmsg):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     asyncio.run(irc.handle_line(b"PRIVMSG #testchannel :!test"))
@@ -304,7 +304,7 @@ def test_handle_line_privmsg(mock_irc_privmsg):
         prefix=None, command='PRIVMSG', params=['#testchannel', '!test']))])
 
 def test_handle_line_privmsg_publish_raises(mock_send_cmd):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": ["!test"], "uri_base": "http://testuri/"}, None)
     irc.cb_publish = AsyncMock(side_effect=Exception("test exception"))
     asyncio.run(irc.handle_line(b":testuser!testident@testhost PRIVMSG #testchannel :!test some text"))
@@ -313,7 +313,7 @@ def test_handle_line_privmsg_publish_raises(mock_send_cmd):
     irc.cb_publish.assert_has_calls([call('!test', b'{"reply-to": "irc_abc123", "frontend": "irc", "server": "abc123", "channel": "#testchannel", "user": "testuser", "trigger": "!test", "prompt": " some text"}')])
 
 def test_handle_line_unknown(mock_irc_privmsg, mock_send_cmd, mock_send_line):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     asyncio.run(irc.handle_line(b"401"))
@@ -324,7 +324,7 @@ def test_handle_line_unknown(mock_irc_privmsg, mock_send_cmd, mock_send_line):
 
 
 def test_handle_line_nonunicode(mock_irc_privmsg, mock_send_cmd, mock_send_line):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     # This should be interpreted on the 'unknown' path, so no other calls will be made
@@ -335,7 +335,7 @@ def test_handle_line_nonunicode(mock_irc_privmsg, mock_send_cmd, mock_send_line)
     assert irc.send_line.call_count == 0
 
 def test_handle_line_join():
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
     asyncio.run(irc.handle_line(b":testuser!~testident@testhost JOIN #testchannel"))
 
@@ -343,7 +343,7 @@ def test_handle_line_join():
 
 @pytest.mark.asyncio
 async def test_irc_bootstrap_single_loop_connection_refused(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     reader = AsyncMock()
@@ -361,7 +361,7 @@ async def test_irc_bootstrap_single_loop_connection_refused(mocker, mock_send_cm
 
 @pytest.mark.asyncio
 async def test_irc_bootstrap_single_loop_some_other_exception(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     reader = AsyncMock()
@@ -379,7 +379,7 @@ async def test_irc_bootstrap_single_loop_some_other_exception(mocker, mock_send_
 
 @pytest.mark.asyncio
 async def test_irc_bootstrap_single_loop_handshake(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_handle_line):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     reader = asyncio.StreamReader()
@@ -400,7 +400,7 @@ async def test_irc_bootstrap_single_loop_handshake(mocker, mock_send_cmd, mock_s
 
 @pytest.mark.asyncio
 async def test_irc_bootstrap_single_loop_with_reply(mocker, mock_sleep):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     reader = asyncio.StreamReader()
@@ -422,7 +422,7 @@ async def test_irc_bootstrap_single_loop_with_reply(mocker, mock_sleep):
 
 @pytest.mark.asyncio
 async def test_irc_bootstrap_reconnect(mocker, mock_sleep):
-    irc = frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     reader = asyncio.StreamReader()
@@ -445,7 +445,7 @@ async def test_irc_bootstrap_reconnect(mocker, mock_sleep):
 
 @pytest.mark.asyncio
 async def test_dreambot_nats_boot_connect_failed(mocker, mock_sleep):
-    nm = frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
 
     mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError)
 
