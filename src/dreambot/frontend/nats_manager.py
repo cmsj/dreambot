@@ -100,7 +100,7 @@ class FrontendNatsManager:
                     except TimeoutError:
                         continue
             except BadRequestError:
-                self.logger.warning("NATS consumer '{}' already exists, likely a previous instance of us hasn't timed out yet, retrying...".format(queue_name))
+                self.logger.warning("NATS consumer '{}' already exists, likely a previous instance of us hasn't timed out yet".format(queue_name))
                 await asyncio.sleep(5)
                 continue
             except Exception as e:
@@ -125,19 +125,19 @@ async def shutdown(loop, signal=None, objects = []):
     loop.stop()
 
 
-if __name__ == "__main__":
-    def callback(queue_name, message):
-        print("Received a message on '{}': {}".format(queue_name, message.decode()))
-        print(message)
+# if __name__ == "__main__":
+#     def callback(queue_name, message):
+#         print("Received a message on '{}': {}".format(queue_name, message.decode()))
+#         print(message)
 
-    try:
-        nm = FrontendNatsManager(nats_uri="nats://localhost:4222")
-        loop = asyncio.get_event_loop()
+#     try:
+#         nm = FrontendNatsManager(nats_uri="nats://localhost:4222")
+#         loop = asyncio.get_event_loop()
 
-        for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
-             loop.add_signal_handler(s, lambda s=s: asyncio.create_task(shutdown(loop, signal=s, objects=[nm])))
+#         for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
+#              loop.add_signal_handler(s, lambda s=s: asyncio.create_task(shutdown(loop, signal=s, objects=[nm])))
 
-        loop.create_task(nm.boot([{"queue_name": "test1", "callback": callback}, {"queue_name": "test2", "callback": callback}]))
-        loop.run_forever()
-    finally:
-        loop.close()
+#         loop.create_task(nm.boot([{"queue_name": "test1", "callback": callback}, {"queue_name": "test2", "callback": callback}]))
+#         loop.run_forever()
+#     finally:
+#         loop.close()

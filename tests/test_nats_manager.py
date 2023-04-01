@@ -2,8 +2,11 @@ import pytest
 import asyncio
 import nats
 import signal
+import time
 import dreambot.frontend.nats_manager
-from unittest.mock import call, AsyncMock, MagicMock
+from unittest.mock import call, patch, AsyncMock, MagicMock
+from nats.js.errors import BadRequestError
+
 
 # Helper fixtures
 @pytest.fixture
@@ -106,7 +109,7 @@ async def test_nats_subscribe(mocker, mock_sleep):
 
     sub_obj = AsyncMock()
     sub_obj.next_msg = AsyncMock()
-    sub_obj.next_msg.side_effect = next_sub_side_effect # FIXME: I don't understand why this works
+    sub_obj.next_msg.side_effect = next_sub_side_effect # FIXME: I don't understand why this is necessary
     nm.js.subscribe = sub_obj
 
     await nm.nats_subscribe({"queue_name": "testqueue", "callback": callback})
@@ -124,3 +127,49 @@ async def test_nats_subscribe_invalid_callback(mocker):
         await nm.nats_subscribe({"queue_name": "testqueue"})
     with pytest.raises(ValueError):
         await nm.nats_subscribe({"callback": "some_callback"})
+
+@pytest.mark.asyncio
+async def test_nats_subscribe_badrequest(mocker, mock_sleep):
+    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm.js = MagicMock()
+    nm.logger.warning = MagicMock()
+    loop_count = 5
+
+    def add_stream_side_effect(**kwargs):
+        # Inhibit the retry loop from running forever, then raise the exception we want to ensure is caught
+        nonlocal loop_count
+        loop_count -= 1
+        if loop_count <= 0:
+            nonlocal nm
+            nm.shutting_down = True
+        raise BadRequestError
+
+    nm.js.add_stream = AsyncMock(side_effect=add_stream_side_effect)
+
+    await nm.nats_subscribe({"queue_name": "testqueue", "callback": "some_callback"})
+    assert loop_count == 0
+    assert nm.logger.warning.call_count == 5
+    nm.logger.warning.assert_has_calls([call("NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet")])
+
+@pytest.mark.asyncio
+async def test_nats_subscribe_other_exception(mocker, mock_sleep):
+    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm.js = MagicMock()
+    nm.logger.error = MagicMock()
+    loop_count = 5
+
+    def add_stream_side_effect(**kwargs):
+        # Inhibit the retry loop from running forever, then raise the exception we want to ensure is caught
+        nonlocal loop_count
+        loop_count -= 1
+        if loop_count <= 0:
+            nonlocal nm
+            nm.shutting_down = True
+        raise ValueError("Some other exception")
+
+    nm.js.add_stream = AsyncMock(side_effect=add_stream_side_effect)
+
+    await nm.nats_subscribe({"queue_name": "testqueue", "callback": "some_callback"})
+    assert loop_count == 0
+    assert nm.logger.error.call_count == 5
+    nm.logger.error.assert_has_calls([call("nats_subscribe exception: Some other exception")])
