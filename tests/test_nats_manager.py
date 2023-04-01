@@ -26,10 +26,15 @@ def mock_sleep(create_mock_coro):
     mock, _ = create_mock_coro(to_patch="asyncio.sleep")
     return mock
 
+@pytest.fixture
+def mock_nats_next_msg(create_mock_coro):
+    mock, _ = create_mock_coro(to_patch="nats.aio.subscription.Subscription.next_msg")
+    return mock
+
 # Tests
 
 @pytest.mark.asyncio
-async def test_dreambot_nats_boot_connect_failed(mocker):
+async def test_boot_connect_failed(mocker):
     nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
 
     mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError)
@@ -38,7 +43,7 @@ async def test_dreambot_nats_boot_connect_failed(mocker):
     assert mock_nats_connect.call_count == 1
 
 @pytest.mark.asyncio
-async def test_dreambot_nats_shutdown(mocker, mock_sleep):
+async def test_nats_shutdown(mocker, mock_sleep):
     all_tasks = [MagicMock(), MagicMock(), MagicMock()]
     mock_all_tasks = mocker.patch("asyncio.all_tasks", return_value=all_tasks)
 
@@ -55,7 +60,7 @@ async def test_dreambot_nats_shutdown(mocker, mock_sleep):
         assert task.cancel.call_count == 1
 
 @pytest.mark.asyncio
-async def test_dreambot_nats_publish(mocker):
+async def test_nats_publish(mocker):
     nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
     nm.nc = AsyncMock()
 
@@ -64,7 +69,7 @@ async def test_dreambot_nats_publish(mocker):
     assert nm.nc.publish.has_calls([call("test", "test".encode())])
 
 @pytest.mark.asyncio
-async def test_dreambot_nats_main_shutdown(mocker):
+async def test_main_shutdown(mocker, mock_nats_next_msg):
     nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
     nm.shutdown = AsyncMock()
     objects = [nm]
@@ -81,19 +86,41 @@ async def test_dreambot_nats_main_shutdown(mocker):
     assert nm.shutdown.call_count == 1
     assert loop.stop.call_count == 1
 
-# FIXME: This seems like we would need a whole bunch more mocking of NATS, to be able to fully test Dreambot
-# @pytest.mark.asyncio
-# async def test_dreambot_nats_boot_connect_success(mocker, mock_sleep, mock_nats_jetstream, mock_nats_handle_nats_messages):
-#     dreambot = frontend.irc.Dreambot({"nats_uri": "nats://test:1234",
-#                                                "name":"nats-test",
-#                                                "irc": {}
-#                                                })
+@pytest.mark.asyncio
+async def test_nats_subscribe(mocker, mock_sleep):
+    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm.nc = AsyncMock()
+    nm.js = AsyncMock()
+    callback_count = 5
 
-#     mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock())
-#     # mock_jetstream = mocker.patch("frontend.irc.Dreambot.nats.jetstream", return_value=AsyncMock())
-#     # mock_handle_nats_message = mocker.patch("frontend.irc.Dreambot.handle_nats_messages", return_value=AsyncMock())
+    def next_sub_side_effect():
+        return AsyncMock()
+    def callback(queue_name, msg):
+        nonlocal callback_count
+        callback_count -= 1
+        if callback_count <= 0:
+            nm.shutting_down = True
+        return True
+    cb = MagicMock()
+    cb.callback = callback
 
-#     await dreambot.boot(max_reconnects=1)
-#     assert mock_nats_connect.call_count == 1
-#     assert mock_nats_jetstream.call_count == 1
-#     assert mock_nats_handle_nats_messages.call_count == 1
+    sub_obj = AsyncMock()
+    sub_obj.next_msg = AsyncMock()
+    sub_obj.next_msg.side_effect = next_sub_side_effect # FIXME: I don't understand why this works
+    nm.js.subscribe = sub_obj
+
+    await nm.nats_subscribe({"queue_name": "testqueue", "callback": callback})
+    assert nm.shutting_down == True
+    assert sub_obj.call_count == 1
+    assert callback_count == 0
+
+@pytest.mark.asyncio
+async def test_nats_subscribe_invalid_callback(mocker):
+    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm.nc = AsyncMock()
+    nm.js = AsyncMock()
+
+    with pytest.raises(ValueError):
+        await nm.nats_subscribe({"queue_name": "testqueue"})
+    with pytest.raises(ValueError):
+        await nm.nats_subscribe({"callback": "some_callback"})

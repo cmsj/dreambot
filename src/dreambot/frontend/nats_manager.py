@@ -69,6 +69,11 @@ class FrontendNatsManager:
                 await self.nc.close()
 
     async def nats_subscribe(self, delegate):
+        if "queue_name" not in delegate or "callback" not in delegate:
+            self.logger.error("nats_subscribe delegate missing required keys ('queue_name', 'callback'))")
+            raise ValueError("nats_subscribe delegate missing required keys ('queue_name', 'callback'))")
+            return
+
         while True and not self.shutting_down:
             queue_name = delegate["queue_name"]
             self.logger.info("NATS subscribing to {}".format(queue_name))
@@ -76,6 +81,8 @@ class FrontendNatsManager:
                 stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")
                 self.logger.debug("Created stream: '{}'".format(stream.did_create))
                 sub = await self.js.subscribe(queue_name)
+                self.logger.debug("Created subscription: '{}'".format(sub))
+                self.logger.debug("callback is: {}".format(delegate["callback"]))
 
                 while True and not self.shutting_down:
                     self.logger.debug("Waiting for message on {}".format(queue_name))
@@ -86,7 +93,10 @@ class FrontendNatsManager:
                         # We will remove the message from the queue if the callback returns anything but False
                         delegate_result = delegate["callback"](queue_name, msg.data)
                         if delegate_result is not False:
+                            self.logger.debug("Acking message on '{}'".format(queue_name))
                             await msg.ack()
+                        else:
+                            self.logger.debug("Not acking message on '{}'".format(queue_name))
                     except TimeoutError:
                         continue
             except BadRequestError:
@@ -96,12 +106,14 @@ class FrontendNatsManager:
             except Exception as e:
                 self.logger.error("nats_subscribe exception: {}".format(e))
                 traceback.print_exc()
+                await asyncio.sleep(5)
 
     async def nats_publish(self, subject, data):
         # FIXME: This is woefully inadequate, we should really be pushing via JetStream
         self.logger.debug("Publishing to NATS: {} {}".format(subject, data))
         await self.nc.publish(subject, data)
 
+# FIXME: This is weird and probably should be in some kind of FrontendManager that supervises both FrontendNatsManager and whatever frontend service being used
 async def shutdown(loop, signal=None, objects = []):
     if signal:
         print("Received exit signal {}...".format(signal.name))

@@ -187,7 +187,6 @@ def test_long_irc_line(mocker):
     irc.logger.warning.assert_called_once()
 
 def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
-    caplog.set_level(logging.DEBUG)
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
@@ -258,89 +257,96 @@ def test_handle_response_invalid_json(mock_send_cmd):
     assert irc.logger.error.call_count == 1
 
 
-def test_handle_line_ping(mock_send_cmd):
+@pytest.mark.asyncio
+async def test_handle_line_ping(mock_send_cmd):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {
                                                     "output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
-    asyncio.run(irc.handle_line(b"PING :abc123"))
+    await irc.handle_line(b"PING :abc123")
 
     assert irc.send_cmd.call_count == 1
     irc.send_cmd.assert_has_calls([call('PONG', 'abc123')])
 
 
-def test_handle_line_001(mock_send_cmd):
+@pytest.mark.asyncio
+async def test_handle_line_001(mock_send_cmd):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
-    asyncio.run(irc.handle_line(b"001"))
+    await irc.handle_line(b"001")
 
     assert irc.send_cmd.call_count == 2
     irc.send_cmd.assert_has_calls(
         [call('JOIN', '#test1'), call('JOIN', '#test2')])
 
 
-def test_handle_line_443(mock_send_cmd, mock_send_line):
+@pytest.mark.asyncio
+async def test_handle_line_443(mock_send_cmd, mock_send_line):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
-    asyncio.run(irc.handle_line(b"443"))
+    await irc.handle_line(b"443")
 
     assert irc.send_cmd.call_count == 0
     assert irc.send_line.call_count == 1
     irc.send_line.assert_has_calls([call('NICK abc_')])
     assert irc.server["nickname"] == "abc_"
 
-
-def test_handle_line_privmsg(mock_irc_privmsg):
+@pytest.mark.asyncio
+async def test_handle_line_privmsg(mock_irc_privmsg):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
-    asyncio.run(irc.handle_line(b"PRIVMSG #testchannel :!test"))
+    await irc.handle_line(b"PRIVMSG #testchannel :!test")
 
     assert irc.irc_received_privmsg.call_count == 1
     irc.irc_received_privmsg.assert_has_calls([call(irc.Message(
         prefix=None, command='PRIVMSG', params=['#testchannel', '!test']))])
 
-def test_handle_line_privmsg_publish_raises(mock_send_cmd):
+@pytest.mark.asyncio
+async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": ["!test"], "uri_base": "http://testuri/"}, None)
     irc.cb_publish = AsyncMock(side_effect=Exception("test exception"))
-    asyncio.run(irc.handle_line(b":testuser!testident@testhost PRIVMSG #testchannel :!test some text"))
+    await irc.handle_line(b":testuser!testident@testhost PRIVMSG #testchannel :!test some text")
 
     assert irc.cb_publish.call_count == 1
     irc.cb_publish.assert_has_calls([call('!test', b'{"reply-to": "irc_abc123", "frontend": "irc", "server": "abc123", "channel": "#testchannel", "user": "testuser", "trigger": "!test", "prompt": " some text"}')])
 
-def test_handle_line_unknown(mock_irc_privmsg, mock_send_cmd, mock_send_line):
+@pytest.mark.asyncio
+async def test_handle_line_unknown(mock_irc_privmsg, mock_send_cmd, mock_send_line):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
-    asyncio.run(irc.handle_line(b"401"))
+    await irc.handle_line(b"401")
 
     assert irc.irc_received_privmsg.call_count == 0
     assert irc.send_cmd.call_count == 0
     assert irc.send_line.call_count == 0
 
 
-def test_handle_line_nonunicode(mock_irc_privmsg, mock_send_cmd, mock_send_line):
+@pytest.mark.asyncio
+async def test_handle_line_nonunicode(mock_irc_privmsg, mock_send_cmd, mock_send_line):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
     # This should be interpreted on the 'unknown' path, so no other calls will be made
-    asyncio.run(irc.handle_line(b'\x9c'))
+    await irc.handle_line(b'\x9c')
 
     assert irc.irc_received_privmsg.call_count == 0
     assert irc.send_cmd.call_count == 0
     assert irc.send_line.call_count == 0
 
-def test_handle_line_join():
+@pytest.mark.asyncio
+async def test_handle_line_join():
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc", "channels": [
                                                     "#test1", "#test2"]}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
-    asyncio.run(irc.handle_line(b":testuser!~testident@testhost JOIN #testchannel"))
+    await irc.handle_line(b":testuser!~testident@testhost JOIN #testchannel")
 
     assert irc.full_ident == ":testuser!~testident@testhost "
 
 @pytest.mark.asyncio
-async def test_irc_bootstrap_single_loop_connection_refused(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
+async def test_boot_single_loop_connection_refused(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
@@ -358,7 +364,7 @@ async def test_irc_bootstrap_single_loop_connection_refused(mocker, mock_send_cm
     mock_stream_reader_ateof.assert_not_called()
 
 @pytest.mark.asyncio
-async def test_irc_bootstrap_single_loop_some_other_exception(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
+async def test_boot_single_loop_some_other_exception(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_stream_reader_ateof):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
@@ -376,7 +382,7 @@ async def test_irc_bootstrap_single_loop_some_other_exception(mocker, mock_send_
     mock_stream_reader_ateof.assert_not_called()
 
 @pytest.mark.asyncio
-async def test_irc_bootstrap_single_loop_handshake(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_handle_line):
+async def test_boot_single_loop_handshake(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_handle_line):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
@@ -397,7 +403,7 @@ async def test_irc_bootstrap_single_loop_handshake(mocker, mock_send_cmd, mock_s
 
 
 @pytest.mark.asyncio
-async def test_irc_bootstrap_single_loop_with_reply(mocker, mock_sleep):
+async def test_boot_single_loop_with_reply(mocker, mock_sleep):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
@@ -419,7 +425,7 @@ async def test_irc_bootstrap_single_loop_with_reply(mocker, mock_sleep):
                             call.close()])
 
 @pytest.mark.asyncio
-async def test_irc_bootstrap_reconnect(mocker, mock_sleep):
+async def test_boot_reconnect(mocker, mock_sleep):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 

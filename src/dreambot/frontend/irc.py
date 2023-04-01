@@ -111,7 +111,7 @@ class FrontendIRC:
         if len(line) > 510:
             self.logger.warning("Line length exceeds RFC limit of 512 characters: {}".format(len(line)))
         self.logger.debug('-> {}'.format(line))
-        self.writer.write(line.encode('utf-8') + b'\r\n')
+        self.writer.write(line.encode('utf-8') + b'\r\n') # FIXME: This is never awaited
 
     def send_cmd(self, cmd, *params):
         params = list(params)  # copy
