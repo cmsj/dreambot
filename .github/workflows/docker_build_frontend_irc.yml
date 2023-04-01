@@ -7,6 +7,7 @@ on:
     paths:
       - 'docker/Dockerfile-frontend-irc'
       - 'src/dreambot/frontend'
+      - 'src/dreambot/dreambot_frontend_irc.py'
       - 'pyproject.toml'
       - '.github/workflows/docker_build_frontend_irc.yml'
 

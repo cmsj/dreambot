@@ -4,8 +4,8 @@ import logging
 import sys
 
 # import frontend
-import frontend.nats_manager
-import frontend.irc
+import dreambot.frontend.nats_manager
+import dreambot.frontend.irc
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dreambot_frontend_irc')
