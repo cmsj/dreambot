@@ -5,7 +5,7 @@ import sys
 import openai
 from openai.error import APIError, Timeout, ServiceUnavailableError, RateLimitError, AuthenticationError, InvalidRequestError
 
-import dreambot_backend_base
+from dreambot import dreambot_backend_base
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
                 data["error"] = "Unknown error, ask your bot admin to check logs."
             return data
 
-        await super().boot(loop, gpt_callback)
+        await super().boot(gpt_callback)
 
 
 def main():

@@ -97,7 +97,8 @@ class FrontendNatsManager:
                             await msg.ack()
                         else:
                             self.logger.debug("Not acking message on '{}'".format(queue_name))
-                    except TimeoutError:
+                    except:
+                        await asyncio.sleep(1)
                         continue
             except BadRequestError:
                 self.logger.warning("NATS consumer '{}' already exists, likely a previous instance of us hasn't timed out yet".format(queue_name))
