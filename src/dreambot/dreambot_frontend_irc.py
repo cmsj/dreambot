@@ -24,7 +24,7 @@ def main():
         servers = []
         delegates = []
 
-        nats_manager = frontend.nats_manager.FrontendNatsManager(nats_uri=options["nats_uri"])
+        nats_manager = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri=options["nats_uri"])
         loop = asyncio.get_event_loop()
 
         async def trigger_callback(queue_name, message):
@@ -32,7 +32,7 @@ def main():
             await nats_manager.nats_publish(queue_name, message)
 
         for server_config in options["irc"]:
-            server = frontend.irc.FrontendIRC(server_config, options, trigger_callback)
+            server = dreambot.frontend.irc.FrontendIRC(server_config, options, trigger_callback)
             servers.append(server)
             delegates.append({
                 "queue_name": server.queue_name(),

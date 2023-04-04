@@ -16,7 +16,7 @@ class DreambotBackendBase:
         self.nats_uri = nats_options["nats_uri"]
         self.nats_queue_name = nats_options["nats_queue_name"]
 
-    async def boot(self, loop, cb):
+    async def boot(self, cb):
         if not cb:
             logger.error("No callback provided to handle_message!")
             return
@@ -30,6 +30,7 @@ class DreambotBackendBase:
             logger.debug("Received message on queue '{}': {}".format(self.nats_queue_name, msg.data.decode()))
             data = json.loads(msg.data.decode())
             data = self.cb(data)
+            logger.debug("Sending response to queue '{}': {}".format(data["reply-to"], json.dumps(data).encode()))
             await self.nats.publish(data["reply-to"], json.dumps(data).encode())
 
         logger.info("Subscribing to queue: {}".format(self.nats_queue_name))
