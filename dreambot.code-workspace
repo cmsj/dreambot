@@ -14,6 +14,16 @@
 			"--cov-report=xml",
 			"tests"
 		],
-		"pythonTestExplorer.testFramework": "pytest"
+        "pythonTestExplorer.testFramework": "pytest",
+        "files.exclude": {
+            ".coverage": true,
+            ".pytest_cache/": true,
+            "**/__pycache__": true,
+            "coverage.xml": true,
+            "dist/": true
+        },
+        "workbench.tree.indent": 16,
+        "workbench.tree.renderIndentGuides": "always",
+        "github.gitProtocol": "ssh"
 	}
 }
