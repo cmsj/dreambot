@@ -317,13 +317,19 @@ class Dreambot:
             print("i think it's all dead")
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 2:
         print("Usage: {} <config.json>".format(sys.argv[0]))
         sys.exit(1)
 
     with open(sys.argv[1]) as f:
         opt = json.load(f)
+
+    bot = Dreambot(opt)
+    asyncio.run(bot.main())
+
+if __name__ == "__main__":
+    main()
 
     # Sample JSON config file:
     # {
@@ -347,6 +353,3 @@ if __name__ == "__main__":
     #    "esrgan_bg_tile": 400,
     #    "ws_uri": "wss://ws.server.com:9999/"
     # }
-
-    bot = Dreambot(opt)
-    asyncio.run(bot.main())

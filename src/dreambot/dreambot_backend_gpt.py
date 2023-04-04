@@ -47,7 +47,7 @@ class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
         await super().boot(loop, gpt_callback)
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 2:
         print("Usage: {} <config.json>".format(sys.argv[0]))
         sys.exit(1)
@@ -66,6 +66,9 @@ if __name__ == "__main__":
     finally:
         loop.close()
         logger.info("Dreambot backend shutting down...")
+
+if __name__ == "__main__":
+    main()
 
 # Example JSON config:
 # {

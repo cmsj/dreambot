@@ -43,6 +43,7 @@ test = [
 [project.scripts]
 dreambot_frontend_irc = "dreambot.dreambot_frontend_irc:main"
 dreambot_backend_gpt = "dreambot.dreambot_backend_gpt:main"
+dreambot_backend_stabdiff = "dreambot.dreambot_backend_stabdiff:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
