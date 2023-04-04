@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - 'main'
+    tags:
+      - v*
     paths:
       - 'Dockerfile'
       - 'src/dreambot/'
@@ -82,7 +84,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.output.labels }}
+          labels: ${{ steps.meta.outputs.labels }}
 
       - name: Delete old images
         uses: actions/delete-package-versions@v4
