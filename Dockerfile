@@ -7,4 +7,5 @@ COPY . /app
 RUN pushd /app ; \
     pip3 install . ; \
     popd ; \
-    rm -rf /app
+    rm -rf /app ;\
+    rm -rf /root/.cache
