@@ -91,7 +91,7 @@ class FrontendNatsManager:
                         self.logger.debug("Received message on '{}': {}".format(queue_name, msg.data.decode()))
 
                         # We will remove the message from the queue if the callback returns anything but False
-                        delegate_result = delegate["callback"](queue_name, msg.data)
+                        delegate_result = await delegate["callback"](queue_name, msg.data)
                         if delegate_result is not False:
                             self.logger.debug("Acking message on '{}'".format(queue_name))
                             await msg.ack()

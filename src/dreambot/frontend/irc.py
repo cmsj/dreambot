@@ -44,8 +44,8 @@ class FrontendIRC:
             try:
                 self.reader, self.writer = await asyncio.open_connection(self.server["host"], self.server["port"], ssl=self.server["ssl"])
                 try:
-                    self.send_line('NICK ' + self.server["nickname"])
-                    self.send_line('USER ' + self.server["ident"] + ' * * :' + self.server["realname"])
+                    await self.send_line('NICK ' + self.server["nickname"])
+                    await self.send_line('USER ' + self.server["ident"] + ' * * :' + self.server["realname"])
                     self.logger.info("IRC connection booted.")
 
                     # Loop until the connection is closed
@@ -54,7 +54,7 @@ class FrontendIRC:
                         await self.handle_line(data)
                 finally:
                     self.logger.info("IRC connection closed")
-                    self.writer.close()
+                    await self.writer.close()
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
             except Exception as e:
@@ -107,19 +107,19 @@ class FrontendIRC:
 
         return self.Message(prefix, command, params)
 
-    def send_line(self, line):
+    async def send_line(self, line):
         if len(line) > 510:
             self.logger.warning("Line length exceeds RFC limit of 512 characters: {}".format(len(line)))
         self.logger.debug('-> {}'.format(line))
-        self.writer.write(line.encode('utf-8') + b'\r\n') # FIXME: This is never awaited
+        await self.writer.write(line.encode('utf-8') + b'\r\n') # FIXME: This is never awaited
 
-    def send_cmd(self, cmd, *params):
+    async def send_cmd(self, cmd, *params):
         params = list(params)  # copy
         if params:
             if ' ' in params[-1]:
                 params[-1] = ':' + params[-1]
         params = [cmd] + params
-        self.send_line(' '.join(params))
+        await self.send_line(' '.join(params))
 
     async def handle_line(self, line):
         try:
@@ -137,23 +137,23 @@ class FrontendIRC:
                 # might be an error
                 self.logger.error("Possible server error: {}".format(str(message)))
             if message.command == 'PING':
-                self.send_cmd('PONG', *message.params)
+                await self.send_cmd('PONG', *message.params)
             elif message.command == '001':
-                self.irc_join(self.server["channels"])
+                await self.irc_join(self.server["channels"])
             elif message.command == '443':
-                self.irc_renick()
+                await self.irc_renick()
             elif message.command == 'PRIVMSG':
                 await self.irc_received_privmsg(message)
             elif message.command == 'JOIN':
                 self.irc_received_join(message)
 
-    def irc_join(self, channels):
+    async def irc_join(self, channels):
         for channel in channels:
-            self.send_cmd('JOIN', channel)
+            await self.send_cmd('JOIN', channel)
 
-    def irc_renick(self):
+    async def irc_renick(self):
         self.server["nickname"] = self.server["nickname"] + '_'
-        self.send_line('NICK ' + self.server["nickname"])
+        await self.send_line('NICK ' + self.server["nickname"])
 
     def irc_received_join(self, message):
         nick = message.prefix.nick
@@ -174,10 +174,10 @@ class FrontendIRC:
                 # Publish the trigger
                 try:
                     await self.cb_publish(trigger, packet.encode())
-                    self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+                    await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
                 except Exception as e:
                     traceback.print_exc()
-                    self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence failed.".format(source)])
+                    await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence failed.".format(source)])
 
     def clean_filename(self, filename, whitelist=None, replace=' ', char_limit=255):
         if not whitelist:
@@ -193,7 +193,7 @@ class FrontendIRC:
         cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
         return cleaned_filename[:char_limit]
 
-    def cb_handle_response(self, _, data):
+    async def cb_handle_response(self, _, data):
         message = ""
 
         try:
@@ -233,8 +233,9 @@ class FrontendIRC:
             max_chunk_size -= len("{} PRIVMSG {} :".format(self.full_ident, resp["channel"]))
             chunks += [line[i:i+max_chunk_size] for i in range(0, len(line), max_chunk_size)]
 
+        loop = asyncio.get_event_loop()
         for chunk in chunks:
-            self.send_cmd('PRIVMSG', *[resp["channel"], chunk])
+            await self.send_cmd('PRIVMSG', *[resp["channel"], chunk])
 
 # Example JSON config:
 # {
