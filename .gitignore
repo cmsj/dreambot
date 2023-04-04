@@ -1,5 +1,6 @@
 .DS_Store
 **/__pycache__
+dist/
 .coverage
 **/coverage.xml
 **/config.json

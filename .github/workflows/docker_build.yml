@@ -5,16 +5,15 @@ on:
     branches:
       - 'main'
     paths:
-      - 'docker/Dockerfile-frontend-irc'
-      - 'src/dreambot/frontend'
-      - 'src/dreambot/dreambot_frontend_irc.py'
+      - 'Dockerfile'
+      - 'src/dreambot/'
       - 'pyproject.toml'
-      - '.github/workflows/docker_build_frontend_irc.yml'
+      - '.github/workflows/docker_build.yml'
 
 env:
   REGISTRY: ghcr.io
   REGISTRY_USER: cmsj
-  IMAGE_NAME: dreambot-frontend-irc
+  IMAGE_NAME: dreambot
 
 jobs:
   test:
@@ -79,7 +78,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v3
         with:
-          file: 'docker/Dockerfile-frontend-irc'
+          file: 'Dockerfile'
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

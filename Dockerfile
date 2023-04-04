@@ -4,7 +4,7 @@ WORKDIR /app
 VOLUME [ "/config" ]
 
 COPY . /app
-RUN cd /app ; pip3 install . ; cd -
-#RUN rm -rf /app
-
-CMD [ "dreambot_frontend_irc.py", "/config/config.json" ]
+RUN pushd /app ; \
+    pip3 install . ; \
+    popd ; \
+    rm -rf /app
