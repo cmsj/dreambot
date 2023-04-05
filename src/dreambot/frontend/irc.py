@@ -108,10 +108,13 @@ class FrontendIRC:
         return self.Message(prefix, command, params)
 
     async def send_line(self, line):
+        if not self.writer:
+            raise ValueError("No writer available")
+
         if len(line) > 510:
             self.logger.warning("Line length exceeds RFC limit of 512 characters: {}".format(len(line)))
         self.logger.debug('-> {}'.format(line))
-        await self.writer.write(line.encode('utf-8') + b'\r\n') # FIXME: This is never awaited
+        self.writer.write(line.encode('utf-8') + b'\r\n') # FIXME: This is never awaited
 
     async def send_cmd(self, cmd, *params):
         params = list(params)  # copy
