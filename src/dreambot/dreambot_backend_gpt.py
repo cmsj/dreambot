@@ -25,9 +25,6 @@ class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
         logger.debug("Set GPT options to: api_key={}, organization={}, model={}".format(self.api_key, self.organization, self.model))
 
     async def boot(self):
-        openai.api_key = self.api_key
-        openai.organization = self.organization
-
         def gpt_callback(data):
             try:
                 response = openai.ChatCompletion.create(
@@ -52,6 +49,9 @@ class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
                 data["error"] = "Unknown error, ask your bot admin to check logs."
             return data
 
+        # Set the details OpenAI need, and call the base class boot with our callback
+        openai.api_key = self.api_key
+        openai.organization = self.organization
         await super().boot(gpt_callback)
 
 
