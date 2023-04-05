@@ -174,7 +174,7 @@ class FrontendIRC:
                 # Publish the trigger
                 try:
                     await self.cb_publish(trigger, packet.encode())
-                    await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
+                    # await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
                 except Exception as e:
                     traceback.print_exc()
                     await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence failed.".format(source)])
