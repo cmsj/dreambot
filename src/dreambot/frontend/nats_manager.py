@@ -85,7 +85,7 @@ class FrontendNatsManager:
                 self.logger.debug("callback is: {}".format(delegate["callback"]))
 
                 while True and not self.shutting_down:
-                    self.logger.debug("Waiting for message on {}".format(queue_name))
+                    self.logger.debug("Waiting for NATS message on {}".format(queue_name))
                     try:
                         msg = await sub.next_msg()
                         self.logger.debug("Received message on '{}': {}".format(queue_name, msg.data.decode()))

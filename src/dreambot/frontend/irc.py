@@ -49,18 +49,29 @@ class FrontendIRC:
                     self.logger.info("IRC connection booted.")
 
                     # Loop until the connection is closed
-                    while not self.reader.at_eof():
-                        data = await self.reader.readline()
-                        await self.handle_line(data)
+                    while True:
+                        self.logger.debug("Waiting for IRC data...")
+                        try:
+                            data = await asyncio.wait_for(self.reader.readline(), timeout=300)
+                            await self.handle_line(data)
+                        except (asyncio.TimeoutError, ConnectionResetError) as e:
+                            self.logger.error("IRC connection timeout: {}".format(e))
+                            break
+
                 finally:
                     self.logger.info("IRC connection closed")
-                    await self.writer.close()
+                    self.writer.close()
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
             except Exception as e:
                 self.logger.error("IRC connection error: {}".format(e))
-                traceback.print_exc()
             finally:
+                self.logger.debug("IRC connection closed")
+                if self.writer:
+                    self.writer.close()
+                    await self.writer.wait_closed()
+                if self.reader:
+                    self.reader.feed_eof()
                 if self.should_reconnect:
                     self.logger.info("Sleeping before reconnecting...")
                     await asyncio.sleep(5)
@@ -114,7 +125,8 @@ class FrontendIRC:
         if len(line) > 510:
             self.logger.warning("Line length exceeds RFC limit of 512 characters: {}".format(len(line)))
         self.logger.debug('-> {}'.format(line))
-        self.writer.write(line.encode('utf-8') + b'\r\n') # FIXME: This is never awaited
+        self.writer.write(line.encode('utf-8') + b'\r\n')
+        await self.writer.drain()
 
     async def send_cmd(self, cmd, *params):
         params = list(params)  # copy
