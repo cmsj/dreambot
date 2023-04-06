@@ -36,13 +36,15 @@ def mock_stream_reader_ateof(mocker):
 
 @pytest.fixture
 def mock_send_cmd(mocker):
-    yield mocker.patch("dreambot.frontend.irc.FrontendIRC.send_cmd")
-
+    mock = AsyncMock()
+    mocker.patch("dreambot.frontend.irc.FrontendIRC.send_cmd")
+    return mock
 
 @pytest.fixture
 def mock_send_line(mocker):
-    yield mocker.patch("dreambot.frontend.irc.FrontendIRC.send_line")
-
+    mock = AsyncMock()
+    mocker.patch("dreambot.frontend.irc.FrontendIRC.send_line")
+    return mock
 
 @pytest.fixture
 def mock_irc_privmsg(mocker):
@@ -155,23 +157,28 @@ async def test_irc_renick(mock_send_line):
     assert irc.send_line.call_count == 2
 
 
-def test_irc_privmsg(mock_send_cmd):
+@pytest.mark.asyncio
+async def test_irc_privmsg(mock_send_cmd):
+    cb_publish_called = False
+
     async def cb_publish(trigger, packet):
+        nonlocal cb_publish_called
+        cb_publish_called = True
         pass
 
     irc = dreambot.frontend.irc.FrontendIRC(
-        {"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp", "triggers": []}, None)
+        {"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp", "triggers": ["!test"]}, None)
     irc.cb_publish = cb_publish
 
     message = irc.parse_line(
         ":SomeUser`^!some@1.2.3.4 PRIVMSG #channel :Some message")
-    asyncio.run(irc.irc_received_privmsg(message))
+    await irc.irc_received_privmsg(message)
     assert irc.send_cmd.call_count == 0
 
     irc.options["triggers"].append("!test")
     message = irc.parse_line(":OtherUser^!other@2.3.4.5 PRIVMSG #place :!test")
-    asyncio.run(irc.irc_received_privmsg(message))
-    assert irc.send_cmd.call_count == 1
+    await irc.irc_received_privmsg(message)
+    assert cb_publish_called == True
 
 @pytest.mark.asyncio
 async def test_long_irc_line(mocker):
@@ -394,13 +401,15 @@ async def test_boot_single_loop_handshake(mocker, mock_send_cmd, mock_send_line,
     reader.feed_data(b'Testing input line, does not need to be RFC compliant')
     reader.feed_eof()
 
-    writer = MagicMock()
+    writer = AsyncMock()
     mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
+    irc.send_line = mock_send_line
 
     await irc.boot(reconnect=False)
 
     mock_asyncio_open_connection.assert_called_once()
     mock_sleep.assert_not_called()
+    assert mock_send_line.call_count == 2
     mock_send_line.assert_has_calls([call('NICK abc'), call('USER testident * * :testrealname')])
     mock_send_cmd.assert_not_called()
     mock_handle_line.assert_has_calls([call(b'Testing input line, does not need to be RFC compliant')])
@@ -423,13 +432,24 @@ async def test_boot_single_loop_with_reply(mocker, mock_sleep):
     mock_asyncio_open_connection.assert_called_once()
     mock_sleep.assert_not_called()
     writer.assert_has_calls([call.write(b'NICK abc\r\n'),
-                            call.write(b'USER testident * * :testrealname\r\n'),
-                            call.write(b'JOIN #test1\r\n'),
-                            call.write(b'JOIN #test2\r\n'),
-                            call.close()])
+                             call.drain(),
+                             call.__bool__(),
+                             call.write(b'USER testident * * :testrealname\r\n'),
+                             call.drain(),
+                             call.__bool__(),
+                             call.write(b'JOIN #test1\r\n'),
+                             call.drain(),
+                             call.__bool__(),
+                             call.write(b'JOIN #test2\r\n'),
+                             call.drain(),
+                             call.close(),
+                             call.wait_closed(),
+                             call.__bool__(),
+                             call.close(),
+                             call.wait_closed()])
 
 @pytest.mark.asyncio
-async def test_boot_reconnect(mocker, mock_sleep):
+async def test_boot_reconnect_ConnectionRefusedError(mocker, mock_sleep):
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
                                                     "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
 
@@ -445,6 +465,38 @@ async def test_boot_reconnect(mocker, mock_sleep):
             irc.should_reconnect = False
         raise ConnectionRefusedError
     mock_asyncio_open_connection.side_effect = side_effect
+
+    await irc.boot()
+
+    assert(mock_asyncio_open_connection.call_count == 5)
+
+# Not really sure how to write this test, since it's a loop that's supposed to be broken by an exception
+@pytest.mark.asyncio
+async def test_boot_reconnect_ConnectionResetError(mocker, mock_sleep):
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "port": "1234", "ssl": False, "nickname": "abc", "channels": [
+                                                    "#test1", "#test2"], "ident": "testident", "realname": "testrealname"}, {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"}, None)
+
+    reconnect_count = 5
+    reader = AsyncMock()
+    async def mock_readline():
+        nonlocal reconnect_count
+        nonlocal irc
+        reconnect_count -= 1
+        if reconnect_count <= 0:
+            irc.should_reconnect = False
+        raise ConnectionResetError
+    reader.readline = AsyncMock(side_effect=mock_readline)
+    reader.at_eof = MagicMock(return_value=False)
+
+    writer = AsyncMock()
+    writer.wait_closed = AsyncMock()
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
+
+    def side_effect(*args, **kwargs):
+        if mock_asyncio_open_connection.call_count >= 5:
+            irc.should_reconnect = False
+        raise ConnectionResetError
+    # mock_asyncio_open_connection.side_effect = side_effect
 
     await irc.boot()
 
