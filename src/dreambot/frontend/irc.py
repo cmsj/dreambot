@@ -28,6 +28,7 @@ class FrontendIRC:
     f_namemax = None
     full_ident = ""
     should_reconnect = True
+    irc_timeout = 300
 
     def __init__(self, server, options, cb_publish):
         self.logger = logging.getLogger('dreambot.irc.{}'.format(server["host"]))
@@ -55,7 +56,7 @@ class FrontendIRC:
                             if self.reader.at_eof():
                                 # There's nothing more waiting for us
                                 break
-                            data = await asyncio.wait_for(self.reader.readline(), timeout=300)
+                            data = await asyncio.wait_for(self.reader.readline(), timeout=self.irc_timeout)
                             await self.handle_line(data)
                         except (asyncio.TimeoutError, ConnectionResetError) as e:
                             self.logger.error("IRC connection timeout: {}".format(e))
