@@ -52,6 +52,9 @@ class FrontendIRC:
                     while True:
                         self.logger.debug("Waiting for IRC data...")
                         try:
+                            if self.reader.at_eof():
+                                # There's nothing more waiting for us
+                                break
                             data = await asyncio.wait_for(self.reader.readline(), timeout=300)
                             await self.handle_line(data)
                         except (asyncio.TimeoutError, ConnectionResetError) as e:
@@ -61,6 +64,7 @@ class FrontendIRC:
                 finally:
                     self.logger.info("IRC connection closed")
                     self.writer.close()
+                    await self.writer.wait_closed()
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
             except Exception as e:
