@@ -44,6 +44,8 @@ class DreambotBackendInvokeAI(dreambot_backend_base.DreambotBackendBase):
         @self.sio.event
         def invocation_complete(data):
             id = data["graph_execution_state_id"]
+            self.sio.emit('unsubscribe', {'session': id})
+
             logger.info("Invocation complete: {}".format(id))
             logger.debug("Invocation complete data: {}".format(data))
             request = self.request_cache[id]
@@ -61,10 +63,11 @@ class DreambotBackendInvokeAI(dreambot_backend_base.DreambotBackendBase):
                 request["reply-image"] = base64.b64encode(r.content).decode('utf8')
 
             logger.debug("Sending image response to queue '{}': for {} <{}> {}".format(request["reply-to"], request["channel"], request["user"], request["prompt"]))
-            print(json.dumps(request).encode())
+
             loop = asyncio.new_event_loop()
             loop.run_until_complete(self.nats.publish(request["reply-to"], json.dumps(request).encode()))
             loop.close()
+            logger.debug("Sent")
 
         def invokeai_callback(data):
             try:
