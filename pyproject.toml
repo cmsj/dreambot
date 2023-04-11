@@ -29,7 +29,8 @@ classifiers = [
 dependencies = [
     "asyncio==3.4.3",
     "openai==0.27.2",
-    "nats-py==2.2.0"
+    "nats-py==2.2.0",
+    "python-socketio[client]"
 ]
 
 [project.optional-dependencies]
@@ -43,7 +44,7 @@ test = [
 [project.scripts]
 dreambot_frontend_irc = "dreambot.dreambot_frontend_irc:main"
 dreambot_backend_gpt = "dreambot.dreambot_backend_gpt:main"
-dreambot_backend_stabdiff = "dreambot.dreambot_backend_stabdiff:main"
+dreambot_backend_invokeai = "dreambot.dreambot_backend_invokeai:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
