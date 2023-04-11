@@ -30,7 +30,8 @@ dependencies = [
     "asyncio==3.4.3",
     "openai==0.27.2",
     "nats-py==2.2.0",
-    "python-socketio[client]"
+    "python-socketio[client]",
+    "requests"
 ]
 
 [project.optional-dependencies]

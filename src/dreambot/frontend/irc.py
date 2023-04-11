@@ -9,9 +9,9 @@ import string
 import traceback
 from collections import namedtuple
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger('dreambot_frontend_irc')
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 class FrontendIRC:
     # Various IRC support types/functions
@@ -32,7 +32,7 @@ class FrontendIRC:
 
     def __init__(self, server, options, cb_publish):
         self.logger = logging.getLogger('dreambot.irc.{}'.format(server["host"]))
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging.DEBUG)
         self.server = server
         self.options = options
         self.cb_publish = cb_publish
@@ -236,6 +236,9 @@ class FrontendIRC:
         elif "reply-text" in resp:
             message = "{}: {}".format(resp["user"], resp["reply-text"])
             self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-text"]))
+        elif "reply-none" in resp:
+            self.logger.info("SILENCE FOR {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-none"]))
+            return
         elif "error" in resp:
             message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
             self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message))
