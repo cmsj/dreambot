@@ -7,9 +7,9 @@ from openai.error import APIError, Timeout, ServiceUnavailableError, RateLimitEr
 
 from dreambot.backend import dreambot_backend_base
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
     api_key = None

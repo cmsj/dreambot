@@ -9,9 +9,9 @@ import string
 import traceback
 from collections import namedtuple
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('dreambot_frontend_irc')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 class FrontendIRC:
     # Various IRC support types/functions
@@ -32,7 +32,7 @@ class FrontendIRC:
 
     def __init__(self, server, options, cb_publish):
         self.logger = logging.getLogger('dreambot.irc.{}'.format(server["host"]))
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
         self.server = server
         self.options = options
         self.cb_publish = cb_publish
