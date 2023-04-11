@@ -1,4 +1,4 @@
-name: IRC Frontend CI Build
+name: Docker CI Build
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
       - v*
     paths:
       - 'Dockerfile'
-      - 'src/dreambot/'
+      - 'src/dreambot/**'
       - 'pyproject.toml'
       - '.github/workflows/docker_build.yml'
 
