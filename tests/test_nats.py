@@ -66,10 +66,11 @@ async def test_nats_shutdown(mocker, mock_sleep):
 async def test_nats_publish(mocker):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
     nm.nc = AsyncMock()
+    nm.js = AsyncMock()
 
     await nm.nats_publish("test", "test")
-    assert nm.nc.publish.call_count == 1
-    assert nm.nc.publish.has_calls([call("test", "test".encode())])
+    assert nm.js.publish.call_count == 1
+    assert nm.js.publish.has_calls([call("test", "test".encode())])
 
 @pytest.mark.asyncio
 async def test_main_shutdown(mocker, mock_nats_next_msg):

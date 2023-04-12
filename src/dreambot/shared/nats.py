@@ -107,9 +107,8 @@ class NatsManager:
                 await asyncio.sleep(5)
 
     async def nats_publish(self, subject, data):
-        # FIXME: This is woefully inadequate, we should really be pushing via JetStream
         self.logger.debug("Publishing to NATS: {} {}".format(subject, data))
-        await self.nc.publish(subject, data)
+        await self.js.publish(subject, data)
 
 # FIXME: This is weird and probably should be in some kind of FrontendManager that supervises both FrontendNatsManager and whatever frontend service being used
 async def shutdown(loop, signal=None, objects = []):
