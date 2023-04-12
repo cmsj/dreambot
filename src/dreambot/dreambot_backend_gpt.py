@@ -5,13 +5,9 @@ import sys
 import openai
 from openai.error import APIError, Timeout, ServiceUnavailableError, RateLimitError, AuthenticationError, InvalidRequestError
 
-from dreambot.backend import dreambot_backend_base
+from dreambot.backend.base import DreambotBackendBase
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
+class DreambotBackendGPT(DreambotBackendBase):
     api_key = None
     organization = None
     model = None
@@ -23,7 +19,7 @@ class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
         self.api_key = gpt_options["api_key"]
         self.organization = gpt_options["organization"]
         self.model = gpt_options["model"]
-        logger.debug("Set GPT options to: api_key={}, organization={}, model={}".format(self.api_key, self.organization, self.model))
+        self.logger.debug("Set GPT options to: api_key={}, organization={}, model={}".format(self.api_key, self.organization, self.model))
 
     def cache_name_for_prompt(self, data):
         return "{}_{}_{}".format(data["reply-to"], data["channel"], data["user"])
@@ -40,15 +36,15 @@ class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
                 # Ensure we have a valid cache line for this user
                 cache_key = self.cache_name_for_prompt(data)
                 if cache_key not in self.chat_cache:
-                    logger.debug("Creating new cache entry for {}".format(cache_key))
+                    self.logger.debug("Creating new cache entry for {}".format(cache_key))
                     self.reset_cache(cache_key)
 
                 # Determine if we're adding to the cache or starting a new conversation
                 if not prompt.startswith("!followup"):
-                    logger.debug("Starting new conversation for '{}'".format(cache_key))
+                    self.logger.debug("Starting new conversation for '{}'".format(cache_key))
                     self.reset_cache(cache_key)
                 else:
-                    logger.debug("Adding to existing conversation for '{}'".format(cache_key))
+                    self.logger.debug("Adding to existing conversation for '{}'".format(cache_key))
 
                 # Now that our cache is in the right state, add this new prompt to it
                 self.chat_cache[cache_key].append(message)
@@ -61,16 +57,16 @@ class DreambotBackendGPT(dreambot_backend_base.DreambotBackendBase):
                 data["reply-text"] = reply
                 self.chat_cache[cache_key].append({"role": "assistant", "content": reply})
             except (APIError, Timeout, ServiceUnavailableError) as e:
-                logger.error("GPT service access error: {}".format(e))
+                self.logger.error("GPT service access error: {}".format(e))
                 data["error"] = "GPT service unavailable, try again."
             except (RateLimitError, AuthenticationError) as e:
-                logger.error("GPT service query error: {}".format(e))
+                self.logger.error("GPT service query error: {}".format(e))
                 data["error"] = "GPT service error, ask your bot admin to check logs."
             except InvalidRequestError as e:
-                logger.error("GPT request error: {}".format(e))
+                self.logger.error("GPT request error: {}".format(e))
                 data["error"] = "GPT request error, ask your bot admin to check logs."
             except Exception as e:
-                logger.error("Unknown error: {}".format(e))
+                self.logger.error("Unknown error: {}".format(e))
                 data["error"] = "Unknown error, ask your bot admin to check logs."
             return data
 
@@ -90,7 +86,7 @@ def main():
 
     loop = asyncio.get_event_loop()
 
-    logger.info("Dreamboot backend starting up...")
+    logging.info("Dreamboot backend starting up...")
     try:
         async_tasks = []
         gpt = DreambotBackendGPT(options["nats"], options["gpt"])
@@ -98,7 +94,7 @@ def main():
         loop.run_forever()
     finally:
         loop.close()
-        logger.info("Dreambot backend shutting down...")
+        logging.info("Dreambot backend shutting down...")
 
 if __name__ == "__main__":
     main()

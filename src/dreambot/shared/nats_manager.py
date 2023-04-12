@@ -6,9 +6,7 @@ import traceback
 from nats.errors import TimeoutError, NoServersError
 from nats.js.errors import BadRequestError
 
-logging.basicConfig(level=logging.INFO)
-
-class FrontendNatsManager:
+class NatsManager:
     logger = None
     nats_uri = None
     nc = None
@@ -16,12 +14,11 @@ class FrontendNatsManager:
     nats_tasks = None
     shutting_down = None
 
-    def __init__(self, logging_level=logging.INFO, nats_uri=None):
+    def __init__(self, nats_uri=None):
         self.nats_uri = nats_uri
         self.nats_tasks = []
         self.shutting_down = False
-        self.logger = logging.getLogger("FrontendNatsManager")
-        self.logger.setLevel(logging_level)
+        self.logger = logging.getLogger("NatsManager")
 
     async def shutdown(self):
         self.shutting_down = True

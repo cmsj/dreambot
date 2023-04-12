@@ -3,7 +3,7 @@ import asyncio
 import nats
 import signal
 import time
-import dreambot.frontend.nats_manager
+import dreambot.shared.nats_manager
 from unittest.mock import call, patch, AsyncMock, MagicMock
 from nats.js.errors import BadRequestError
 
@@ -38,7 +38,7 @@ def mock_nats_next_msg(create_mock_coro):
 
 @pytest.mark.asyncio
 async def test_boot_connect_failed(mocker):
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
 
     mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError)
 
@@ -50,7 +50,7 @@ async def test_nats_shutdown(mocker, mock_sleep):
     all_tasks = [MagicMock(), MagicMock(), MagicMock()]
     mock_all_tasks = mocker.patch("asyncio.all_tasks", return_value=all_tasks)
 
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
     nm.nats_tasks = [MagicMock(), MagicMock()]
     nm.nc = AsyncMock()
 
@@ -64,7 +64,7 @@ async def test_nats_shutdown(mocker, mock_sleep):
 
 @pytest.mark.asyncio
 async def test_nats_publish(mocker):
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
     nm.nc = AsyncMock()
 
     await nm.nats_publish("test", "test")
@@ -73,25 +73,25 @@ async def test_nats_publish(mocker):
 
 @pytest.mark.asyncio
 async def test_main_shutdown(mocker, mock_nats_next_msg):
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
     nm.shutdown = AsyncMock()
     objects = [nm]
     loop = AsyncMock()
 
-    await dreambot.frontend.nats_manager.shutdown(loop, None, objects=objects)
+    await dreambot.shared.nats_manager.shutdown(loop, None, objects=objects)
     assert nm.shutdown.call_count == 1
     assert loop.stop.call_count == 1
 
     nm.shutdown.reset_mock()
     loop.stop.reset_mock()
 
-    await dreambot.frontend.nats_manager.shutdown(loop, signal.SIGINT, objects=objects)
+    await dreambot.shared.nats_manager.shutdown(loop, signal.SIGINT, objects=objects)
     assert nm.shutdown.call_count == 1
     assert loop.stop.call_count == 1
 
 @pytest.mark.asyncio
 async def test_nats_subscribe(mocker, mock_sleep):
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
     nm.nc = AsyncMock()
     nm.js = AsyncMock()
     callback_count = 5
@@ -119,7 +119,7 @@ async def test_nats_subscribe(mocker, mock_sleep):
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_invalid_callback(mocker):
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
     nm.nc = AsyncMock()
     nm.js = AsyncMock()
 
@@ -130,7 +130,7 @@ async def test_nats_subscribe_invalid_callback(mocker):
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_badrequest(mocker, mock_sleep):
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
     nm.js = MagicMock()
     nm.logger.warning = MagicMock()
     loop_count = 5
@@ -153,7 +153,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_other_exception(mocker, mock_sleep):
-    nm = dreambot.frontend.nats_manager.FrontendNatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats_manager.NatsManager(nats_uri="nats://test:1234")
     nm.js = MagicMock()
     nm.logger.error = MagicMock()
     loop_count = 5

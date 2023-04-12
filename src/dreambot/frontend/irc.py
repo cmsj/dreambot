@@ -9,10 +9,6 @@ import string
 import traceback
 from collections import namedtuple
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger('dreambot_frontend_irc')
-logger.setLevel(logging.INFO)
-
 class FrontendIRC:
     # Various IRC support types/functions
     Message = namedtuple('Message', 'prefix command params')
@@ -31,8 +27,7 @@ class FrontendIRC:
     irc_timeout = 300
 
     def __init__(self, server, options, cb_publish):
-        self.logger = logging.getLogger('dreambot.irc.{}'.format(server["host"]))
-        self.logger.setLevel(logging.INFO)
+        self.logger = logging.getLogger('dreambot.frontend.irc.{}'.format(server["host"]))
         self.server = server
         self.options = options
         self.cb_publish = cb_publish
