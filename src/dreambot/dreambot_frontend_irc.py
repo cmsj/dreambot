@@ -7,9 +7,9 @@ import sys
 import dreambot.frontend.nats_manager
 import dreambot.frontend.irc
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('dreambot_frontend_irc')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 def main():
     if len(sys.argv) != 2:

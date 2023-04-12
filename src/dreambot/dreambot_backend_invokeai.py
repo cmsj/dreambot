@@ -8,9 +8,9 @@ import socketio
 
 from dreambot.backend import dreambot_backend_base
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 class DreambotBackendInvokeAI(dreambot_backend_base.DreambotBackendBase):
     backend_name = "InvokeAI"
