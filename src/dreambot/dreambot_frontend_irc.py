@@ -1,7 +1,7 @@
 import asyncio
 
 # import frontend
-from dreambot.shared.nats_manager import NatsManager
+from dreambot.shared.nats import NatsManager
 from dreambot.frontend.irc import FrontendIRC
 from dreambot.shared.cli import DreambotCLI
 

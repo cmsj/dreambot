@@ -24,7 +24,6 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
 
         self.logger.info("Starting up...")
         try:
-            async_tasks = []
             gpt = DreambotBackendInvokeAI(self.options["nats"], self.options["invokeai"])
             loop.run_until_complete(gpt.boot())
             loop.run_forever()
