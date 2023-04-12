@@ -44,10 +44,13 @@ class DreambotBackendInvokeAI(dreambot_backend_base.DreambotBackendBase):
         @self.sio.event
         def invocation_complete(data):
             id = data["graph_execution_state_id"]
-            self.sio.emit('unsubscribe', {'session': id})
 
             logger.info("Invocation complete: {}".format(id))
             logger.debug("Invocation complete data: {}".format(data))
+
+            logger.info("Unsubscribing from InvokeAI session: {}".format(id))
+            self.sio.emit('unsubscribe', {'session': id})
+
             request = self.request_cache[id]
             request.pop("reply-none", None) # We likely have a reply-none from when we first replied to this request, so remove it
 
