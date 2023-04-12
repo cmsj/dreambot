@@ -21,7 +21,7 @@ class DreambotCLI:
         self.args = self.parser.parse_args()
 
     def boot(self):
-        self.args = self.parse_args()
+        self.parse_args()
         if self.args.debug:
             logging.basicConfig(level=logging.DEBUG)
         elif self.args.quiet:
