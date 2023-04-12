@@ -66,11 +66,11 @@ class NatsManager:
                 await self.nc.close()
 
     async def subscribe(self, delegate):
-        if "queue_name" not in delegate or "callback" not in delegate:
-            self.logger.error("nats_subscribe delegate missing required keys ('queue_name', 'callback'))")
-            raise ValueError("nats_subscribe delegate missing required keys ('queue_name', 'callback'))")
-            return
+        if "queue_name" not in delegate or "callback_receive_message" not in delegate:
+            self.logger.error("subscribe delegate missing required keys ('queue_name', 'callback_receive_message'))")
+            raise ValueError("subscribe delegate missing required keys ('queue_name', 'callback_receive_message'))")
 
+        callback_receive_message = delegate["callback_receive_message"]
         while True and not self.shutting_down:
             queue_name = delegate["queue_name"]
             self.logger.info("NATS subscribing to {}".format(queue_name))
@@ -79,7 +79,7 @@ class NatsManager:
                 self.logger.debug("Created stream: '{}'".format(stream.did_create))
                 sub = await self.js.subscribe(queue_name)
                 self.logger.debug("Created subscription: '{}'".format(sub))
-                self.logger.debug("callback is: {}".format(delegate["callback"]))
+                self.logger.debug("callback is: {}".format(callback_receive_message))
 
                 while True and not self.shutting_down:
                     self.logger.debug("Waiting for NATS message on {}".format(queue_name))
@@ -88,7 +88,7 @@ class NatsManager:
                         self.logger.debug("Received message on '{}': {}".format(queue_name, msg.data.decode()))
 
                         # We will remove the message from the queue if the callback returns anything but False
-                        delegate_result = await delegate["callback"](queue_name, msg.data)
+                        delegate_result = await callback_receive_message(queue_name, msg.data)
                         if delegate_result is not False:
                             self.logger.debug("Acking message on '{}'".format(queue_name))
                             await msg.ack()
@@ -134,7 +134,7 @@ async def shutdown(loop, signal=None, objects = []):
 #         for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
 #              loop.add_signal_handler(s, lambda s=s: asyncio.create_task(shutdown(loop, signal=s, objects=[nm])))
 
-#         loop.create_task(nm.boot([{"queue_name": "test1", "callback": callback}, {"queue_name": "test2", "callback": callback}]))
+#         loop.create_task(nm.boot([{"queue_name": "test1", "callback_receive_message": callback}, {"queue_name": "test2", "callback_receive_message": callback}]))
 #         loop.run_forever()
 #     finally:
 #         loop.close()

@@ -52,7 +52,7 @@ class DreambotFrontendIRCCLI(DreambotCLI):
                 servers.append(server)
                 delegates.append({
                     "queue_name": server.queue_name(),
-                    "callback": server.cb_handle_response
+                    "callback_receive_message": server.callback_receive_message
                 })
 
             loop.create_task(nats_manager.boot(delegates))

@@ -20,17 +20,17 @@ class FrontendIRC:
     writer = None
     reader = None
     logger = None
-    cb_publish = None
+    callback_send_message = None
     f_namemax = None
     full_ident = ""
     should_reconnect = True
     irc_timeout = 300
 
-    def __init__(self, server, options, cb_publish):
+    def __init__(self, server, options, callback_send_message):
         self.logger = logging.getLogger('dreambot.frontend.irc.{}'.format(server["host"]))
         self.server = server
         self.options = options
-        self.cb_publish = cb_publish
+        self.callback_send_message = callback_send_message
         self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
     async def boot(self, reconnect=True):
@@ -188,7 +188,7 @@ class FrontendIRC:
 
                 # Publish the trigger
                 try:
-                    await self.cb_publish(trigger, packet.encode())
+                    await self.callback_send_message(trigger, packet.encode())
                     # await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
                 except Exception as e:
                     traceback.print_exc()
@@ -208,7 +208,7 @@ class FrontendIRC:
         cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
         return cleaned_filename[:char_limit]
 
-    async def cb_handle_response(self, _, data):
+    async def callback_receive_message(self, _, data):
         message = ""
 
         try:
