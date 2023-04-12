@@ -45,7 +45,7 @@ class DreambotFrontendIRCCLI(DreambotCLI):
 
             async def trigger_callback(queue_name, message):
                 self.logger.debug("trigger_callback for '{}': {}".format(queue_name, message.decode()))
-                await nats_manager.nats_publish(queue_name, message)
+                await nats_manager.publish(queue_name, message)
 
             for server_config in self.options["irc"]:
                 server = FrontendIRC(server_config, self.options, trigger_callback)

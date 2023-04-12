@@ -48,7 +48,7 @@ class NatsManager:
             self.js = self.nc.jetstream()
 
             for delegate in delegates:
-                self.nats_tasks.append(asyncio.create_task(self.nats_subscribe(delegate)))
+                self.nats_tasks.append(asyncio.create_task(self.subscribe(delegate)))
 
             await asyncio.gather(*self.nats_tasks)
             self.logger.debug("All NATS subscriber tasks gathered")
@@ -65,7 +65,7 @@ class NatsManager:
             if self.nc:
                 await self.nc.close()
 
-    async def nats_subscribe(self, delegate):
+    async def subscribe(self, delegate):
         if "queue_name" not in delegate or "callback" not in delegate:
             self.logger.error("nats_subscribe delegate missing required keys ('queue_name', 'callback'))")
             raise ValueError("nats_subscribe delegate missing required keys ('queue_name', 'callback'))")
@@ -106,7 +106,7 @@ class NatsManager:
                 traceback.print_exc()
                 await asyncio.sleep(5)
 
-    async def nats_publish(self, subject, data):
+    async def publish(self, subject, data):
         self.logger.debug("Publishing to NATS: {} {}".format(subject, data))
         await self.js.publish(subject, data)
 
