@@ -1,7 +1,4 @@
 import asyncio
-import json
-import logging
-import sys
 
 # import frontend
 from dreambot.shared.nats_manager import NatsManager
@@ -10,6 +7,30 @@ from dreambot.shared.cli import DreambotCLI
 
 class DreambotFrontendIRCCLI(DreambotCLI):
     cli_name = "FrontendIRC"
+    example_json = """Example JSON config:
+{
+    "triggers": [
+          "!dream ",
+          "!gpt "
+    ],
+    "nats_uri": [ "nats://nats:4222", "nats://nats2:4222" ],
+    "output_dir": "/data",
+    "uri_base": "http://localhost:8080/dreams",
+    "irc": [
+        {
+                "nickname": "dreambot",
+                "ident": "dreambot",
+                "realname": "I've dreamed things you people wouldn't believe",
+                "host": "irc.server.com",
+                "port": 6697,
+                "ssl": true,
+                "channels": [
+                        "#friends",
+                        "#dreambot"
+                ]
+        }
+    ]
+}"""
 
     def boot(self):
         super().boot()
@@ -41,6 +62,9 @@ class DreambotFrontendIRCCLI(DreambotCLI):
             loop.close()
             self.logger.info("Shutting down...")
 
-if __name__ == "__main__":
+def main():
     cli = DreambotFrontendIRCCLI()
     cli.boot()
+
+if __name__ == "__main__":
+    main()

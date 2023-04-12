@@ -5,6 +5,7 @@ import logging
 class DreambotCLI:
     logger = None
     cli_name = "BaseCLI"
+    example_json = ""
     parser = None
     args = None
     options = None
@@ -13,7 +14,7 @@ class DreambotCLI:
         self.logger = logging.getLogger("dreambot.cli.{}".format(self.cli_name))
 
     def parse_args(self):
-        self.parser = argparse.ArgumentParser(description="Dreambot {}".format(self.cli_name))
+        self.parser = argparse.ArgumentParser(description="Dreambot {}".format(self.cli_name), epilog=self.example_json)
         self.parser.add_argument("-c", "--config", help="Path to config JSON file", required=True)
         self.parser.add_argument("-d", "--debug", help="Enable debug logging", action="store_true")
         self.parser.add_argument("-q", "--quiet", help="Disable most logging", action="store_true")

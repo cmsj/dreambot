@@ -5,6 +5,17 @@ from dreambot.shared.cli import DreambotCLI
 
 class DreambotBackendInvokeAICLI(DreambotCLI):
     cli_name = "BackendInvokeAI"
+    example_json = """Example JSON config:
+{
+  "invokeai": {
+      "host": "localhost",
+      "port": "9090"
+  },
+  "nats": {
+      "nats_queue_name": "!invokeai",
+      "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
+  }
+}"""
 
     def boot(self):
         super().boot()
@@ -21,18 +32,9 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
             loop.close()
             self.logger.info("Shutting down...")
 
-if __name__ == "__main__":
+def main():
     cli = DreambotBackendInvokeAICLI()
     cli.boot()
 
-# Example JSON config:
-# {
-#   "invokeai": {
-#       "host": "localhost",
-#       "port": "9090"
-#   },
-#   "nats": {
-#       "nats_queue_name": "!invokeai",
-#       "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
-#   }
-# }
+if __name__ == "__main__":
+    main()

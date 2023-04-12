@@ -5,6 +5,18 @@ from dreambot.shared.cli import DreambotCLI
 
 class DreambotBackendGPTCLI(DreambotCLI):
     cli_name = "BackendGPT"
+    example_json = """Example JSON config:
+{
+  "gpt": {
+      "api_key": "abc123",
+      "organization": "dreambot",
+      "model": "davinci"
+  },
+  "nats": {
+      "nats_queue_name": "!gpt",
+      "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
+  }
+}"""
 
     def boot(self):
         super().boot()
@@ -21,19 +33,9 @@ class DreambotBackendGPTCLI(DreambotCLI):
             loop.close()
             self.logger.info("Shutting down...")
 
-if __name__ == "__main__":
+def main():
     cli = DreambotBackendGPTCLI()
     cli.boot()
 
-# Example JSON config:
-# {
-#   "gpt": {
-#       "api_key": "abc123",
-#       "organization": "dreambot",
-#       "model": "davinci"
-#       "nats_queue_name": "!gpt",
-#   },
-#   "nats": {
-#       "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
-#   }
-# }
+if __name__ == "__main__":
+    main()
