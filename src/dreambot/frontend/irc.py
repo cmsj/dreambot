@@ -183,7 +183,7 @@ class FrontendIRC:
 
     async def irc_received_privmsg(self, message):
         target = message.params[0]  # channel or
-        text = message.params[1]
+        text = message.params[1].lstrip()
         source = message.prefix.nick
         for trigger in self.options["triggers"]:
             if text.startswith(trigger):
