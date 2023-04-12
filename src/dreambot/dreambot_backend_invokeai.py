@@ -60,12 +60,14 @@ class DreambotBackendInvokeAI(dreambot_backend_base.DreambotBackendBase):
                 request["error"] = "Error from InvokeAI: {}".format(r.reason)
                 return data
             else:
+                # FIXME: There is a 1MB limit on NATS messages. We should instead write to disk here and merely send a URL over NATS
                 request["reply-image"] = base64.b64encode(r.content).decode('utf8')
 
             logger.debug("Sending image response to queue '{}': for {} <{}> {}".format(request["reply-to"], request["channel"], request["user"], request["prompt"]))
 
             loop = asyncio.new_event_loop()
             loop.run_until_complete(self.nats.publish(request["reply-to"], json.dumps(request).encode()))
+            loop.run_until_complete(self.nats.flush())
             loop.close()
             logger.debug("Sent")
 
@@ -158,7 +160,8 @@ if __name__ == "__main__":
 # Example JSON config:
 # {
 #   "invokeai": {
-#       "uri": "http://localhost:9090"
+#       "host": "localhost",
+#       "port": "9090"
 #   },
 #   "nats": {
 #       "nats_queue_name": "!invokeai",
