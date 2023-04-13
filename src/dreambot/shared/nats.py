@@ -18,7 +18,7 @@ class NatsManager:
         self.nats_uri = nats_uri
         self.nats_tasks = []
         self.shutting_down = False
-        self.logger = logging.getLogger("NatsManager")
+        self.logger = logging.getLogger("dreambot.shared.nats")
 
     async def shutdown(self):
         self.shutting_down = True
@@ -32,14 +32,11 @@ class NatsManager:
         # have all finished before we kill all other tasks
         await asyncio.sleep(5)
 
-        self.logger.debug("Cancelling all other tasks")
-        [task.cancel() for task in asyncio.all_tasks() if task is not asyncio.current_task()]
-
         if self.nc:
             await self.nc.close()
-        self.logger.debug("NATS shutdown complete, {} total asyncio tasks remain".format(len(asyncio.all_tasks())))
+        self.logger.debug("NATS shutdown complete")
 
-    async def boot(self, delegates):
+    async def boot(self, workers):
         self.logger.info("NATS booting")
         try:
             # FIXME: We should make this an infinite loop (conditional on self.shutting_down) and disable nat.connect() reconnect
@@ -47,8 +44,8 @@ class NatsManager:
             self.logger.info("NATS connected to {}".format(self.nc.connected_url.netloc))
             self.js = self.nc.jetstream()
 
-            for delegate in delegates:
-                self.nats_tasks.append(asyncio.create_task(self.subscribe(delegate)))
+            for worker in workers:
+                self.nats_tasks.append(asyncio.create_task(self.subscribe(worker)))
 
             await asyncio.gather(*self.nats_tasks)
             self.logger.debug("All NATS subscriber tasks gathered")
@@ -65,14 +62,10 @@ class NatsManager:
             if self.nc:
                 await self.nc.close()
 
-    async def subscribe(self, delegate):
-        if "queue_name" not in delegate or "callback_receive_message" not in delegate:
-            self.logger.error("subscribe delegate missing required keys ('queue_name', 'callback_receive_message'))")
-            raise ValueError("subscribe delegate missing required keys ('queue_name', 'callback_receive_message'))")
-
-        callback_receive_message = delegate["callback_receive_message"]
+    async def subscribe(self, worker):
+        callback_receive_message = worker.callback_receive_message
         while True and not self.shutting_down:
-            queue_name = delegate["queue_name"]
+            queue_name = worker.queue_name()
             self.logger.info("NATS subscribing to {}".format(queue_name))
             try:
                 stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")
@@ -88,8 +81,8 @@ class NatsManager:
                         self.logger.debug("Received message on '{}': {}".format(queue_name, msg.data.decode()))
 
                         # We will remove the message from the queue if the callback returns anything but False
-                        delegate_result = await callback_receive_message(queue_name, msg.data)
-                        if delegate_result is not False:
+                        worker_callback_result = await callback_receive_message(queue_name, msg.data)
+                        if worker_callback_result is not False:
                             self.logger.debug("Acking message on '{}'".format(queue_name))
                             await msg.ack()
                         else:
@@ -109,32 +102,3 @@ class NatsManager:
     async def publish(self, subject, data):
         self.logger.debug("Publishing to NATS: {} {}".format(subject, data))
         await self.js.publish(subject, data)
-
-# FIXME: This is weird and probably should be in some kind of FrontendManager that supervises both FrontendNatsManager and whatever frontend service being used
-async def shutdown(loop, signal=None, objects = []):
-    if signal:
-        print("Received exit signal {}...".format(signal.name))
-    print(">>> Signalling objects to shutdown")
-    for object in objects:
-        await object.shutdown()
-
-    print(">>> Shutting down")
-    loop.stop()
-
-
-# if __name__ == "__main__":
-#     def callback(queue_name, message):
-#         print("Received a message on '{}': {}".format(queue_name, message.decode()))
-#         print(message)
-
-#     try:
-#         nm = FrontendNatsManager(nats_uri="nats://localhost:4222")
-#         loop = asyncio.get_event_loop()
-
-#         for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
-#              loop.add_signal_handler(s, lambda s=s: asyncio.create_task(shutdown(loop, signal=s, objects=[nm])))
-
-#         loop.create_task(nm.boot([{"queue_name": "test1", "callback_receive_message": callback}, {"queue_name": "test2", "callback_receive_message": callback}]))
-#         loop.run_forever()
-#     finally:
-#         loop.close()

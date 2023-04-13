@@ -7,6 +7,11 @@ import dreambot.shared.nats
 from unittest.mock import call, patch, AsyncMock, MagicMock
 from nats.js.errors import BadRequestError
 
+class TestWorker:
+    def queue_name(self):
+        return "testqueue"
+    def callback_receive_message(self, message):
+        pass
 
 # Helper fixtures
 @pytest.fixture
@@ -59,8 +64,6 @@ async def test_nats_shutdown(mocker, mock_sleep):
     for task in nm.nats_tasks:
         assert task.cancel.call_count == 1
     assert nm.nc.close.call_count == 1
-    for task in all_tasks:
-        assert task.cancel.call_count == 1
 
 @pytest.mark.asyncio
 async def test_nats_publish(mocker):
@@ -72,23 +75,23 @@ async def test_nats_publish(mocker):
     assert nm.js.publish.call_count == 1
     assert nm.js.publish.has_calls([call("test", "test".encode())])
 
-@pytest.mark.asyncio
-async def test_main_shutdown(mocker, mock_nats_next_msg):
-    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
-    nm.shutdown = AsyncMock()
-    objects = [nm]
-    loop = AsyncMock()
+# @pytest.mark.asyncio
+# async def test_main_shutdown(mocker, mock_nats_next_msg):
+#     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
+#     nm.shutdown = AsyncMock()
+#     objects = [nm]
+#     loop = AsyncMock()
 
-    await dreambot.shared.nats.shutdown(loop, None, objects=objects)
-    assert nm.shutdown.call_count == 1
-    assert loop.stop.call_count == 1
+#     await dreambot.shared.nats.shutdown(loop, None, objects=objects)
+#     assert nm.shutdown.call_count == 1
+#     assert loop.stop.call_count == 1
 
-    nm.shutdown.reset_mock()
-    loop.stop.reset_mock()
+#     nm.shutdown.reset_mock()
+#     loop.stop.reset_mock()
 
-    await dreambot.shared.nats.shutdown(loop, signal.SIGINT, objects=objects)
-    assert nm.shutdown.call_count == 1
-    assert loop.stop.call_count == 1
+#     await dreambot.shared.nats.shutdown(loop, signal.SIGINT, objects=objects)
+#     assert nm.shutdown.call_count == 1
+#     assert loop.stop.call_count == 1
 
 @pytest.mark.asyncio
 async def test_nats_subscribe(mocker, mock_sleep):
@@ -113,21 +116,12 @@ async def test_nats_subscribe(mocker, mock_sleep):
     sub_obj.next_msg.side_effect = next_sub_side_effect # FIXME: I don't understand why this is necessary
     nm.js.subscribe = sub_obj
 
-    await nm.subscribe({"queue_name": "testqueue", "callback_receive_message": callback})
+    tw = TestWorker()
+    tw.callback_receive_message = callback
+    await nm.subscribe(tw)
     assert nm.shutting_down == True
     assert sub_obj.call_count == 1
     assert callback_count == 0
-
-@pytest.mark.asyncio
-async def test_nats_subscribe_invalid_callback(mocker):
-    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
-    nm.nc = AsyncMock()
-    nm.js = AsyncMock()
-
-    with pytest.raises(ValueError):
-        await nm.subscribe({"queue_name": "testqueue"})
-    with pytest.raises(ValueError):
-        await nm.subscribe({"callback_receive_message": "some_callback"})
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_badrequest(mocker, mock_sleep):
@@ -147,7 +141,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
 
     nm.js.add_stream = AsyncMock(side_effect=add_stream_side_effect)
 
-    await nm.subscribe({"queue_name": "testqueue", "callback_receive_message": "some_callback"})
+    await nm.subscribe(TestWorker())
     assert loop_count == 0
     assert nm.logger.warning.call_count == 5
     nm.logger.warning.assert_has_calls([call("NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet")])
@@ -170,7 +164,7 @@ async def test_nats_subscribe_other_exception(mocker, mock_sleep):
 
     nm.js.add_stream = AsyncMock(side_effect=add_stream_side_effect)
 
-    await nm.subscribe({"queue_name": "testqueue", "callback_receive_message": "some_callback"})
+    await nm.subscribe(MagicMock())
     assert loop_count == 0
     assert nm.logger.error.call_count == 5
     nm.logger.error.assert_has_calls([call("nats_subscribe exception: Some other exception")])

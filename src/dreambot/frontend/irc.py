@@ -254,39 +254,3 @@ class FrontendIRC:
         loop = asyncio.get_event_loop()
         for chunk in chunks:
             await self.send_cmd('PRIVMSG', *[resp["channel"], chunk])
-
-# Example JSON config:
-# {
-#     "triggers": [
-#           "!dream ",
-#           "!gpt "
-#     ],
-#     "nats_uri": [ "nats://nats:4222", "nats://nats2:4222" ],
-#     "output_dir": "/data",
-#     "uri_base": "http://localhost:8080/dreams",
-#     "irc": [
-#         {
-#                 "nickname": "dreambot",
-#                 "ident": "dreambot",
-#                 "realname": "I've dreamed things you people wouldn't believe",
-#                 "host": "irc.server.com",
-#                 "port": 6697,
-#                 "ssl": true,
-#                 "channels": [
-#                         "#friends",
-#                         "#dreambot"
-#                 ]
-#         },
-#         {
-#                 "nickname": "dreambot",
-#                 "ident": "dreambot",
-#                 "realname": "I've dreamed things you people wouldn't believe",
-#                 "host": "other.ircplace.org",
-#                 "port": 6667,
-#                 "ssl": false,
-#                 "channels": [
-#                         "#dreambot"
-#                 ]
-#         }
-#     ]
-# }

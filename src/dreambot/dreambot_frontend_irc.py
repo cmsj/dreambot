@@ -1,7 +1,4 @@
-import asyncio
-
 # import frontend
-from dreambot.shared.nats import NatsManager
 from dreambot.frontend.irc import FrontendIRC
 from dreambot.shared.cli import DreambotCLI
 
@@ -36,31 +33,17 @@ class DreambotFrontendIRCCLI(DreambotCLI):
         super().boot()
 
         try:
-            self.logger.info("Starting up...")
-            servers = []
-            delegates = []
-
-            nats_manager = NatsManager(nats_uri=self.options["nats_uri"])
-            loop = asyncio.get_event_loop()
-
-            async def trigger_callback(queue_name, message):
+            async def callback_send_message(queue_name, message):
                 self.logger.debug("trigger_callback for '{}': {}".format(queue_name, message.decode()))
-                await nats_manager.publish(queue_name, message)
+                await self.nats.publish(queue_name, message)
 
             for server_config in self.options["irc"]:
-                server = FrontendIRC(server_config, self.options, trigger_callback)
-                servers.append(server)
-                delegates.append({
-                    "queue_name": server.queue_name(),
-                    "callback_receive_message": server.callback_receive_message
-                })
+                server = FrontendIRC(server_config, self.options, callback_send_message)
+                self.workers.append(server)
+        except Exception as e:
+            self.logger.error("Exception during boot: {}".format(e))
 
-            loop.create_task(nats_manager.boot(delegates))
-            [loop.create_task(x.boot()) for x in servers]
-            loop.run_forever()
-        finally:
-            loop.close()
-            self.logger.info("Shutting down...")
+        self.run()
 
 def main():
     cli = DreambotFrontendIRCCLI()
