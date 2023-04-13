@@ -76,10 +76,63 @@ class FrontendIRC:
                     self.logger.info("Sleeping before reconnecting...")
                     await asyncio.sleep(5)
 
+    async def shutdown(self):
+        self.should_reconnect = False
+        self.writer.close()
+        await self.writer.wait_closed()
+        self.reader.feed_eof()
+
     def queue_name(self):
         name = "irc.{}".format(self.server["host"])
         name = name.replace('.', '_') # This is important because periods are meaningful in NATS' subject names
         return name
+
+    async def callback_receive_message(self, _, data):
+        message = ""
+
+        try:
+            resp = json.loads(data.decode())
+        except Exception as e:
+            self.logger.error("Failed to parse response: {}".format(e))
+            traceback.print_exc()
+            return
+
+        if "reply-image" in resp:
+            image_bytes = base64.standard_b64decode(resp["reply-image"])
+            filename_base = self.clean_filename(resp["prompt"], char_limit = self.f_namemax)
+            filename = "{}.png".format(filename_base[:self.f_namemax])
+            url = "{}/{}".format(self.options["uri_base"], filename)
+
+            with open(os.path.join(self.options["output_dir"], filename), "wb") as f:
+                f.write(image_bytes)
+            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], url))
+            message = "{}: I dreamed this: {}".format(resp["user"], url)
+        elif "reply-text" in resp:
+            message = "{}: {}".format(resp["user"], resp["reply-text"])
+            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-text"]))
+        elif "reply-none" in resp:
+            self.logger.info("SILENCE FOR {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-none"]))
+            return
+        elif "error" in resp:
+            message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
+            self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message))
+        elif "usage" in resp:
+            message = "{}: {}".format(resp["user"], resp["usage"])
+            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["usage"]))
+        else:
+            message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
+
+        chunks = []
+        # We have to send multiline responses separately, so let's split the message into lines
+        for line in message.splitlines():
+            # IRC has a max line length of 512 bytes, so we need to split the line into chunks
+            max_chunk_size = 510 # Start with 510 because send_cmd() adds 2 bytes for the CRLF
+            max_chunk_size -= len("{} PRIVMSG {} :".format(self.full_ident, resp["channel"]))
+            chunks += [line[i:i+max_chunk_size] for i in range(0, len(line), max_chunk_size)]
+
+        loop = asyncio.get_event_loop()
+        for chunk in chunks:
+            await self.send_cmd('PRIVMSG', *[resp["channel"], chunk])
 
     def parse_line(self, line):
         # parses an irc line based on RFC:
@@ -208,49 +261,3 @@ class FrontendIRC:
         cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
         return cleaned_filename[:char_limit]
 
-    async def callback_receive_message(self, _, data):
-        message = ""
-
-        try:
-            resp = json.loads(data.decode())
-        except Exception as e:
-            self.logger.error("Failed to parse response: {}".format(e))
-            traceback.print_exc()
-            return
-
-        if "reply-image" in resp:
-            image_bytes = base64.standard_b64decode(resp["reply-image"])
-            filename_base = self.clean_filename(resp["prompt"], char_limit = self.f_namemax)
-            filename = "{}.png".format(filename_base[:self.f_namemax])
-            url = "{}/{}".format(self.options["uri_base"], filename)
-
-            with open(os.path.join(self.options["output_dir"], filename), "wb") as f:
-                f.write(image_bytes)
-            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], url))
-            message = "{}: I dreamed this: {}".format(resp["user"], url)
-        elif "reply-text" in resp:
-            message = "{}: {}".format(resp["user"], resp["reply-text"])
-            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-text"]))
-        elif "reply-none" in resp:
-            self.logger.info("SILENCE FOR {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-none"]))
-            return
-        elif "error" in resp:
-            message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
-            self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message))
-        elif "usage" in resp:
-            message = "{}: {}".format(resp["user"], resp["usage"])
-            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["usage"]))
-        else:
-            message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
-
-        chunks = []
-        # We have to send multiline responses separately, so let's split the message into lines
-        for line in message.splitlines():
-            # IRC has a max line length of 512 bytes, so we need to split the line into chunks
-            max_chunk_size = 510 # Start with 510 because send_cmd() adds 2 bytes for the CRLF
-            max_chunk_size -= len("{} PRIVMSG {} :".format(self.full_ident, resp["channel"]))
-            chunks += [line[i:i+max_chunk_size] for i in range(0, len(line), max_chunk_size)]
-
-        loop = asyncio.get_event_loop()
-        for chunk in chunks:
-            await self.send_cmd('PRIVMSG', *[resp["channel"], chunk])

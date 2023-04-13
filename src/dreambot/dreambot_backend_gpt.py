@@ -12,25 +12,24 @@ class DreambotBackendGPTCLI(DreambotCLI):
       "organization": "dreambot",
       "model": "davinci"
   },
-  "nats": {
-      "nats_queue_name": "!gpt",
-      "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
-  }
+  "nats_queue_name": "!gpt",
+  "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 }"""
 
     def boot(self):
         super().boot()
 
-        loop = asyncio.get_event_loop()
-
-        self.logger.info("Starting up...")
         try:
-            gpt = DreambotBackendGPT(self.options["nats"], self.options["gpt"])
-            loop.run_until_complete(gpt.boot())
-            loop.run_forever()
-        finally:
-            loop.close()
-            self.logger.info("Shutting down...")
+            async def callback_send_message(queue_name, message):
+                self.logger.debug("callback_send_message for '{}': {}".format(queue_name, message.decode()))
+                await self.nats.publish(queue_name, message)
+
+            gpt = DreambotBackendGPT(self.options, callback_send_message)
+            self.workers.append(gpt)
+        except Exception as e:
+            self.logger.error("Exception during boot: {}".format(e))
+
+        self.run()
 
 def main():
     cli = DreambotBackendGPTCLI()

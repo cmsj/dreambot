@@ -34,7 +34,7 @@ class DreambotFrontendIRCCLI(DreambotCLI):
 
         try:
             async def callback_send_message(queue_name, message):
-                self.logger.debug("trigger_callback for '{}': {}".format(queue_name, message.decode()))
+                self.logger.debug("callback_send_message for '{}': {}".format(queue_name, message.decode()))
                 await self.nats.publish(queue_name, message)
 
             for server_config in self.options["irc"]:
