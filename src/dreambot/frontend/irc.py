@@ -26,9 +26,9 @@ class FrontendIRC:
     should_reconnect = True
     irc_timeout = 300
 
-    def __init__(self, server, options, callback_send_message):
-        self.logger = logging.getLogger('dreambot.frontend.irc.{}'.format(server["host"]))
-        self.server = server
+    def __init__(self, irc_server, options, callback_send_message):
+        self.logger = logging.getLogger('dreambot.frontend.irc.{}'.format(irc_server["host"]))
+        self.server = irc_server
         self.options = options
         self.callback_send_message = callback_send_message
         self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
