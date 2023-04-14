@@ -1,8 +1,8 @@
-import asyncio
 import json
 import traceback
 import openai
 
+from typing import Any, Callable, Coroutine
 from openai.error import (
     APIError,
     Timeout,
@@ -22,7 +22,9 @@ class DreambotBackendGPT(DreambotBackendBase):
     model = None
     chat_cache = {}
 
-    def __init__(self, options, callback_send_message):
+    def __init__(
+        self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
+    ):
         super().__init__(options, callback_send_message)
         self.api_key = options["gpt"]["api_key"]
         self.organization = options["gpt"]["organization"]
@@ -42,7 +44,7 @@ class DreambotBackendGPT(DreambotBackendBase):
         try:
             resp = json.loads(data.decode())
         except Exception as e:
-            self.logger.error("Failed to parse message: {}".format(e))
+            self.logger.error("Failed to parse messagelol: {}".format(e))
             return True
 
         try:
@@ -57,23 +59,17 @@ class DreambotBackendGPT(DreambotBackendBase):
 
             # Determine if we're adding to the cache or starting a new conversation
             if not prompt.startswith("!followup"):
-                self.logger.debug(
-                    "Starting new conversation for '{}'".format(cache_key)
-                )
+                self.logger.debug("Starting new conversation for '{}'".format(cache_key))
                 self.reset_cache(cache_key)
             else:
-                self.logger.debug(
-                    "Adding to existing conversation for '{}'".format(cache_key)
-                )
+                self.logger.debug("Adding to existing conversation for '{}'".format(cache_key))
 
             # Now that our cache is in the right state, add this new prompt to it
             self.chat_cache[cache_key].append(message)
 
             # Now we can ask OpenAI for a response to the contents of our message cache
             self.logger.debug("Sending request to OpenAI...")
-            response = openai.ChatCompletion.create(
-                model=self.model, messages=self.chat_cache[cache_key]
-            )
+            response = openai.ChatCompletion.create(model=self.model, messages=self.chat_cache[cache_key])
 
             # Fetch the response, prepare it to be sent back to the user and added to their cache
             reply = response.choices[0].message.content
@@ -94,9 +90,7 @@ class DreambotBackendGPT(DreambotBackendBase):
             resp["error"] = "Unknown error, ask your bot admin to check logs."
 
         try:
-            self.logger.info(
-                "Sending response: {} with {}".format(resp, self.callback_send_message)
-            )
+            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_message))
             packet = json.dumps(resp)
             await self.callback_send_message(resp["reply-to"], packet.encode())
             self.logger.debug("Response sent!")

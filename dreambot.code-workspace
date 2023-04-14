@@ -1,19 +1,19 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
-	"settings": {
-		"pytest.command": "",
-		"python.testing.unittestEnabled": false,
-		"python.testing.pytestEnabled": true,
-		"python.testing.pytestArgs": [
-			"-v",
-			"--cov=src",
-			"--cov-report=xml",
-			"tests"
-		],
+    "folders": [
+        {
+            "path": "."
+        }
+    ],
+    "settings": {
+        "pytest.command": "",
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestEnabled": true,
+        "python.testing.pytestArgs": [
+            "-v",
+            "--cov=src",
+            "--cov-report=xml",
+            "tests"
+        ],
         "pythonTestExplorer.testFramework": "pytest",
         "files.exclude": {
             ".coverage": true,
@@ -26,6 +26,7 @@
         "workbench.tree.renderIndentGuides": "always",
         "github.gitProtocol": "ssh",
         "python.formatting.provider": "black",
-        "editor.formatOnSave": true
-	}
+        "editor.formatOnSave": true,
+        "python.analysis.typeCheckingMode": "strict"
+    }
 }

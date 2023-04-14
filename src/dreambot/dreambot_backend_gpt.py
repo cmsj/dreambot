@@ -1,5 +1,3 @@
-import asyncio
-
 from dreambot.backend.gpt import DreambotBackendGPT
 from dreambot.shared.cli import DreambotCLI
 
@@ -22,12 +20,8 @@ class DreambotBackendGPTCLI(DreambotCLI):
 
         try:
 
-            async def callback_send_message(queue_name, message):
-                self.logger.debug(
-                    "callback_send_message for '{}': {}".format(
-                        queue_name, message.decode()
-                    )
-                )
+            async def callback_send_message(queue_name: str, message: bytes) -> None:
+                self.logger.debug("callback_send_message for '{}': {}".format(queue_name, message.decode()))
                 await self.nats.publish(queue_name, message)
 
             gpt = DreambotBackendGPT(self.options, callback_send_message)
