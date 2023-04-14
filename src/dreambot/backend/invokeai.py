@@ -6,6 +6,7 @@ import socketio
 
 from dreambot.backend.base import DreambotBackendBase
 
+
 class DreambotBackendInvokeAI(DreambotBackendBase):
     backend_name = "InvokeAI"
     sio = None
@@ -24,7 +25,9 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
     async def boot(self):
         self.ws_uri = "ws://{}:{}/".format(self.invokeai_host, self.invokeai_port)
-        self.api_uri = "http://{}:{}/api/v1/".format(self.invokeai_host, self.invokeai_port)
+        self.api_uri = "http://{}:{}/api/v1/".format(
+            self.invokeai_host, self.invokeai_port
+        )
         self.logger.info("InvokeAI API URI: {}".format(self.api_uri))
         self.logger.info("Connecting to InvokeAI socket.io at {}".format(self.ws_uri))
         self.sio = socketio.Client(reconnection_delay_max=10)
@@ -32,9 +35,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         @self.sio.event
         def connect():
             self.logger.info("Connected to InvokeAI socket.io")
+
         @self.sio.event
         def disconnect():
             self.logger.info("Disconnected from InvokeAI socket.io")
+
         @self.sio.event
         def invocation_complete(data):
             id = data["graph_execution_state_id"]
@@ -43,24 +48,40 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             self.logger.debug("Invocation complete data: {}".format(data))
 
             self.logger.info("Unsubscribing from InvokeAI session: {}".format(id))
-            self.sio.emit('unsubscribe', {'session': id})
+            self.sio.emit("unsubscribe", {"session": id})
 
             request = self.request_cache[id]
-            request.pop("reply-none", None) # We likely have a reply-none from when we first replied to this request, so remove it
+            request.pop(
+                "reply-none", None
+            )  # We likely have a reply-none from when we first replied to this request, so remove it
 
-            r = requests.get(self.api_uri + "images/results/{}".format(data["result"]["image"]["image_name"]))
+            r = requests.get(
+                self.api_uri
+                + "images/results/{}".format(data["result"]["image"]["image_name"])
+            )
             if r.status_code != 200:
-                self.logger.error("Error POSTing session to InvokeAI: {}".format(r.reason))
+                self.logger.error(
+                    "Error POSTing session to InvokeAI: {}".format(r.reason)
+                )
                 request["error"] = "Error from InvokeAI: {}".format(r.reason)
                 return data
             else:
                 # FIXME: There is a 1MB limit on NATS messages. We should instead write to disk here and merely send a URL over NATS
-                request["reply-image"] = base64.b64encode(r.content).decode('utf8')
+                request["reply-image"] = base64.b64encode(r.content).decode("utf8")
 
-            self.logger.debug("Sending image response to queue '{}': for {} <{}> {}".format(request["reply-to"], request["channel"], request["user"], request["prompt"]))
+            self.logger.debug(
+                "Sending image response to queue '{}': for {} <{}> {}".format(
+                    request["reply-to"],
+                    request["channel"],
+                    request["user"],
+                    request["prompt"],
+                )
+            )
 
             loop = asyncio.new_event_loop()
-            loop.run_until_complete(self.nats.publish(request["reply-to"], json.dumps(request).encode()))
+            loop.run_until_complete(
+                self.nats.publish(request["reply-to"], json.dumps(request).encode())
+            )
             loop.run_until_complete(self.nats.flush())
             loop.close()
             self.logger.debug("Sent")
@@ -82,7 +103,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                     "model": "stable-diffusion-1.5",
                     "sampler": "keuler_a",
                     "steps": 50,
-                    "seed": -1
+                    "seed": -1,
                 }
                 id += 1
                 nodes[str(id)] = {
@@ -90,18 +111,19 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                     "type": "show_image",
                 }
                 links = [
-                    {"source": { "node_id": "1", "field": "image" },
-                     "destination": { "node_id": "2", "field": "image" }}
+                    {
+                        "source": {"node_id": "1", "field": "image"},
+                        "destination": {"node_id": "2", "field": "image"},
+                    }
                 ]
-                graph = {
-                    "nodes": nodes,
-                    "edges": links
-                }
+                graph = {"nodes": nodes, "edges": links}
                 self.logger.debug("Sending graph to InvokeAI: {}".format(graph))
 
                 r = requests.post(self.api_uri + "sessions", json=graph)
                 if r.status_code != 200:
-                    self.logger.error("Error POSTing session to InvokeAI: {}".format(r.reason))
+                    self.logger.error(
+                        "Error POSTing session to InvokeAI: {}".format(r.reason)
+                    )
                     data["error"] = "Error from InvokeAI: {}".format(r.reason)
                     return data
 
@@ -109,11 +131,19 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 self.request_cache[response["id"]] = data
                 self.logger.debug("InvokeAI response: {}".format(response))
 
-                self.logger.info("Subscribing to InvokeAI session and invoking: {}".format(response["id"]))
-                self.sio.emit('subscribe', {'session': response["id"]})
-                r = requests.put(self.api_uri + "sessions/{}/invoke".format(response["id"]))
+                self.logger.info(
+                    "Subscribing to InvokeAI session and invoking: {}".format(
+                        response["id"]
+                    )
+                )
+                self.sio.emit("subscribe", {"session": response["id"]})
+                r = requests.put(
+                    self.api_uri + "sessions/{}/invoke".format(response["id"])
+                )
                 if r.status_code != 202:
-                    self.logger.error("Error PUTing session to InvokeAI: {}".format(r.reason))
+                    self.logger.error(
+                        "Error PUTing session to InvokeAI: {}".format(r.reason)
+                    )
                     data["error"] = "Error from InvokeAI: {}".format(r.reason)
                     return data
 

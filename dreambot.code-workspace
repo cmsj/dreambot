@@ -24,6 +24,8 @@
         },
         "workbench.tree.indent": 16,
         "workbench.tree.renderIndentGuides": "always",
-        "github.gitProtocol": "ssh"
+        "github.gitProtocol": "ssh",
+        "python.formatting.provider": "black",
+        "editor.formatOnSave": true
 	}
 }

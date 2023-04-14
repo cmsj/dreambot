@@ -6,6 +6,7 @@ import traceback
 from nats.errors import TimeoutError, NoServersError
 from nats.js.errors import BadRequestError
 
+
 class NatsManager:
     logger = None
     nats_uri = None
@@ -43,7 +44,9 @@ class NatsManager:
         try:
             # FIXME: We should make this an infinite loop (conditional on self.shutting_down) and disable nat.connect() reconnect
             self.nc = await nats.connect(self.nats_uri, name="NatsManager")
-            self.logger.info("NATS connected to {}".format(self.nc.connected_url.netloc))
+            self.logger.info(
+                "NATS connected to {}".format(self.nc.connected_url.netloc)
+            )
             self.js = self.nc.jetstream()
 
             for worker in workers:
@@ -57,7 +60,9 @@ class NatsManager:
             self.logger.error("boot exception: {}".format(e))
             traceback.print_exc()
         finally:
-            self.logger.debug("boot() ending, cancelling any remaining NATS subscriber tasks")
+            self.logger.debug(
+                "boot() ending, cancelling any remaining NATS subscriber tasks"
+            )
             [task.cancel() for task in self.nats_tasks]
             self.nats_tasks = []
             if self.nc:
@@ -69,25 +74,39 @@ class NatsManager:
             queue_name = worker.queue_name()
             self.logger.info("NATS subscribing to {}".format(queue_name))
             try:
-                stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")
+                stream = await self.js.add_stream(
+                    name=queue_name, subjects=[queue_name], retention="workqueue"
+                )
                 self.logger.debug("Created stream: '{}'".format(stream.did_create))
                 sub = await self.js.subscribe(queue_name)
                 self.logger.debug("Created subscription: '{}'".format(sub))
                 self.logger.debug("callback is: {}".format(callback_receive_message))
 
                 while True and not self.shutting_down:
-                    self.logger.debug("Waiting for NATS message on {}".format(queue_name))
+                    self.logger.debug(
+                        "Waiting for NATS message on {}".format(queue_name)
+                    )
                     try:
                         msg = await sub.next_msg()
-                        self.logger.debug("Received NATS message on '{}': {}".format(queue_name, msg.data.decode()))
+                        self.logger.debug(
+                            "Received NATS message on '{}': {}".format(
+                                queue_name, msg.data.decode()
+                            )
+                        )
 
                         # We will remove the message from the queue if the callback returns anything but False
-                        worker_callback_result = await callback_receive_message(queue_name, msg.data)
+                        worker_callback_result = await callback_receive_message(
+                            queue_name, msg.data
+                        )
                         if worker_callback_result is not False:
-                            self.logger.debug("Acking message on '{}'".format(queue_name))
+                            self.logger.debug(
+                                "Acking message on '{}'".format(queue_name)
+                            )
                             await msg.ack()
                         else:
-                            self.logger.debug("Not acking message on '{}'".format(queue_name))
+                            self.logger.debug(
+                                "Not acking message on '{}'".format(queue_name)
+                            )
                     except TimeoutError:
                         await asyncio.sleep(1)
                         continue
@@ -95,7 +114,11 @@ class NatsManager:
                         self.logger.debug("NATS message exception: {}".format(e))
 
             except BadRequestError:
-                self.logger.warning("NATS consumer '{}' already exists, likely a previous instance of us hasn't timed out yet".format(queue_name))
+                self.logger.warning(
+                    "NATS consumer '{}' already exists, likely a previous instance of us hasn't timed out yet".format(
+                        queue_name
+                    )
+                )
                 await asyncio.sleep(5)
                 continue
             except Exception as e:

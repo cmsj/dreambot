@@ -24,12 +24,20 @@ class DreambotCLI:
         self.workers = []
 
     def parse_args(self):
-        self.parser = argparse.ArgumentParser(description="Dreambot {}".format(self.cli_name),
-                                              epilog=self.example_json,
-                                              formatter_class=RawTextHelpFormatter)
-        self.parser.add_argument("-c", "--config", help="Path to config JSON file", required=True)
-        self.parser.add_argument("-d", "--debug", help="Enable debug logging", action="store_true")
-        self.parser.add_argument("-q", "--quiet", help="Disable most logging", action="store_true")
+        self.parser = argparse.ArgumentParser(
+            description="Dreambot {}".format(self.cli_name),
+            epilog=self.example_json,
+            formatter_class=RawTextHelpFormatter,
+        )
+        self.parser.add_argument(
+            "-c", "--config", help="Path to config JSON file", required=True
+        )
+        self.parser.add_argument(
+            "-d", "--debug", help="Enable debug logging", action="store_true"
+        )
+        self.parser.add_argument(
+            "-q", "--quiet", help="Disable most logging", action="store_true"
+        )
         self.args = self.parser.parse_args()
 
     def boot(self):
@@ -57,7 +65,9 @@ class DreambotCLI:
             loop = asyncio.get_event_loop()
 
             for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
-                loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(s)))
+                loop.add_signal_handler(
+                    s, lambda s=s: asyncio.create_task(self.shutdown(s))
+                )
 
             loop.create_task(self.nats.boot(self.workers))
             [loop.create_task(x.boot()) for x in self.workers]
@@ -72,4 +82,8 @@ class DreambotCLI:
         [await x.shutdown() for x in self.workers]
 
         self.logger.debug("Cancelling all other tasks")
-        [task.cancel() for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+        [
+            task.cancel()
+            for task in asyncio.all_tasks()
+            if task is not asyncio.current_task()
+        ]

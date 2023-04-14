@@ -7,11 +7,14 @@ import dreambot.shared.nats
 from unittest.mock import call, patch, AsyncMock, MagicMock
 from nats.js.errors import BadRequestError
 
+
 class TestWorker:
     def queue_name(self):
         return "testqueue"
+
     def callback_receive_message(self, message):
         pass
+
 
 # Helper fixtures
 @pytest.fixture
@@ -28,27 +31,34 @@ def create_mock_coro(mocker, monkeypatch):
 
     return _create_mock_patch_coro
 
+
 @pytest.fixture
 def mock_sleep(create_mock_coro):
     # won't need the returned coroutine here
     mock, _ = create_mock_coro(to_patch="asyncio.sleep")
     return mock
 
+
 @pytest.fixture
 def mock_nats_next_msg(create_mock_coro):
     mock, _ = create_mock_coro(to_patch="nats.aio.subscription.Subscription.next_msg")
     return mock
 
+
 # Tests
+
 
 @pytest.mark.asyncio
 async def test_boot_connect_failed(mocker):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
 
-    mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError)
+    mock_nats_connect = mocker.patch(
+        "nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError
+    )
 
     await nm.boot([])
     assert mock_nats_connect.call_count == 1
+
 
 @pytest.mark.asyncio
 async def test_nats_shutdown(mocker, mock_sleep):
@@ -65,6 +75,7 @@ async def test_nats_shutdown(mocker, mock_sleep):
         assert task.cancel.call_count == 1
     assert nm.nc.close.call_count == 1
 
+
 @pytest.mark.asyncio
 async def test_nats_publish(mocker):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
@@ -74,6 +85,7 @@ async def test_nats_publish(mocker):
     await nm.publish("test", "test")
     assert nm.js.publish.call_count == 1
     assert nm.js.publish.has_calls([call("test", "test".encode())])
+
 
 # @pytest.mark.asyncio
 # async def test_main_shutdown(mocker, mock_nats_next_msg):
@@ -93,6 +105,7 @@ async def test_nats_publish(mocker):
 #     assert nm.shutdown.call_count == 1
 #     assert loop.stop.call_count == 1
 
+
 @pytest.mark.asyncio
 async def test_nats_subscribe(mocker, mock_sleep):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
@@ -102,18 +115,22 @@ async def test_nats_subscribe(mocker, mock_sleep):
 
     def next_sub_side_effect():
         return AsyncMock()
+
     def callback(queue_name, msg):
         nonlocal callback_count
         callback_count -= 1
         if callback_count <= 0:
             nm.shutting_down = True
         return True
+
     cb = MagicMock()
     cb.callback = callback
 
     sub_obj = AsyncMock()
     sub_obj.next_msg = AsyncMock()
-    sub_obj.next_msg.side_effect = next_sub_side_effect # FIXME: I don't understand why this is necessary
+    sub_obj.next_msg.side_effect = (
+        next_sub_side_effect  # FIXME: I don't understand why this is necessary
+    )
     nm.js.subscribe = sub_obj
 
     tw = TestWorker()
@@ -122,6 +139,7 @@ async def test_nats_subscribe(mocker, mock_sleep):
     assert nm.shutting_down == True
     assert sub_obj.call_count == 1
     assert callback_count == 0
+
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_badrequest(mocker, mock_sleep):
@@ -144,7 +162,14 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
     await nm.subscribe(TestWorker())
     assert loop_count == 0
     assert nm.logger.warning.call_count == 5
-    nm.logger.warning.assert_has_calls([call("NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet")])
+    nm.logger.warning.assert_has_calls(
+        [
+            call(
+                "NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet"
+            )
+        ]
+    )
+
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_other_exception(mocker, mock_sleep):
@@ -167,4 +192,6 @@ async def test_nats_subscribe_other_exception(mocker, mock_sleep):
     await nm.subscribe(MagicMock())
     assert loop_count == 0
     assert nm.logger.error.call_count == 5
-    nm.logger.error.assert_has_calls([call("nats_subscribe exception: Some other exception")])
+    nm.logger.error.assert_has_calls(
+        [call("nats_subscribe exception: Some other exception")]
+    )

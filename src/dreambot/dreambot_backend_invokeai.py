@@ -3,6 +3,7 @@ import asyncio
 from dreambot.backend.invokeai import DreambotBackendInvokeAI
 from dreambot.shared.cli import DreambotCLI
 
+
 class DreambotBackendInvokeAICLI(DreambotCLI):
     cli_name = "BackendInvokeAI"
     example_json = """Example JSON config:
@@ -24,16 +25,20 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
 
         self.logger.info("Starting up...")
         try:
-            gpt = DreambotBackendInvokeAI(self.options["nats"], self.options["invokeai"])
+            gpt = DreambotBackendInvokeAI(
+                self.options["nats"], self.options["invokeai"]
+            )
             loop.run_until_complete(gpt.boot())
             loop.run_forever()
         finally:
             loop.close()
             self.logger.info("Shutting down...")
 
+
 def main():
     cli = DreambotBackendInvokeAICLI()
     cli.boot()
+
 
 if __name__ == "__main__":
     main()

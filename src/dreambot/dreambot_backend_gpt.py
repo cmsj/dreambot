@@ -3,6 +3,7 @@ import asyncio
 from dreambot.backend.gpt import DreambotBackendGPT
 from dreambot.shared.cli import DreambotCLI
 
+
 class DreambotBackendGPTCLI(DreambotCLI):
     cli_name = "BackendGPT"
     example_json = """Example JSON config:
@@ -20,8 +21,13 @@ class DreambotBackendGPTCLI(DreambotCLI):
         super().boot()
 
         try:
+
             async def callback_send_message(queue_name, message):
-                self.logger.debug("callback_send_message for '{}': {}".format(queue_name, message.decode()))
+                self.logger.debug(
+                    "callback_send_message for '{}': {}".format(
+                        queue_name, message.decode()
+                    )
+                )
                 await self.nats.publish(queue_name, message)
 
             gpt = DreambotBackendGPT(self.options, callback_send_message)
@@ -31,9 +37,11 @@ class DreambotBackendGPTCLI(DreambotCLI):
 
         self.run()
 
+
 def main():
     cli = DreambotBackendGPTCLI()
     cli.boot()
+
 
 if __name__ == "__main__":
     main()

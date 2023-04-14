@@ -9,10 +9,11 @@ import string
 import traceback
 from collections import namedtuple
 
+
 class FrontendIRC:
     # Various IRC support types/functions
-    Message = namedtuple('Message', 'prefix command params')
-    Prefix = namedtuple('Prefix', 'nick ident host')
+    Message = namedtuple("Message", "prefix command params")
+    Prefix = namedtuple("Prefix", "nick ident host")
     valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
 
     options = None
@@ -27,7 +28,9 @@ class FrontendIRC:
     irc_timeout = 300
 
     def __init__(self, irc_server, options, callback_send_message):
-        self.logger = logging.getLogger('dreambot.frontend.irc.{}'.format(irc_server["host"]))
+        self.logger = logging.getLogger(
+            "dreambot.frontend.irc.{}".format(irc_server["host"])
+        )
         self.server = irc_server
         self.options = options
         self.callback_send_message = callback_send_message
@@ -36,12 +39,23 @@ class FrontendIRC:
     async def boot(self, reconnect=True):
         while self.should_reconnect:
             self.should_reconnect = reconnect
-            self.logger.info("Booting IRC connection... (reconnect: {})".format(self.should_reconnect))
+            self.logger.info(
+                "Booting IRC connection... (reconnect: {})".format(
+                    self.should_reconnect
+                )
+            )
             try:
-                self.reader, self.writer = await asyncio.open_connection(self.server["host"], self.server["port"], ssl=self.server["ssl"])
+                self.reader, self.writer = await asyncio.open_connection(
+                    self.server["host"], self.server["port"], ssl=self.server["ssl"]
+                )
                 try:
-                    await self.send_line('NICK ' + self.server["nickname"])
-                    await self.send_line('USER ' + self.server["ident"] + ' * * :' + self.server["realname"])
+                    await self.send_line("NICK " + self.server["nickname"])
+                    await self.send_line(
+                        "USER "
+                        + self.server["ident"]
+                        + " * * :"
+                        + self.server["realname"]
+                    )
                     self.logger.info("IRC connection booted.")
 
                     # Loop until the connection is closed
@@ -51,7 +65,9 @@ class FrontendIRC:
                             if self.reader.at_eof():
                                 # There's nothing more waiting for us
                                 break
-                            data = await asyncio.wait_for(self.reader.readline(), timeout=self.irc_timeout)
+                            data = await asyncio.wait_for(
+                                self.reader.readline(), timeout=self.irc_timeout
+                            )
                             await self.handle_line(data)
                         except (asyncio.TimeoutError, ConnectionResetError) as e:
                             self.logger.error("IRC connection timeout: {}".format(e))
@@ -84,7 +100,9 @@ class FrontendIRC:
 
     def queue_name(self):
         name = "irc.{}".format(self.server["host"])
-        name = name.replace('.', '_') # This is important because periods are meaningful in NATS' subject names
+        name = name.replace(
+            ".", "_"
+        )  # This is important because periods are meaningful in NATS' subject names
         return name
 
     async def callback_receive_message(self, _, data):
@@ -99,58 +117,89 @@ class FrontendIRC:
 
         if "reply-image" in resp:
             image_bytes = base64.standard_b64decode(resp["reply-image"])
-            filename_base = self.clean_filename(resp["prompt"], char_limit = self.f_namemax)
-            filename = "{}.png".format(filename_base[:self.f_namemax])
+            filename_base = self.clean_filename(
+                resp["prompt"], char_limit=self.f_namemax
+            )
+            filename = "{}.png".format(filename_base[: self.f_namemax])
             url = "{}/{}".format(self.options["uri_base"], filename)
 
             with open(os.path.join(self.options["output_dir"], filename), "wb") as f:
                 f.write(image_bytes)
-            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], url))
+            self.logger.info(
+                "OUTPUT: {}:{} <{}> {}".format(
+                    resp["server"], resp["channel"], resp["user"], url
+                )
+            )
             message = "{}: I dreamed this: {}".format(resp["user"], url)
         elif "reply-text" in resp:
             message = "{}: {}".format(resp["user"], resp["reply-text"])
-            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-text"]))
+            self.logger.info(
+                "OUTPUT: {}:{} <{}> {}".format(
+                    resp["server"], resp["channel"], resp["user"], resp["reply-text"]
+                )
+            )
         elif "reply-none" in resp:
-            self.logger.info("SILENCE FOR {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-none"]))
+            self.logger.info(
+                "SILENCE FOR {}:{} <{}> {}".format(
+                    resp["server"], resp["channel"], resp["user"], resp["reply-none"]
+                )
+            )
             return
         elif "error" in resp:
-            message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
-            self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message))
+            message = "{}: Dream sequence collapsed: {}".format(
+                resp["user"], resp["error"]
+            )
+            self.logger.error(
+                "OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message)
+            )
         elif "usage" in resp:
             message = "{}: {}".format(resp["user"], resp["usage"])
-            self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["usage"]))
+            self.logger.info(
+                "OUTPUT: {}:{} <{}> {}".format(
+                    resp["server"], resp["channel"], resp["user"], resp["usage"]
+                )
+            )
         else:
-            message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
+            message = "{}: Dream sequence collapsed, unknown reason.".format(
+                resp["user"]
+            )
 
         chunks = []
         # We have to send multiline responses separately, so let's split the message into lines
         for line in message.splitlines():
             # IRC has a max line length of 512 bytes, so we need to split the line into chunks
-            max_chunk_size = 510 # Start with 510 because send_cmd() adds 2 bytes for the CRLF
-            max_chunk_size -= len("{} PRIVMSG {} :".format(self.full_ident, resp["channel"]))
-            chunks += [line[i:i+max_chunk_size] for i in range(0, len(line), max_chunk_size)]
+            max_chunk_size = (
+                510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
+            )
+            max_chunk_size -= len(
+                "{} PRIVMSG {} :".format(self.full_ident, resp["channel"])
+            )
+            chunks += [
+                line[i : i + max_chunk_size]
+                for i in range(0, len(line), max_chunk_size)
+            ]
 
         loop = asyncio.get_event_loop()
         for chunk in chunks:
-            await self.send_cmd('PRIVMSG', *[resp["channel"], chunk])
+            await self.send_cmd("PRIVMSG", *[resp["channel"], chunk])
 
     def parse_line(self, line):
         # parses an irc line based on RFC:
         # https://tools.ietf.org/html/rfc2812#section-2.3.1
         prefix = None
 
-        if line.startswith(':'):
+        if line.startswith(":"):
             # prefix
             prefix, line = line.split(None, 1)
             name = prefix[1:]
             ident = None
             host = None
-            if '!' in name:
-                name, ident = name.split('!', 1)
-                if '@' in ident:
-                    ident, host = ident.split('@', 1)
-            elif '@' in name:
-                name, host = name.split('@', 1)
+            if "!" in name:
+                name, ident = name.split("!", 1)
+                if "@" in ident:
+                    ident, host = ident.split("@", 1)
+            elif "@" in name:
+                name, host = name.split("@", 1)
             prefix = self.Prefix(name, ident, host)
 
         command, *line = line.split(None, 1)
@@ -160,9 +209,9 @@ class FrontendIRC:
         if line:
             line = line[0]
             while line:
-                if line.startswith(':'):
+                if line.startswith(":"):
                     params.append(line[1:])
-                    line = ''
+                    line = ""
                 else:
                     param, *line = line.split(None, 1)
                     params.append(param)
@@ -176,26 +225,28 @@ class FrontendIRC:
             raise ValueError("No writer available")
 
         if len(line) > 510:
-            self.logger.warning("Line length exceeds RFC limit of 512 characters: {}".format(len(line)))
-        self.logger.debug('-> {}'.format(line))
-        self.writer.write(line.encode('utf-8') + b'\r\n')
+            self.logger.warning(
+                "Line length exceeds RFC limit of 512 characters: {}".format(len(line))
+            )
+        self.logger.debug("-> {}".format(line))
+        self.writer.write(line.encode("utf-8") + b"\r\n")
         await self.writer.drain()
 
     async def send_cmd(self, cmd, *params):
         params = list(params)  # copy
         if params:
-            if ' ' in params[-1]:
-                params[-1] = ':' + params[-1]
+            if " " in params[-1]:
+                params[-1] = ":" + params[-1]
         params = [cmd] + params
-        await self.send_line(' '.join(params))
+        await self.send_line(" ".join(params))
 
     async def handle_line(self, line):
         try:
             # try utf-8 first
-            line = line.decode('utf-8')
+            line = line.decode("utf-8")
         except UnicodeDecodeError:
             # fall back that always works (but might not be correct)
-            line = line.decode('latin1')
+            line = line.decode("latin1")
 
         line = line.strip()
         if line:
@@ -204,24 +255,24 @@ class FrontendIRC:
             if message.command.isdigit() and int(message.command) >= 400:
                 # might be an error
                 self.logger.error("Possible server error: {}".format(str(message)))
-            if message.command == 'PING':
-                await self.send_cmd('PONG', *message.params)
-            elif message.command == '001':
+            if message.command == "PING":
+                await self.send_cmd("PONG", *message.params)
+            elif message.command == "001":
                 await self.irc_join(self.server["channels"])
-            elif message.command == '443':
+            elif message.command == "443":
                 await self.irc_renick()
-            elif message.command == 'PRIVMSG':
+            elif message.command == "PRIVMSG":
                 await self.irc_received_privmsg(message)
-            elif message.command == 'JOIN':
+            elif message.command == "JOIN":
                 self.irc_received_join(message)
 
     async def irc_join(self, channels):
         for channel in channels:
-            await self.send_cmd('JOIN', channel)
+            await self.send_cmd("JOIN", channel)
 
     async def irc_renick(self):
-        self.server["nickname"] = self.server["nickname"] + '_'
-        await self.send_line('NICK ' + self.server["nickname"])
+        self.server["nickname"] = self.server["nickname"] + "_"
+        await self.send_line("NICK " + self.server["nickname"])
 
     def irc_received_join(self, message):
         nick = message.prefix.nick
@@ -235,9 +286,23 @@ class FrontendIRC:
         source = message.prefix.nick
         for trigger in self.options["triggers"]:
             if text.startswith(trigger):
-                self.logger.info('INPUT: {}:{} <{}> {}'.format(self.server["host"], target, source, text))
-                prompt = text[len(trigger):]
-                packet = json.dumps({"reply-to": self.queue_name(), "frontend": "irc", "server": self.server["host"], "channel": target, "user": source, "trigger": trigger, "prompt": prompt})
+                self.logger.info(
+                    "INPUT: {}:{} <{}> {}".format(
+                        self.server["host"], target, source, text
+                    )
+                )
+                prompt = text[len(trigger) :]
+                packet = json.dumps(
+                    {
+                        "reply-to": self.queue_name(),
+                        "frontend": "irc",
+                        "server": self.server["host"],
+                        "channel": target,
+                        "user": source,
+                        "trigger": trigger,
+                        "prompt": prompt,
+                    }
+                )
 
                 # Publish the trigger
                 try:
@@ -245,19 +310,25 @@ class FrontendIRC:
                     # await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
                 except Exception as e:
                     traceback.print_exc()
-                    await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence failed.".format(source)])
+                    await self.send_cmd(
+                        "PRIVMSG",
+                        *[target, "{}: Dream sequence failed.".format(source)],
+                    )
 
-    def clean_filename(self, filename, whitelist=None, replace=' ', char_limit=255):
+    def clean_filename(self, filename, whitelist=None, replace=" ", char_limit=255):
         if not whitelist:
             whitelist = self.valid_filename_chars
         # replace undesired characters
         for r in replace:
-            filename = filename.replace(r,'_')
+            filename = filename.replace(r, "_")
 
         # keep only valid ascii chars
-        cleaned_filename = unicodedata.normalize('NFKD', filename).encode('ASCII', 'ignore').decode()
+        cleaned_filename = (
+            unicodedata.normalize("NFKD", filename).encode("ASCII", "ignore").decode()
+        )
 
         # keep only whitelisted chars
-        cleaned_filename = ''.join(c for c in cleaned_filename if c in whitelist).replace('__', '')
+        cleaned_filename = "".join(
+            c for c in cleaned_filename if c in whitelist
+        ).replace("__", "")
         return cleaned_filename[:char_limit]
-
