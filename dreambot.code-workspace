@@ -27,6 +27,10 @@
         "github.gitProtocol": "ssh",
         "python.formatting.provider": "black",
         "editor.formatOnSave": true,
-        "python.analysis.typeCheckingMode": "strict"
+        "python.analysis.typeCheckingMode": "strict",
+        "python.analysis.diagnosticMode": "workspace",
+        "python.analysis.exclude": [
+            "tests/"
+        ]
     }
 }

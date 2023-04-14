@@ -8,7 +8,7 @@ from nats.js import JetStreamContext
 from nats.aio.client import Client as NATSClient
 from dreambot.shared.worker import DreambotWorkerBase
 from asyncio import Task
-from typing import Any, Callable
+from typing import Any, Coroutine, Callable
 
 
 class NatsManager:
@@ -43,9 +43,9 @@ class NatsManager:
         self.logger.info("NATS booting")
         try:
             # FIXME: We should make this an infinite loop (conditional on self.shutting_down) and disable nat.connect() reconnect
-            self.nc = await nats.connect(self.nats_uri, name="NatsManager")
-            self.logger.info("NATS connected to {}".format(self.nc.connected_url.netloc))
-            self.js = self.nc.jetstream()
+            self.nc = await nats.connect(self.nats_uri, name="NatsManager")  # type: ignore
+            self.logger.info("NATS connected to {}".format(self.nc.connected_url.netloc))  # type: ignore
+            self.js = self.nc.jetstream()  # type: ignore
 
             for worker in workers:
                 self.nats_tasks.append(asyncio.create_task(self.subscribe(worker)))
@@ -65,12 +65,12 @@ class NatsManager:
                 await self.nc.close()
 
     async def subscribe(self, worker: DreambotWorkerBase) -> None:
-        callback_receive_message: Callable[[str, bytes], bool] = worker.callback_receive_message
+        callback_receive_message: Callable[[str, bytes], Coroutine[Any, Any, bool]] = worker.callback_receive_message
         while True and not self.shutting_down:
             queue_name = worker.queue_name()
             self.logger.info("NATS subscribing to {}".format(queue_name))
             try:
-                stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")
+                stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
                 self.logger.debug("Created stream: '{}'".format(stream.did_create))
                 sub = await self.js.subscribe(queue_name)
                 self.logger.debug("Created subscription: '{}'".format(sub))
@@ -110,4 +110,4 @@ class NatsManager:
 
     async def publish(self, subject: str, data: bytes):
         self.logger.debug("Publishing to NATS: {} {}".format(subject, data))
-        await self.js.publish(subject, data)
+        await self.js.publish(subject, data)  # type: ignore

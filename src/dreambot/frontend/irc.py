@@ -91,15 +91,15 @@ class FrontendIRC(DreambotWorkerBase):
         name = name.replace(".", "_")  # This is important because periods are meaningful in NATS' subject names
         return name
 
-    async def callback_receive_message(self, _, data):
-        message = ""
+    async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
+        reply_message = ""
 
         try:
-            resp = json.loads(data.decode())
+            resp = json.loads(message.decode())
         except Exception as e:
             self.logger.error("Failed to parse response: {}".format(e))
             traceback.print_exc()
-            return
+            return True
 
         if "reply-image" in resp:
             image_bytes = base64.standard_b64decode(resp["reply-image"])
@@ -110,9 +110,9 @@ class FrontendIRC(DreambotWorkerBase):
             with open(os.path.join(self.options["output_dir"], filename), "wb") as f:
                 f.write(image_bytes)
             self.logger.info("OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], url))
-            message = "{}: I dreamed this: {}".format(resp["user"], url)
+            reply_message = "{}: I dreamed this: {}".format(resp["user"], url)
         elif "reply-text" in resp:
-            message = "{}: {}".format(resp["user"], resp["reply-text"])
+            reply_message = "{}: {}".format(resp["user"], resp["reply-text"])
             self.logger.info(
                 "OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-text"])
             )
@@ -120,29 +120,29 @@ class FrontendIRC(DreambotWorkerBase):
             self.logger.info(
                 "SILENCE FOR {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-none"])
             )
-            return
+            return True
         elif "error" in resp:
-            message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
-            self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], message))
+            reply_message = "{}: Dream sequence collapsed: {}".format(resp["user"], resp["error"])
+            self.logger.error("OUTPUT: {}:{}: ".format(resp["server"], resp["channel"], reply_message))
         elif "usage" in resp:
-            message = "{}: {}".format(resp["user"], resp["usage"])
+            reply_message = "{}: {}".format(resp["user"], resp["usage"])
             self.logger.info(
                 "OUTPUT: {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["usage"])
             )
         else:
-            message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
+            reply_message = "{}: Dream sequence collapsed, unknown reason.".format(resp["user"])
 
-        chunks = []
+        chunks: list[str] = []
         # We have to send multiline responses separately, so let's split the message into lines
-        for line in message.splitlines():
+        for line in reply_message.splitlines():
             # IRC has a max line length of 512 bytes, so we need to split the line into chunks
             max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
             max_chunk_size -= len("{} PRIVMSG {} :".format(self.full_ident, resp["channel"]))
             chunks += [line[i : i + max_chunk_size] for i in range(0, len(line), max_chunk_size)]
 
-        loop = asyncio.get_event_loop()
         for chunk in chunks:
             await self.send_cmd("PRIVMSG", *[resp["channel"], chunk])
+        return True
 
     def parse_line(self, line: str):
         # parses an irc line based on RFC:
@@ -166,7 +166,7 @@ class FrontendIRC(DreambotWorkerBase):
         command, *line = line.split(None, 1)
         command = command.upper()
 
-        params = []
+        params: list[str] = []
         if line:
             line = line[0]
             while line:
@@ -191,8 +191,8 @@ class FrontendIRC(DreambotWorkerBase):
         self.writer.write(line.encode("utf-8") + b"\r\n")
         await self.writer.drain()
 
-    async def send_cmd(self, cmd, *params):
-        params = list(params)  # copy
+    async def send_cmd(self, cmd: str, *parts: str):
+        params = list(parts)  # copy
         if params:
             if " " in params[-1]:
                 params[-1] = ":" + params[-1]
@@ -225,7 +225,7 @@ class FrontendIRC(DreambotWorkerBase):
             elif message.command == "JOIN":
                 self.irc_received_join(message)
 
-    async def irc_join(self, channels):
+    async def irc_join(self, channels: list[str]):
         for channel in channels:
             await self.send_cmd("JOIN", channel)
 
@@ -233,13 +233,13 @@ class FrontendIRC(DreambotWorkerBase):
         self.server["nickname"] = self.server["nickname"] + "_"
         await self.send_line("NICK " + self.server["nickname"])
 
-    def irc_received_join(self, message):
+    def irc_received_join(self, message: Message):
         nick = message.prefix.nick
         ident = message.prefix.ident
         host = message.prefix.host
         self.full_ident = ":{}!{}@{} ".format(nick, ident, host)
 
-    async def irc_received_privmsg(self, message):
+    async def irc_received_privmsg(self, message: Message):
         target = message.params[0]  # channel or
         text = message.params[1].lstrip()
         source = message.prefix.nick
@@ -263,16 +263,15 @@ class FrontendIRC(DreambotWorkerBase):
                 try:
                     await self.callback_send_message(trigger, packet.encode())
                     # await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
-                except Exception as e:
+                except Exception:
                     traceback.print_exc()
                     await self.send_cmd(
                         "PRIVMSG",
                         *[target, "{}: Dream sequence failed.".format(source)],
                     )
 
-    def clean_filename(self, filename, whitelist=None, replace=" ", char_limit=255):
-        if not whitelist:
-            whitelist = self.valid_filename_chars
+    def clean_filename(self, filename: str, replace: str = " ", char_limit: int = 255):
+        whitelist = self.valid_filename_chars
         # replace undesired characters
         for r in replace:
             filename = filename.replace(r, "_")

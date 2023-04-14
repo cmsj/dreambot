@@ -20,7 +20,7 @@ class DreambotBackendGPT(DreambotBackendBase):
     api_key = None
     organization = None
     model = None
-    chat_cache = {}
+    chat_cache: dict[str, Any] = {}
 
     def __init__(
         self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
@@ -39,17 +39,17 @@ class DreambotBackendGPT(DreambotBackendBase):
         openai.api_key = self.api_key
         openai.organization = self.organization
 
-    async def callback_receive_message(self, _, data):
-        self.logger.info("callback_receive_message: {}".format(data.decode()))
+    async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
+        self.logger.info("callback_receive_message: {}".format(message.decode()))
         try:
-            resp = json.loads(data.decode())
+            resp = json.loads(message.decode())
         except Exception as e:
             self.logger.error("Failed to parse messagelol: {}".format(e))
             return True
 
         try:
             prompt = resp["prompt"]
-            message = {"role": "user", "content": prompt}
+            new_chat_message = {"role": "user", "content": prompt}
 
             # Ensure we have a valid cache line for this user
             cache_key = self.cache_name_for_prompt(resp)
@@ -65,14 +65,14 @@ class DreambotBackendGPT(DreambotBackendBase):
                 self.logger.debug("Adding to existing conversation for '{}'".format(cache_key))
 
             # Now that our cache is in the right state, add this new prompt to it
-            self.chat_cache[cache_key].append(message)
+            self.chat_cache[cache_key].append(new_chat_message)
 
             # Now we can ask OpenAI for a response to the contents of our message cache
             self.logger.debug("Sending request to OpenAI...")
-            response = openai.ChatCompletion.create(model=self.model, messages=self.chat_cache[cache_key])
+            response = openai.ChatCompletion.create(model=self.model, messages=self.chat_cache[cache_key])  # type: ignore
 
             # Fetch the response, prepare it to be sent back to the user and added to their cache
-            reply = response.choices[0].message.content
+            reply = response.choices[0].message.content  # type: ignore
 
             resp["reply-text"] = reply
             self.chat_cache[cache_key].append({"role": "assistant", "content": reply})
@@ -100,10 +100,10 @@ class DreambotBackendGPT(DreambotBackendBase):
 
         return True
 
-    def cache_name_for_prompt(self, data):
+    def cache_name_for_prompt(self, data: dict[str, Any]):
         return "{}_{}_{}".format(data["reply-to"], data["channel"], data["user"])
 
-    def reset_cache(self, key):
+    def reset_cache(self, key: str):
         self.chat_cache[key] = [
             {
                 "role": "system",
