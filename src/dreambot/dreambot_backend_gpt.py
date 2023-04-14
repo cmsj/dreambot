@@ -24,8 +24,8 @@ class DreambotBackendGPTCLI(DreambotCLI):
                 self.logger.debug("callback_send_message for '{}': {}".format(queue_name, message.decode()))
                 await self.nats.publish(queue_name, message)
 
-            gpt = DreambotBackendGPT(self.options, callback_send_message)
-            self.workers.append(gpt)
+            worker = DreambotBackendGPT(self.options, callback_send_message)
+            self.workers.append(worker)
         except Exception as e:
             self.logger.error("Exception during boot: {}".format(e))
 

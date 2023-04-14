@@ -1,5 +1,3 @@
-import asyncio
-
 from dreambot.backend.invokeai import DreambotBackendInvokeAI
 from dreambot.shared.cli import DreambotCLI
 
@@ -12,27 +10,25 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
       "host": "localhost",
       "port": "9090"
   },
-  "nats": {
-      "nats_queue_name": "!invokeai",
-      "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
-  }
+  "nats_queue_name": "!invokeai",
+  "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 }"""
 
     def boot(self):
         super().boot()
 
-        loop = asyncio.get_event_loop()
-
-        self.logger.info("Starting up...")
         try:
-            gpt = DreambotBackendInvokeAI(
-                self.options["nats"], self.options["invokeai"]
-            )
-            loop.run_until_complete(gpt.boot())
-            loop.run_forever()
-        finally:
-            loop.close()
-            self.logger.info("Shutting down...")
+
+            async def callback_send_message(queue_name: str, message: bytes) -> None:
+                self.logger.debug("callback_send_message for '{}': {}".format(queue_name, message.decode()))
+                await self.nats.publish(queue_name, message)
+
+            worker = DreambotBackendInvokeAI(self.options, callback_send_message)
+            self.workers.append(worker)
+        except Exception as e:
+            self.logger.error("Exception during boot: {}".format(e))
+
+        self.run()
 
 
 def main():
