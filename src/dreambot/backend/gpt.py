@@ -17,11 +17,6 @@ from dreambot.backend.base import DreambotBackendBase
 class DreambotBackendGPT(DreambotBackendBase):
     backend_name = "GPT"
 
-    api_key = None
-    organization = None
-    model = None
-    chat_cache: dict[str, Any] = {}
-
     def __init__(
         self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
@@ -29,6 +24,8 @@ class DreambotBackendGPT(DreambotBackendBase):
         self.api_key = options["gpt"]["api_key"]
         self.organization = options["gpt"]["organization"]
         self.model = options["gpt"]["model"]
+        self.chat_cache: dict[str, Any] = {}
+
         self.logger.debug(
             "Set GPT options to: api_key={}, organization={}, model={}".format(
                 self.api_key, self.organization, self.model

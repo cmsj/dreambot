@@ -32,6 +32,8 @@
         "python.analysis.exclude": [
             "tests/",
             "typings/"
-        ]
+        ],
+        "python.analysis.inlayHints.functionReturnTypes": false,
+        "python.analysis.inlayHints.variableTypes": false
     }
 }

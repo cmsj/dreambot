@@ -11,10 +11,22 @@ from typing import NamedTuple, Any, Callable, Coroutine
 from dreambot.shared.worker import DreambotWorkerBase
 
 
+class Prefix(NamedTuple):
+    nick: str
+    ident: str
+    host: str
+
+
+class Message(NamedTuple):
+    prefix: Prefix | None
+    command: str
+    params: list[str]
+
+
 class FrontendIRC(DreambotWorkerBase):
     # Various IRC support types/functions
-    Message = NamedTuple("Message", "prefix command params")
-    Prefix = NamedTuple("Prefix", "nick ident host")
+    # Message = NamedTuple("Message", "prefix command params")
+    # Prefix = NamedTuple("Prefix", "nick ident host")
     valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
 
     def __init__(
@@ -144,26 +156,26 @@ class FrontendIRC(DreambotWorkerBase):
             await self.send_cmd("PRIVMSG", *[resp["channel"], chunk])
         return True
 
-    def parse_line(self, line: str):
+    def parse_line(self, line: str) -> Message:
         # parses an irc line based on RFC:
         # https://tools.ietf.org/html/rfc2812#section-2.3.1
-        prefix = None
+        prefix: Prefix | None = None
 
         if line.startswith(":"):
             # prefix
-            prefix, line = line.split(None, 1)
-            name = prefix[1:]
-            ident = None
-            host = None
+            prefix_str, line = line.split(None, 1)
+            name = prefix_str[1:]
+            ident = ""
+            host = ""
             if "!" in name:
                 name, ident = name.split("!", 1)
                 if "@" in ident:
                     ident, host = ident.split("@", 1)
             elif "@" in name:
                 name, host = name.split("@", 1)
-            prefix = self.Prefix(name, ident, host)
+            prefix = Prefix(name, ident, host)
 
-        command, *line = line.split(None, 1)
+        command, *line = line.split(None, 1)  # type: ignore
         command = command.upper()
 
         params: list[str] = []
@@ -174,12 +186,12 @@ class FrontendIRC(DreambotWorkerBase):
                     params.append(line[1:])
                     line = ""
                 else:
-                    param, *line = line.split(None, 1)
+                    param, *line = line.split(None, 1)  # type: ignore
                     params.append(param)
                     if line:
                         line = line[0]
 
-        return self.Message(prefix, command, params)
+        return Message(prefix, command, params)
 
     async def send_line(self, line: str):
         if not self.writer:
@@ -234,15 +246,21 @@ class FrontendIRC(DreambotWorkerBase):
         await self.send_line("NICK " + self.server["nickname"])
 
     def irc_received_join(self, message: Message):
-        nick = message.prefix.nick
-        ident = message.prefix.ident
-        host = message.prefix.host
+        if message.prefix:
+            nick = message.prefix.nick
+            ident = message.prefix.ident
+            host = message.prefix.host
+        else:
+            nick = ident = host = "???"
         self.full_ident = ":{}!{}@{} ".format(nick, ident, host)
 
     async def irc_received_privmsg(self, message: Message):
         target = message.params[0]  # channel or
         text = message.params[1].lstrip()
-        source = message.prefix.nick
+        if message.prefix:
+            source = message.prefix.nick
+        else:
+            source = "???"
         for trigger in self.options["triggers"]:
             if text.startswith(trigger):
                 self.logger.info("INPUT: {}:{} <{}> {}".format(self.server["host"], target, source, text))

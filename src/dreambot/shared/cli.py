@@ -53,7 +53,7 @@ class DreambotCLI:
         self.nats = NatsManager(nats_uri=self.options["nats_uri"])
 
     def run(self):
-        loop: asyncio.AbstractEventLoop
+        loop: asyncio.AbstractEventLoop | None = None
         try:
             loop = asyncio.get_event_loop()
 
