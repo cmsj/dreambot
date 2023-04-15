@@ -80,7 +80,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             if r.status_code != 200:
                 self.logger.error("Error POSTing session to InvokeAI: {}".format(r.reason))
                 resp["error"] = "Error from InvokeAI: {}".format(r.reason)
-                return resp
+                await self.send_message(resp)
+                return True
 
             response = r.json()
             self.request_cache[response["id"]] = resp
@@ -92,16 +93,23 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             if r.status_code != 202:
                 self.logger.error("Error PUTing session to InvokeAI: {}".format(r.reason))
                 resp["error"] = "Error from InvokeAI: {}".format(r.reason)
-                return resp
+                await self.send_message(resp)
+                return True
 
             # No more work to do here, InvokeAI will send us a message when it's done
             resp["reply-none"] = "Waiting for InvokeAI to generate a response..."
         except Exception as e:
             self.logger.error("Unknown error: {}".format(e))
             resp["error"] = "Unknown error, ask your bot admin to check logs."
+            await self.send_message(resp)
+            return True
 
         # Technically we don't need to send this because we set reply-none, but for the sake of
         # completeness and future possibility, we'll send it anyway
+        await self.send_message(resp)
+        return True
+
+    async def send_message(self, resp: dict[str, Any]):
         try:
             self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_message))
             packet = json.dumps(resp)
@@ -110,8 +118,6 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         except Exception as e:
             self.logger.error("Failed to send response: {}".format(e))
             traceback.print_exc()
-
-        return True
 
     def on_connect(self):
         self.logger.info("Connected to InvokeAI socket.io")
