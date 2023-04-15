@@ -19,7 +19,7 @@ class NatsManager:
         self.logger = logging.getLogger("dreambot.shared.nats")
 
         self.js: JetStreamContext
-        self.nc: NATSClient
+        self.nc: NATSClient | None = None
 
     async def shutdown(self):
         self.shutting_down = True

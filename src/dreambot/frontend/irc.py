@@ -41,8 +41,8 @@ class FrontendIRC(DreambotWorkerBase):
         self.callback_send_message = callback_send_message
         self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
-        self.writer: asyncio.StreamWriter
-        self.reader: asyncio.StreamReader
+        self.writer: asyncio.StreamWriter | None = None
+        self.reader: asyncio.StreamReader | None = None
         self.full_ident = ""
         self.should_reconnect = True
         self.irc_timeout = 300
@@ -75,8 +75,9 @@ class FrontendIRC(DreambotWorkerBase):
 
                 finally:
                     self.logger.info("IRC connection closed")
-                    self.writer.close()
-                    await self.writer.wait_closed()
+                    if self.writer:
+                        self.writer.close()
+                        await self.writer.wait_closed()
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
             except Exception as e:
@@ -94,9 +95,11 @@ class FrontendIRC(DreambotWorkerBase):
 
     async def shutdown(self):
         self.should_reconnect = False
-        self.writer.close()
-        await self.writer.wait_closed()
-        self.reader.feed_eof()
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
+        if self.reader:
+            self.reader.feed_eof()
 
     def queue_name(self):
         name = "irc.{}".format(self.server["host"])

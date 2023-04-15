@@ -36,6 +36,9 @@ class DreambotBackendGPT(DreambotBackendBase):
         openai.api_key = self.api_key
         openai.organization = self.organization
 
+    async def shutdown(self):
+        return
+
     async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
         self.logger.info("callback_receive_message: {}".format(message.decode()))
         try:

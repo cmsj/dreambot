@@ -97,16 +97,12 @@ def mock_builtins_open(mocker):
 
 
 def test_queue_name():
-    irc = dreambot.frontend.irc.FrontendIRC(
-        {"host": "abc123"}, {"output_dir": "/tmp"}, None
-    )
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123"}, {"output_dir": "/tmp"}, None)
     assert irc.queue_name() == "irc_abc123"
 
 
 def test_parse_line():
-    irc = dreambot.frontend.irc.FrontendIRC(
-        {"host": "abc123"}, {"output_dir": "/tmp"}, None
-    )
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123"}, {"output_dir": "/tmp"}, None)
     result = irc.parse_line("PRIVMSG #channel :hello world")
     assert result.prefix == None
     assert result.command == "PRIVMSG"
@@ -119,12 +115,10 @@ def test_parse_line():
     assert result.command == "PRIVMSG"
     assert result.params == ["#channel", "hello world"]
 
-    result = irc.parse_line(
-        ":irc.example.com 001 nick :Welcome to the Internet Relay Network nick"
-    )
+    result = irc.parse_line(":irc.example.com 001 nick :Welcome to the Internet Relay Network nick")
     assert result.prefix.nick == "irc.example.com"
-    assert result.prefix.ident == None
-    assert result.prefix.host == None
+    assert result.prefix.ident == ""
+    assert result.prefix.host == ""
 
     result = irc.parse_line(":SomeUser`^!some@1.2.3.4 PRIVMSG #channel :Some message")
     assert result.prefix.nick == "SomeUser`^"
@@ -135,7 +129,7 @@ def test_parse_line():
 
     result = irc.parse_line(":OtherUser@2.3.4.5 PRIVMSG #channel :Other message")
     assert result.prefix.nick == "OtherUser"
-    assert result.prefix.ident == None
+    assert result.prefix.ident == ""
     assert result.prefix.host == "2.3.4.5"
     assert result.command == "PRIVMSG"
     assert result.params == ["#channel", "Other message"]
@@ -152,20 +146,14 @@ def test_parse_line():
 
 @pytest.mark.asyncio
 async def test_irc_join(mock_send_cmd):
-    irc = dreambot.frontend.irc.FrontendIRC(
-        {"host": "abc123"}, {"output_dir": "/tmp"}, None
-    )
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123"}, {"output_dir": "/tmp"}, None)
     await irc.irc_join(["#channel1", "#channel2"])
-    irc.send_cmd.assert_has_calls(
-        [call("JOIN", "#channel1"), call("JOIN", "#channel2")]
-    )
+    irc.send_cmd.assert_has_calls([call("JOIN", "#channel1"), call("JOIN", "#channel2")])
 
 
 @pytest.mark.asyncio
 async def test_irc_renick(mock_send_line):
-    irc = dreambot.frontend.irc.FrontendIRC(
-        {"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp"}, None
-    )
+    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123", "nickname": "abc"}, {"output_dir": "/tmp"}, None)
 
     await irc.irc_renick()
     assert irc.server["nickname"] == "abc_"
@@ -205,9 +193,7 @@ async def test_irc_privmsg(mock_send_cmd):
 
 @pytest.mark.asyncio
 async def test_long_irc_line(mocker):
-    mock_open_connection = mocker.patch(
-        "asyncio.open_connection", return_value=(AsyncMock(), AsyncMock())
-    )
+    mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(AsyncMock(), AsyncMock()))
     irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123", "nickname": "abc"},
         {"output_dir": "/tmp", "triggers": []},
@@ -279,9 +265,7 @@ async def test_handle_response_text(mock_send_cmd):
     )
 
     assert irc.send_cmd.call_count == 1
-    irc.send_cmd.assert_has_calls(
-        [call("PRIVMSG", "#testchannel", "testuser: test text")]
-    )
+    irc.send_cmd.assert_has_calls([call("PRIVMSG", "#testchannel", "testuser: test text")])
 
 
 @pytest.mark.asyncio
@@ -337,9 +321,7 @@ async def test_handle_response_usage(mock_send_cmd):
     )
 
     assert irc.send_cmd.call_count == 1
-    irc.send_cmd.assert_has_calls(
-        [call("PRIVMSG", "#testchannel", "testuser: test usage")]
-    )
+    irc.send_cmd.assert_has_calls([call("PRIVMSG", "#testchannel", "testuser: test usage")])
 
 
 @pytest.mark.asyncio
@@ -352,9 +334,7 @@ async def test_handle_response_unknown(mock_send_cmd):
 
     await irc.callback_receive_message(
         None,
-        json.dumps(
-            {"server": "test.server.com", "channel": "#testchannel", "user": "testuser"}
-        ).encode(),
+        json.dumps({"server": "test.server.com", "channel": "#testchannel", "user": "testuser"}).encode(),
     )
 
     assert irc.send_cmd.call_count == 1
@@ -439,13 +419,7 @@ async def test_handle_line_privmsg(mock_irc_privmsg):
 
     assert irc.irc_received_privmsg.call_count == 1
     irc.irc_received_privmsg.assert_has_calls(
-        [
-            call(
-                irc.Message(
-                    prefix=None, command="PRIVMSG", params=["#testchannel", "!test"]
-                )
-            )
-        ]
+        [call(dreambot.frontend.irc.Message(prefix=None, command="PRIVMSG", params=["#testchannel", "!test"]))]
     )
 
 
@@ -457,9 +431,7 @@ async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
         None,
     )
     irc.callback_send_message = AsyncMock(side_effect=Exception("test exception"))
-    await irc.handle_line(
-        b":testuser!testident@testhost PRIVMSG #testchannel :!test some text"
-    )
+    await irc.handle_line(b":testuser!testident@testhost PRIVMSG #testchannel :!test some text")
 
     assert irc.callback_send_message.call_count == 1
     irc.callback_send_message.assert_has_calls(
@@ -572,9 +544,7 @@ async def test_boot_single_loop_some_other_exception(
     reader = AsyncMock()
     writer = AsyncMock()
 
-    mock_open_connection = mocker.patch(
-        "asyncio.open_connection", return_value=(reader, writer), side_effect=KeyError
-    )
+    mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer), side_effect=KeyError)
 
     await irc.boot(reconnect=False)
 
@@ -586,9 +556,7 @@ async def test_boot_single_loop_some_other_exception(
 
 
 @pytest.mark.asyncio
-async def test_boot_single_loop_handshake(
-    mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_handle_line
-):
+async def test_boot_single_loop_handshake(mocker, mock_send_cmd, mock_send_line, mock_sleep, mock_handle_line):
     irc = dreambot.frontend.irc.FrontendIRC(
         {
             "host": "abc123",
@@ -608,9 +576,7 @@ async def test_boot_single_loop_handshake(
     reader.feed_eof()
 
     writer = AsyncMock()
-    mock_asyncio_open_connection = mocker.patch(
-        "asyncio.open_connection", return_value=(reader, writer)
-    )
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
     irc.send_line = mock_send_line
 
     await irc.boot(reconnect=False)
@@ -618,13 +584,9 @@ async def test_boot_single_loop_handshake(
     mock_asyncio_open_connection.assert_called_once()
     mock_sleep.assert_not_called()
     assert mock_send_line.call_count == 2
-    mock_send_line.assert_has_calls(
-        [call("NICK abc"), call("USER testident * * :testrealname")]
-    )
+    mock_send_line.assert_has_calls([call("NICK abc"), call("USER testident * * :testrealname")])
     mock_send_cmd.assert_not_called()
-    mock_handle_line.assert_has_calls(
-        [call(b"Testing input line, does not need to be RFC compliant")]
-    )
+    mock_handle_line.assert_has_calls([call(b"Testing input line, does not need to be RFC compliant")])
 
 
 @pytest.mark.asyncio
@@ -648,9 +610,7 @@ async def test_boot_single_loop_with_reply(mocker, mock_sleep):
     reader.feed_eof()
 
     writer = AsyncMock()
-    mock_asyncio_open_connection = mocker.patch(
-        "asyncio.open_connection", return_value=(reader, writer)
-    )
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
 
     await irc.boot(reconnect=False)
 
@@ -658,6 +618,7 @@ async def test_boot_single_loop_with_reply(mocker, mock_sleep):
     mock_sleep.assert_not_called()
     writer.assert_has_calls(
         [
+            call.__bool__(),
             call.write(b"NICK abc\r\n"),
             call.drain(),
             call.__bool__(),
@@ -669,6 +630,7 @@ async def test_boot_single_loop_with_reply(mocker, mock_sleep):
             call.__bool__(),
             call.write(b"JOIN #test2\r\n"),
             call.drain(),
+            call.__bool__(),
             call.close(),
             call.wait_closed(),
             call.__bool__(),
@@ -699,9 +661,7 @@ async def test_boot_reconnect_ConnectionRefusedError(mocker, mock_sleep):
     reader.feed_eof()
 
     writer = MagicMock()
-    mock_asyncio_open_connection = mocker.patch(
-        "asyncio.open_connection", return_value=(reader, writer)
-    )
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
 
     def side_effect(*args, **kwargs):
         if mock_asyncio_open_connection.call_count >= 5:
@@ -748,9 +708,7 @@ async def test_boot_reconnect_ConnectionResetError(mocker, mock_sleep):
 
     writer = AsyncMock()
     writer.wait_closed = AsyncMock()
-    mock_asyncio_open_connection = mocker.patch(
-        "asyncio.open_connection", return_value=(reader, writer)
-    )
+    mock_asyncio_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
 
     def side_effect(*args, **kwargs):
         if mock_asyncio_open_connection.call_count >= 5:
