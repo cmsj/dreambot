@@ -2,15 +2,8 @@ name: Docker CI Build
 
 on:
   push:
-    branches:
-      - 'main'
     tags:
-      - v*
-    paths:
-      - 'Dockerfile'
-      - 'src/dreambot/**'
-      - 'pyproject.toml'
-      - '.github/workflows/docker_build.yml'
+      - '*'
 
 env:
   REGISTRY: ghcr.io
