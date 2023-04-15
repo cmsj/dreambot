@@ -33,6 +33,9 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio.on("invocation_complete", self.on_invocation_complete)  # type: ignore
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
 
+    async def shutdown(self):
+        self.sio.disconnect()  # type: ignore
+
     async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
         self.logger.info("callback_receive_message: {}".format(message.decode()))
         try:
@@ -44,8 +47,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         try:
             prompt = resp["prompt"]
             if not self.sio.connected:  # type: ignore
-                resp["error"] = "InvokeAI backend not connected"
-                return resp
+                self.logger.error("Socket.io not connected, cannot send prompt")
+                return False
 
             self.logger.info("Sending prompt to InvokeAI: {}".format(prompt))
             id = 1
@@ -126,9 +129,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio.emit("unsubscribe", {"session": id})  # type: ignore
 
         request = self.request_cache[id]
-        request.pop(
-            "reply-none", None
-        )  # We likely have a reply-none from when we first replied to this request, so remove it
+        # We likely have a reply-none from when we first replied to this request, so remove it
+        request.pop("reply-none", None)
 
         r = requests.get(self.api_uri + "images/results/{}".format(data["result"]["image"]["image_name"]))
         if r.status_code != 200:
