@@ -129,7 +129,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         id = data["graph_execution_state_id"]
 
         self.logger.info("Invocation complete: {}".format(id))
-        self.logger.debug("Invocation complete data: {}".format(data))
+        # self.logger.debug("Invocation complete data: {}".format(data))
 
         self.logger.info("Unsubscribing from InvokeAI session: {}".format(id))
         self.sio.emit("unsubscribe", {"session": id})  # type: ignore
@@ -144,6 +144,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             request["error"] = "Error from InvokeAI: {}".format(r.reason)
             return
         else:
+            self.logger.info("Fetched image from InvokeAI")
             # FIXME: There is a 1MB limit on NATS messages. We should instead write to disk here and merely send a URL over NATS
             # (or we get fancy and use some kind of object store, and send a URL to that)
             request["reply-image"] = base64.b64encode(r.content).decode("utf8")
