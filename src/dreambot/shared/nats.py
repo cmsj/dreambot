@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import nats
 import traceback
@@ -109,5 +110,9 @@ class NatsManager:
                 await asyncio.sleep(5)
 
     async def publish(self, subject: str, data: bytes):
-        self.logger.debug("Publishing to NATS: {} {}".format(subject, data))
+        raw_msg = data.decode()
+        json_msg = json.loads(raw_msg)
+        if "reply-image" in json_msg:
+            json_msg["reply-image"] = "** IMAGE **"
+        self.logger.debug("Publishing to NATS: {} {}".format(subject, json_msg))
         await self.js.publish(subject, data)  # type: ignore

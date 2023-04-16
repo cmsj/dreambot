@@ -10,7 +10,9 @@ from argparse import ArgumentParser, RawTextHelpFormatter
 
 
 class DreambotCLI:
-    def __init__(self):
+    def __init__(
+        self,
+    ):  # FIXME: We need to accept the cli_name here, because otherwise it's too late for the logger setup
         self.cli_name = "BaseCLI"
         self.logger = logging.getLogger("dreambot.cli.{}".format(self.cli_name))
         self.example_json = ""
