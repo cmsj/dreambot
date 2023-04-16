@@ -24,9 +24,6 @@ class Message(NamedTuple):
 
 
 class FrontendIRC(DreambotWorkerBase):
-    # Various IRC support types/functions
-    # Message = NamedTuple("Message", "prefix command params")
-    # Prefix = NamedTuple("Prefix", "nick ident host")
     valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
 
     def __init__(

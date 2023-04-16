@@ -31,7 +31,8 @@ dependencies = [
     "openai==0.27.2",
     "nats-py==2.2.0",
     "python-socketio[client]",
-    "requests"
+    "requests",
+    "discord.py"
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,7 @@ test = [
 
 [project.scripts]
 dreambot_frontend_irc = "dreambot.dreambot_frontend_irc:main"
+dreambot_frontend_discord = "dreambot.dreambot_frontend_discord:main"
 dreambot_backend_gpt = "dreambot.dreambot_backend_gpt:main"
 dreambot_backend_invokeai = "dreambot.dreambot_backend_invokeai:main"
 
