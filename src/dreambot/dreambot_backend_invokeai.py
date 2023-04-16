@@ -4,7 +4,6 @@ from dreambot.shared.cli import DreambotCLI
 
 
 class DreambotBackendInvokeAICLI(DreambotCLI):
-    cli_name = "BackendInvokeAI"
     example_json = """Example JSON config:
 {
   "invokeai": {
@@ -14,6 +13,9 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
   "nats_queue_name": "!invokeai",
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 }"""
+
+    def __init__(self):
+        super().__init__("BackendInvokeAI")
 
     def boot(self):
         super().boot()

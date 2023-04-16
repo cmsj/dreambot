@@ -2,9 +2,9 @@
 import asyncio
 import json
 import base64
-import os
 import io
 import logging
+import os
 import unicodedata
 import string
 import traceback
@@ -25,6 +25,7 @@ class FrontendDiscord(DreambotWorkerBase):
         self.token = options["discord"]["token"]
         self.options = options
         self.callback_send_message = callback_send_message
+        self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
         self.should_reconnect = True
         self.discord: discord.Client
@@ -39,11 +40,11 @@ class FrontendDiscord(DreambotWorkerBase):
                 self.discord = discord.Client(intents=intents)
 
                 @self.discord.event
-                async def on_ready():
+                async def on_ready():  # type: ignore
                     await self.on_ready()
 
                 @self.discord.event
-                async def on_message(message: discord.Message):
+                async def on_message(message: discord.Message):  # type: ignore
                     await self.on_message(message)
 
                 # self.discord.event(lambda: self.on_ready())
@@ -68,7 +69,7 @@ class FrontendDiscord(DreambotWorkerBase):
     async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
         reply_message = ""
         file_bytes: io.BytesIO | None = None
-        filename: str
+        filename: str = "prompt.png"
 
         try:
             resp = json.loads(message.decode())
