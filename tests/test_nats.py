@@ -52,9 +52,7 @@ def mock_nats_next_msg(create_mock_coro):
 async def test_boot_connect_failed(mocker):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
 
-    mock_nats_connect = mocker.patch(
-        "nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError
-    )
+    mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError)
 
     await nm.boot([])
     assert mock_nats_connect.call_count == 1
@@ -82,9 +80,12 @@ async def test_nats_publish(mocker):
     nm.nc = AsyncMock()
     nm.js = AsyncMock()
 
-    await nm.publish("test", "test")
+    json_txt = '{"test": "test"}'
+    json_bytes = json_txt.encode()
+
+    await nm.publish("test", json_bytes)
     assert nm.js.publish.call_count == 1
-    assert nm.js.publish.has_calls([call("test", "test".encode())])
+    assert nm.js.publish.has_calls([call("test", json_bytes)])
 
 
 # @pytest.mark.asyncio
@@ -128,9 +129,7 @@ async def test_nats_subscribe(mocker, mock_sleep):
 
     sub_obj = AsyncMock()
     sub_obj.next_msg = AsyncMock()
-    sub_obj.next_msg.side_effect = (
-        next_sub_side_effect  # FIXME: I don't understand why this is necessary
-    )
+    sub_obj.next_msg.side_effect = next_sub_side_effect  # FIXME: I don't understand why this is necessary
     nm.js.subscribe = sub_obj
 
     tw = TestWorker()
@@ -163,11 +162,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
     assert loop_count == 0
     assert nm.logger.warning.call_count == 5
     nm.logger.warning.assert_has_calls(
-        [
-            call(
-                "NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet"
-            )
-        ]
+        [call("NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet")]
     )
 
 
@@ -192,6 +187,4 @@ async def test_nats_subscribe_other_exception(mocker, mock_sleep):
     await nm.subscribe(MagicMock())
     assert loop_count == 0
     assert nm.logger.error.call_count == 5
-    nm.logger.error.assert_has_calls(
-        [call("nats_subscribe exception: Some other exception")]
-    )
+    nm.logger.error.assert_has_calls([call("nats_subscribe exception: Some other exception")])
