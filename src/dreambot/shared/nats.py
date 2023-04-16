@@ -81,7 +81,11 @@ class NatsManager:
                     self.logger.debug("Waiting for NATS message on {}".format(queue_name))
                     try:
                         msg = await sub.next_msg()
-                        self.logger.debug("Received NATS message on '{}': {}".format(queue_name, msg.data.decode()))
+                        raw_msg = msg.data.decode()
+                        json_msg = json.loads(raw_msg)
+                        if "reply-image" in json_msg:
+                            json_msg["reply-image"] = "** IMAGE **"
+                        self.logger.debug("Received NATS message on '{}': {}".format(queue_name, json_msg))
 
                         # We will remove the message from the queue if the callback returns anything but False
                         worker_callback_result = await callback_receive_message(queue_name, msg.data)
