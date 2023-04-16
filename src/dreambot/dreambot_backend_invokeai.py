@@ -1,3 +1,4 @@
+import json
 from dreambot.backend.invokeai import DreambotBackendInvokeAI
 from dreambot.shared.cli import DreambotCLI
 
