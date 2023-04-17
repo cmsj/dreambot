@@ -5,9 +5,12 @@ from dreambot.shared.worker import DreambotWorkerBase
 
 class DreambotBackendBase(DreambotWorkerBase):
     def __init__(
-        self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
+        self,
+        name: str,
+        options: dict[str, Any],
+        callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
-        self.backend_name = "BaseBackend"
+        self.backend_name = name
         self.logger = logging.getLogger("dreambot.backend.base.{}".format(self.backend_name))
         self.options = options
         self.queuename: str = options["nats_queue_name"]

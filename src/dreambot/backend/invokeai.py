@@ -10,12 +10,10 @@ from dreambot.backend.base import DreambotBackendBase
 
 
 class DreambotBackendInvokeAI(DreambotBackendBase):
-    backend_name = "InvokeAI"
-
     def __init__(
         self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
-        super().__init__(options, callback_send_message)
+        super().__init__("InvokeAI", options, callback_send_message)
         self.sio: socketio.Client
         self.invokeai_host = options["invokeai"]["host"]
         self.invokeai_port = options["invokeai"]["port"]

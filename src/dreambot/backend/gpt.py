@@ -15,12 +15,10 @@ from dreambot.backend.base import DreambotBackendBase
 
 
 class DreambotBackendGPT(DreambotBackendBase):
-    backend_name = "GPT"
-
     def __init__(
         self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
-        super().__init__(options, callback_send_message)
+        super().__init__("GPT", options, callback_send_message)
         self.api_key = options["gpt"]["api_key"]
         self.organization = options["gpt"]["organization"]
         self.model = options["gpt"]["model"]

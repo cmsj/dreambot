@@ -59,6 +59,10 @@ class FrontendDiscord(DreambotWorkerBase):
 
     async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
         reply_args: dict[str, str | io.BytesIO] = {}
+        self.logger.info("Received message from queue {}".format(queue_name))
+        if not self.discord.is_ready():
+            self.logger.error("Discord not ready, cannot send message")
+            return False
 
         try:
             resp = json.loads(message.decode())
@@ -105,6 +109,9 @@ class FrontendDiscord(DreambotWorkerBase):
         else:
             reply_args["content"] = "Dream sequence collapsed, unknown reason."
 
+        self.logger.info(
+            "Sending reply to {}: {} <{}>".format(resp["server_name"], reply_args["channel_name"], resp["user_name"])
+        )
         await origin_message.reply(**reply_args)  # type: ignore
         return True
 
