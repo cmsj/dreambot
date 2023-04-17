@@ -100,6 +100,7 @@ class NatsManager:
                         continue
                     except Exception as e:
                         self.logger.error("NATS message exception: {}".format(e))
+                        traceback.print_exc()
 
             except BadRequestError:
                 self.logger.warning(

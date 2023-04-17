@@ -111,9 +111,7 @@ class FrontendDiscord(DreambotWorkerBase):
 
         try:
             self.logger.info(
-                "Sending reply to {}: {} <{}>".format(
-                    resp["server_name"], reply_args["channel_name"], resp["user_name"]
-                )
+                "Sending reply to {}: {} <{}>".format(resp["server_name"], resp["channel_name"], resp["user_name"])
             )
             await origin_message.reply(**reply_args)  # type: ignore
         except Exception as e:
