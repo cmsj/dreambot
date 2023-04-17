@@ -109,10 +109,16 @@ class FrontendDiscord(DreambotWorkerBase):
         else:
             reply_args["content"] = "Dream sequence collapsed, unknown reason."
 
-        self.logger.info(
-            "Sending reply to {}: {} <{}>".format(resp["server_name"], reply_args["channel_name"], resp["user_name"])
-        )
-        await origin_message.reply(**reply_args)  # type: ignore
+        try:
+            self.logger.info(
+                "Sending reply to {}: {} <{}>".format(
+                    resp["server_name"], reply_args["channel_name"], resp["user_name"]
+                )
+            )
+            await origin_message.reply(**reply_args)  # type: ignore
+        except Exception as e:
+            self.logger.error("Failed to send reply: {}".format(e))
+            traceback.print_exc()
         return True
 
     # @self.discord.event
