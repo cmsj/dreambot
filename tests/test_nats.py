@@ -50,7 +50,7 @@ def mock_nats_next_msg(create_mock_coro):
 
 @pytest.mark.asyncio
 async def test_boot_connect_failed(mocker):
-    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_boot_connect_failed")
 
     mock_nats_connect = mocker.patch("nats.connect", return_value=AsyncMock(), side_effect=nats.errors.NoServersError)
 
@@ -63,7 +63,7 @@ async def test_nats_shutdown(mocker, mock_sleep):
     all_tasks = [MagicMock(), MagicMock(), MagicMock()]
     mock_all_tasks = mocker.patch("asyncio.all_tasks", return_value=all_tasks)
 
-    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_shutdown")
     nm.nats_tasks = [MagicMock(), MagicMock()]
     nm.nc = AsyncMock()
 
@@ -76,7 +76,7 @@ async def test_nats_shutdown(mocker, mock_sleep):
 
 @pytest.mark.asyncio
 async def test_nats_publish(mocker):
-    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_publish")
     nm.nc = AsyncMock()
     nm.js = AsyncMock()
 
@@ -144,7 +144,7 @@ async def test_nats_publish(mocker):
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_badrequest(mocker, mock_sleep):
-    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_subscribe_badrequest")
     nm.js = MagicMock()
     nm.logger.warning = MagicMock()
     loop_count = 5
@@ -170,7 +170,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
 
 @pytest.mark.asyncio
 async def test_nats_subscribe_other_exception(mocker, mock_sleep):
-    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234")
+    nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_subscribe_other_exception")
     nm.js = MagicMock()
     nm.logger.error = MagicMock()
     loop_count = 5
