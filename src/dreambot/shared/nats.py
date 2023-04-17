@@ -13,11 +13,12 @@ from typing import Any, Coroutine, Callable
 
 
 class NatsManager:
-    def __init__(self, nats_uri: str):
+    def __init__(self, nats_uri: str, name: str):
+        self.name = name
         self.nats_uri = nats_uri
         self.nats_tasks: list[Task[Any]] = []
         self.shutting_down = False
-        self.logger = logging.getLogger("dreambot.shared.nats")
+        self.logger = logging.getLogger("dreambot.shared.nats.{}".format(self.name))
 
         self.js: JetStreamContext
         self.nc: NATSClient | None = None

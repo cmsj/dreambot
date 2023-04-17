@@ -50,7 +50,7 @@ class DreambotCLI:
             self.logger.error("nats_uri missing from {}".format(self.args.config))
             raise ValueError("nats_uri not provided in JSON config")
 
-        self.nats = NatsManager(nats_uri=self.options["nats_uri"])
+        self.nats = NatsManager(nats_uri=self.options["nats_uri"], name=self.cli_name)
 
     def run(self):
         loop: asyncio.AbstractEventLoop | None = None
