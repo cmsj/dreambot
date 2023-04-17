@@ -94,18 +94,24 @@ class FrontendDiscord(DreambotWorkerBase):
             reply_args["content"] = "I dreamed this:"
         elif "reply-text" in resp:
             reply_args["content"] = resp["reply-text"]
-            self.logger.info("OUTPUT: {} <{}> {}".format(resp["channel"], resp["user"], resp["reply-text"]))
+            self.logger.info(
+                "OUTPUT: {}:{} <{}> {}".format(resp["server_name"], resp["channel"], resp["user"], resp["reply-text"])
+            )
         elif "reply-none" in resp:
             self.logger.info(
-                "SILENCE FOR {}:{} <{}> {}".format(resp["server"], resp["channel"], resp["user"], resp["reply-none"])
+                "SILENCE FOR {}:{} <{}> {}".format(
+                    resp["server_name"], resp["channel"], resp["user"], resp["reply-none"]
+                )
             )
             return True
         elif "error" in resp:
             reply_args["content"] = "Dream sequence collapsed: {}".format(resp["error"])
-            self.logger.error("OUTPUT: {}: ".format(resp["channel"], reply_args["content"]))
+            self.logger.error("OUTPUT: {}:{}: ".format(resp["server_name"], resp["channel"], reply_args["content"]))
         elif "usage" in resp:
             reply_args["content"] = "{}".format(resp["usage"])
-            self.logger.info("OUTPUT: {} <{}> {}".format(resp["channel"], resp["user"], resp["usage"]))
+            self.logger.info(
+                "OUTPUT: {}:{} <{}> {}".format(resp["server_name"], resp["channel"], resp["user"], resp["usage"])
+            )
         else:
             reply_args["content"] = "Dream sequence collapsed, unknown reason."
 
