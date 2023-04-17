@@ -1,4 +1,3 @@
-import json
 from dreambot.backend.invokeai import DreambotBackendInvokeAI
 from dreambot.shared.cli import DreambotCLI
 
@@ -21,16 +20,7 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
         super().boot()
 
         try:
-
-            async def callback_send_message(queue_name: str, message: bytes) -> None:
-                raw_msg = message.decode()
-                json_msg = json.loads(raw_msg)
-                if "reply-image" in json_msg:
-                    json_msg["reply-image"] = "** IMAGE **"
-                self.logger.debug("callback_send_message for '{}': {}".format(queue_name, json_msg))
-                await self.nats.publish(queue_name, message)
-
-            worker = DreambotBackendInvokeAI(self.options, callback_send_message)
+            worker = DreambotBackendInvokeAI(self.options, self.callback_send_message)
             self.workers.append(worker)
         except Exception as e:
             self.logger.error("Exception during boot: {}".format(e))

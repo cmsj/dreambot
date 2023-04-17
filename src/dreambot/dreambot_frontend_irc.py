@@ -1,4 +1,3 @@
-import json
 from dreambot.frontend.irc import FrontendIRC
 from dreambot.shared.cli import DreambotCLI
 
@@ -36,17 +35,8 @@ class DreambotFrontendIRCCLI(DreambotCLI):
         super().boot()
 
         try:
-
-            async def callback_send_message(queue_name: str, message: bytes) -> None:
-                raw_msg = message.decode()
-                json_msg = json.loads(raw_msg)
-                if "reply-image" in json_msg:
-                    json_msg["reply-image"] = "** IMAGE **"
-                self.logger.debug("callback_send_message for '{}': {}".format(queue_name, json_msg))
-                await self.nats.publish(queue_name, message)
-
             for server_config in self.options["irc"]:
-                server = FrontendIRC(server_config, self.options, callback_send_message)
+                server = FrontendIRC(server_config, self.options, self.callback_send_message)
                 self.workers.append(server)
         except Exception as e:
             self.logger.error("Exception during boot: {}".format(e))

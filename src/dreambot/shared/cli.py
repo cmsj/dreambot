@@ -52,6 +52,16 @@ class DreambotCLI:
 
         self.nats = NatsManager(nats_uri=self.options["nats_uri"])
 
+        async def callback_send_message(queue_name: str, message: bytes) -> None:
+            raw_msg = message.decode()
+            json_msg = json.loads(raw_msg)
+            if "reply-image" in json_msg:
+                json_msg["reply-image"] = "** IMAGE **"
+            self.logger.debug("callback_send_message for '{}': {}".format(queue_name, json_msg))
+            await self.nats.publish(queue_name, message)
+
+        return callback_send_message
+
     def run(self):
         loop: asyncio.AbstractEventLoop | None = None
         try:
