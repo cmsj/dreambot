@@ -98,7 +98,7 @@ class FrontendDiscord(DreambotWorkerBase):
             return True
         elif "error" in resp:
             reply_args["content"] = "Dream sequence collapsed: {}".format(resp["error"])
-            self.logger.error("OUTPUT: {}: ".format(resp["channel"], reply_message))
+            self.logger.error("OUTPUT: {}: ".format(resp["channel"], reply_args["content"]))
         elif "usage" in resp:
             reply_args["content"] = "{}".format(resp["usage"])
             self.logger.info("OUTPUT: {} <{}> {}".format(resp["channel"], resp["user"], resp["usage"]))
