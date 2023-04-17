@@ -4,8 +4,6 @@ import json
 import base64
 import os
 import logging
-import unicodedata
-import string
 import traceback
 from typing import NamedTuple, Any, Callable, Coroutine
 from dreambot.shared.worker import DreambotWorkerBase
@@ -24,8 +22,6 @@ class Message(NamedTuple):
 
 
 class FrontendIRC(DreambotWorkerBase):
-    valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
-
     def __init__(
         self,
         irc_server: dict[str, Any],
@@ -36,7 +32,6 @@ class FrontendIRC(DreambotWorkerBase):
         self.server = irc_server
         self.options = options
         self.callback_send_message = callback_send_message
-        self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
         self.writer: asyncio.StreamWriter | None = None
         self.reader: asyncio.StreamReader | None = None
@@ -115,8 +110,7 @@ class FrontendIRC(DreambotWorkerBase):
 
         if "reply-image" in resp:
             image_bytes = base64.standard_b64decode(resp["reply-image"])
-            filename_base = self.clean_filename(resp["prompt"], char_limit=self.f_namemax)
-            filename = "{}.png".format(filename_base[: self.f_namemax])
+            filename = self.clean_filename(resp["prompt"], suffix=".png", output_dir=self.options["output_dir"])
             url = "{}/{}".format(self.options["uri_base"], filename)
 
             with open(os.path.join(self.options["output_dir"], filename), "wb") as f:
@@ -287,16 +281,3 @@ class FrontendIRC(DreambotWorkerBase):
                         "PRIVMSG",
                         *[target, "{}: Dream sequence failed.".format(source)],
                     )
-
-    def clean_filename(self, filename: str, replace: str = " ", char_limit: int = 255):
-        whitelist = self.valid_filename_chars
-        # replace undesired characters
-        for r in replace:
-            filename = filename.replace(r, "_")
-
-        # keep only valid ascii chars
-        cleaned_filename = unicodedata.normalize("NFKD", filename).encode("ASCII", "ignore").decode()
-
-        # keep only whitelisted chars
-        cleaned_filename = "".join(c for c in cleaned_filename if c in whitelist).replace("__", "")
-        return cleaned_filename[:char_limit]

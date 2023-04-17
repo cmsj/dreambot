@@ -4,9 +4,6 @@ import json
 import base64
 import io
 import logging
-import os
-import unicodedata
-import string
 import traceback
 import discord
 from typing import Any, Callable, Coroutine
@@ -14,8 +11,6 @@ from dreambot.shared.worker import DreambotWorkerBase
 
 
 class FrontendDiscord(DreambotWorkerBase):
-    valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
-
     def __init__(
         self,
         options: dict[str, Any],
@@ -25,7 +20,6 @@ class FrontendDiscord(DreambotWorkerBase):
         self.token = options["discord"]["token"]
         self.options = options
         self.callback_send_message = callback_send_message
-        self.f_namemax = os.statvfs(self.options["output_dir"]).f_namemax - 4
 
         self.should_reconnect = True
         self.discord: discord.Client
@@ -47,9 +41,6 @@ class FrontendDiscord(DreambotWorkerBase):
                 async def on_message(message: discord.Message):  # type: ignore
                     await self.on_message(message)
 
-                # self.discord.event(lambda: self.on_ready())
-                # self.discord.event(lambda message: self.on_message(message))
-
                 await self.discord.start(self.token, reconnect=False)
             except Exception as e:
                 self.logger.error("Discord connection error: {}".format(e))
@@ -67,9 +58,7 @@ class FrontendDiscord(DreambotWorkerBase):
         return "discord"
 
     async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
-        reply_message = ""
-        file_bytes: io.BytesIO | None = None
-        filename: str = "prompt.png"
+        reply_args: dict[str, str | io.BytesIO] = {}
 
         try:
             resp = json.loads(message.decode())
@@ -79,23 +68,28 @@ class FrontendDiscord(DreambotWorkerBase):
             return True
 
         channel = self.discord.get_channel(int(resp["channel"]))
-        # user = self.discord.get_user(int(resp["user"]))
-        origin_message = await channel.fetch_message(int(resp["origin_message"]))
+        if not channel:
+            self.logger.error("Failed to find channel {} ({})".format(resp["channel_name"], resp["channel"]))
+            return True
 
+        try:
+            origin_message = await channel.fetch_message(int(resp["origin_message"]))  # type: ignore
+        except Exception as e:
+            self.logger.error("Failed to fetch message {}: {}".format(resp["origin_message"], e))
+            return True
         if origin_message is None:
             self.logger.error("Failed to find origin message {}".format(resp["origin_message"]))
             return True
 
         if "reply-image" in resp:
-            reply_message = "I have an image to send, but I don't know how to do that yet."
             image_bytes = base64.standard_b64decode(resp["reply-image"])
-            file_bytes = io.BytesIO(image_bytes)
-            filename_base = self.clean_filename(resp["prompt"], char_limit=self.f_namemax)
-            filename = "{}.png".format(filename_base[: self.f_namemax])
-
-            reply_message = "I dreamed this:"
+            reply_args["file"] = io.BytesIO(image_bytes)
+            reply_args["filename"] = self.clean_filename(
+                resp["prompt"], suffix=".png", output_dir=self.options["output_dir"]
+            )
+            reply_args["content"] = "I dreamed this:"
         elif "reply-text" in resp:
-            reply_message = resp["reply-text"]
+            reply_args["content"] = resp["reply-text"]
             self.logger.info("OUTPUT: {} <{}> {}".format(resp["channel"], resp["user"], resp["reply-text"]))
         elif "reply-none" in resp:
             self.logger.info(
@@ -103,18 +97,15 @@ class FrontendDiscord(DreambotWorkerBase):
             )
             return True
         elif "error" in resp:
-            reply_message = "Dream sequence collapsed: {}".format(resp["error"])
+            reply_args["content"] = "Dream sequence collapsed: {}".format(resp["error"])
             self.logger.error("OUTPUT: {}: ".format(resp["channel"], reply_message))
         elif "usage" in resp:
-            reply_message = "{}".format(resp["usage"])
+            reply_args["content"] = "{}".format(resp["usage"])
             self.logger.info("OUTPUT: {} <{}> {}".format(resp["channel"], resp["user"], resp["usage"]))
         else:
-            reply_message = "Dream sequence collapsed, unknown reason."
+            reply_args["content"] = "Dream sequence collapsed, unknown reason."
 
-        if file_bytes is not None:
-            await origin_message.reply(content=reply_message, file=discord.File(file_bytes, filename=filename))
-        else:
-            await origin_message.reply(content=reply_message)
+        await origin_message.reply(**reply_args)  # type: ignore
         return True
 
     # @self.discord.event
@@ -124,25 +115,43 @@ class FrontendDiscord(DreambotWorkerBase):
     # @self.discord.event
     async def on_message(self, message: discord.Message):
         if message.author == self.discord.user:
+            # Discard messages from self
             return
         self.logger.debug("Received message: {}".format(message.content))
         text = message.content
 
         for trigger in self.options["triggers"]:
             if text.startswith(trigger):
-                self.logger.info("INPUT: <{}> {}".format(message.author.name, text))
                 prompt = text[len(trigger) :]
-                packet = json.dumps(
-                    {
-                        "reply-to": self.queue_name(),
-                        "frontend": "discord",
-                        "channel": message.channel.id,
-                        "user": message.author.id,
-                        "origin_message": message.id,
-                        "trigger": trigger,
-                        "prompt": prompt,
-                        "server": message.guild.id,
-                    }
+
+                packet_dict = {
+                    "reply-to": self.queue_name(),
+                    "frontend": "discord",
+                    "channel": message.channel.id,
+                    "user": message.author.id,
+                    "user_name": message.author.name,
+                    "origin_message": message.id,
+                    "trigger": trigger,
+                    "prompt": prompt,
+                }
+
+                if hasattr(message.channel, "name"):
+                    packet_dict["channel_name"] = str(message.channel.name) if message.channel.name else "DM"  # type: ignore
+                else:
+                    packet_dict["channel_name"] = "DM"
+
+                if message.guild:
+                    packet_dict["server_name"] = message.guild.name
+                    packet_dict["server_id"] = message.guild.id
+                else:
+                    packet_dict["server_name"] = "DM"
+
+                packet = json.dumps(packet_dict)
+
+                self.logger.info(
+                    "INPUT: {}:{} <{}> {}".format(
+                        packet_dict["server_name"], packet_dict["channel_name"], packet_dict["user_name"], text
+                    )
                 )
 
                 # Publish the trigger
@@ -152,16 +161,3 @@ class FrontendDiscord(DreambotWorkerBase):
                 except Exception:
                     traceback.print_exc()
                     await message.add_reaction("👎")
-
-    def clean_filename(self, filename: str, replace: str = " ", char_limit: int = 255):
-        whitelist = self.valid_filename_chars
-        # replace undesired characters
-        for r in replace:
-            filename = filename.replace(r, "_")
-
-        # keep only valid ascii chars
-        cleaned_filename = unicodedata.normalize("NFKD", filename).encode("ASCII", "ignore").decode()
-
-        # keep only whitelisted chars
-        cleaned_filename = "".join(c for c in cleaned_filename if c in whitelist).replace("__", "")
-        return cleaned_filename[:char_limit]
