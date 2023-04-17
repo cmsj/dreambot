@@ -73,7 +73,7 @@ class NatsManager:
             self.logger.info("NATS subscribing to {}".format(queue_name))
             try:
                 stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
-                self.logger.debug("Created stream: '{}'".format(stream.did_create))
+                self.logger.info("Created stream: '{}'".format(stream.did_create))
                 sub = await self.js.subscribe(queue_name)
                 self.logger.debug("Created subscription: '{}'".format(sub))
                 self.logger.debug("callback is: {}".format(callback_receive_message))
@@ -99,7 +99,7 @@ class NatsManager:
                         await asyncio.sleep(1)
                         continue
                     except Exception as e:
-                        self.logger.debug("NATS message exception: {}".format(e))
+                        self.logger.error("NATS message exception: {}".format(e))
 
             except BadRequestError:
                 self.logger.warning(
