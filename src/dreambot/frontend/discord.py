@@ -31,6 +31,7 @@ class FrontendDiscord(DreambotWorkerBase):
             try:
                 intents = discord.Intents.default()
                 intents.message_content = True
+                # intents.members = True # FIXME: We should have this so we can switch fetch_user() to get_user() below
                 self.discord = discord.Client(intents=intents)
 
                 @self.discord.event
@@ -71,7 +72,16 @@ class FrontendDiscord(DreambotWorkerBase):
             traceback.print_exc()
             return True
 
-        channel = self.discord.get_channel(int(resp["channel"]))
+        channel = None
+        if "channel_name" in resp and resp["channel_name"] == "DM":
+            # This came from a DM
+            user = await self.discord.fetch_user(int(resp["user"]))
+            if user:
+                channel = user.dm_channel or await user.create_dm()
+        else:
+            # This came from a real channel
+            channel = self.discord.get_channel(int(resp["channel"]))
+
         if not channel:
             self.logger.error("Failed to find channel {} ({})".format(resp["channel_name"], resp["channel"]))
             return True
