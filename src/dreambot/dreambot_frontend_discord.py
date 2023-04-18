@@ -24,7 +24,7 @@ class DreambotFrontendDiscordCLI(DreambotCLI):
         super().boot()
 
         try:
-            server = FrontendDiscord(self.options, self.callback_send_message)
+            server = FrontendDiscord(self.options, self.callback_send_workload)
             self.workers.append(server)
         except Exception as e:
             self.logger.error("Exception during boot: {}".format(e))

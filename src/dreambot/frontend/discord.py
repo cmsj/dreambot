@@ -14,12 +14,12 @@ class FrontendDiscord(DreambotWorkerBase):
     def __init__(
         self,
         options: dict[str, Any],
-        callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]],
+        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         self.logger = logging.getLogger("dreambot.frontend.discord")
         self.token = options["discord"]["token"]
         self.options = options
-        self.callback_send_message = callback_send_message
+        self.callback_send_workload = callback_send_workload
 
         self.should_reconnect = True
         self.discord: discord.Client
@@ -57,7 +57,7 @@ class FrontendDiscord(DreambotWorkerBase):
     def queue_name(self):
         return "discord"
 
-    async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
         reply_args: dict[str, str | discord.File] = {}
         self.logger.info("Received message from queue {}".format(queue_name))
         if not self.discord.is_ready():
@@ -158,7 +158,7 @@ class FrontendDiscord(DreambotWorkerBase):
 
                 # Publish the trigger
                 try:
-                    await self.callback_send_message(trigger, packet.encode())
+                    await self.callback_send_workload(trigger, packet.encode())
                     await message.add_reaction("👍")
                 except Exception:
                     traceback.print_exc()

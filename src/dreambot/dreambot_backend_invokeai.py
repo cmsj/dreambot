@@ -20,7 +20,7 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
         super().boot()
 
         try:
-            worker = DreambotBackendInvokeAI(self.options, self.callback_send_message)
+            worker = DreambotBackendInvokeAI(self.options, self.callback_send_workload)
             self.workers.append(worker)
         except Exception as e:
             self.logger.error("Exception during boot: {}".format(e))

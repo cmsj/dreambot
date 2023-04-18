@@ -16,9 +16,9 @@ from dreambot.backend.base import DreambotBackendBase
 
 class DreambotBackendGPT(DreambotBackendBase):
     def __init__(
-        self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
+        self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
-        super().__init__("GPT", options, callback_send_message)
+        super().__init__("GPT", options, callback_send_workload)
         self.api_key = options["gpt"]["api_key"]
         self.organization = options["gpt"]["organization"]
         self.model = options["gpt"]["model"]
@@ -37,8 +37,8 @@ class DreambotBackendGPT(DreambotBackendBase):
     async def shutdown(self):
         return
 
-    async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
-        self.logger.info("callback_receive_message: {}".format(message.decode()))
+    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+        self.logger.info("callback_receive_workload: {}".format(message.decode()))
         try:
             resp = json.loads(message.decode())
         except Exception as e:
@@ -88,9 +88,9 @@ class DreambotBackendGPT(DreambotBackendBase):
             resp["error"] = "Unknown error, ask your bot admin to check logs."
 
         try:
-            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_message))
+            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_workload))
             packet = json.dumps(resp)
-            await self.callback_send_message(resp["reply-to"], packet.encode())
+            await self.callback_send_workload(resp["reply-to"], packet.encode())
             self.logger.debug("Response sent!")
         except Exception as e:
             self.logger.error("Failed to send response: {}".format(e))

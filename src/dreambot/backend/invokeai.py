@@ -11,9 +11,9 @@ from dreambot.backend.base import DreambotBackendBase
 
 class DreambotBackendInvokeAI(DreambotBackendBase):
     def __init__(
-        self, options: dict[str, Any], callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]]
+        self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
-        super().__init__("InvokeAI", options, callback_send_message)
+        super().__init__("InvokeAI", options, callback_send_workload)
         self.sio: socketio.Client
         self.invokeai_host = options["invokeai"]["host"]
         self.invokeai_port = options["invokeai"]["port"]
@@ -34,8 +34,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
     async def shutdown(self):
         self.sio.disconnect()  # type: ignore
 
-    async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
-        self.logger.info("callback_receive_message: {}".format(message.decode()))
+    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+        self.logger.info("callback_receive_workload: {}".format(message.decode()))
         try:
             resp = json.loads(message.decode())
         except Exception as e:
@@ -109,9 +109,9 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
     async def send_message(self, resp: dict[str, Any]):
         try:
-            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_message))
+            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_workload))
             packet = json.dumps(resp)
-            await self.callback_send_message(resp["reply-to"], packet.encode())
+            await self.callback_send_workload(resp["reply-to"], packet.encode())
             self.logger.debug("Response sent!")
         except Exception as e:
             self.logger.error("Failed to send response: {}".format(e))
@@ -157,6 +157,6 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         )
 
         loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.callback_send_message(request["reply-to"], json.dumps(request).encode()))
+        loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
         loop.close()
         self.logger.debug("Sent")

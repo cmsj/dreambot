@@ -76,10 +76,10 @@ class DreambotCLI:
         self.logger.debug("Cancelling all other tasks")
         [task.cancel() for task in asyncio.all_tasks() if task is not asyncio.current_task()]
 
-    async def callback_send_message(self, queue_name: str, message: bytes) -> None:
+    async def callback_send_workload(self, queue_name: str, message: bytes) -> None:
         raw_msg = message.decode()
         json_msg = json.loads(raw_msg)
         if "reply-image" in json_msg:
             json_msg["reply-image"] = "** IMAGE **"
-        self.logger.debug("callback_send_message for '{}': {}".format(queue_name, json_msg))
+        self.logger.debug("callback_send_workload for '{}': {}".format(queue_name, json_msg))
         await self.nats.publish(queue_name, message)

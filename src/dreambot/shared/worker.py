@@ -1,10 +1,12 @@
 import os
 import string
 import unicodedata
+from typing import Callable, Coroutine, Any
 
 
 class DreambotWorkerBase:
     valid_filename_chars = "_.() %s%s" % (string.ascii_letters, string.digits)
+    callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
 
     def queue_name(self) -> str:
         raise NotImplementedError
@@ -15,7 +17,7 @@ class DreambotWorkerBase:
     async def shutdown(self) -> None:
         raise NotImplementedError
 
-    async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
         raise NotImplementedError
 
     def clean_filename(self, filename: str, replace: str = " ", suffix: str = ".png", output_dir: str = ""):

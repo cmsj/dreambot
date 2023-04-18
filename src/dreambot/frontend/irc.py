@@ -26,12 +26,12 @@ class FrontendIRC(DreambotWorkerBase):
         self,
         irc_server: dict[str, Any],
         options: dict[str, Any],
-        callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]],
+        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         self.logger = logging.getLogger("dreambot.frontend.irc.{}".format(irc_server["host"]))
         self.server = irc_server
         self.options = options
-        self.callback_send_message = callback_send_message
+        self.callback_send_workload = callback_send_workload
 
         self.writer: asyncio.StreamWriter | None = None
         self.reader: asyncio.StreamReader | None = None
@@ -98,7 +98,7 @@ class FrontendIRC(DreambotWorkerBase):
         name = name.replace(".", "_")  # This is important because periods are meaningful in NATS' subject names
         return name
 
-    async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
         reply_message = ""
 
         try:
@@ -273,7 +273,7 @@ class FrontendIRC(DreambotWorkerBase):
 
                 # Publish the trigger
                 try:
-                    await self.callback_send_message(trigger, packet.encode())
+                    await self.callback_send_workload(trigger, packet.encode())
                     # await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
                 except Exception:
                     traceback.print_exc()

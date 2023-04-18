@@ -12,7 +12,7 @@ class TestWorker:
     def queue_name(self):
         return "testqueue"
 
-    def callback_receive_message(self, message):
+    def callback_receive_workload(self, message):
         pass
 
 
@@ -135,7 +135,7 @@ async def test_nats_publish(mocker):
 #     nm.js.subscribe = sub_obj
 
 #     tw = TestWorker()
-#     tw.callback_receive_message = callback
+#     tw.callback_receive_workload = callback
 #     await nm.subscribe(tw)
 #     assert nm.shutting_down == True
 #     assert sub_obj.call_count == 1

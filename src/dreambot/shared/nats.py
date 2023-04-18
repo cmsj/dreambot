@@ -67,7 +67,7 @@ class NatsManager:
                 await self.nc.close()
 
     async def subscribe(self, worker: DreambotWorkerBase) -> None:
-        callback_receive_message: Callable[[str, bytes], Coroutine[Any, Any, bool]] = worker.callback_receive_message
+        callback_receive_workload: Callable[[str, bytes], Coroutine[Any, Any, bool]] = worker.callback_receive_workload
         while True and not self.shutting_down:
             queue_name = worker.queue_name()
             self.logger.info("NATS subscribing to {}".format(queue_name))
@@ -76,7 +76,7 @@ class NatsManager:
                 self.logger.info("Created stream: '{}'".format(stream.did_create))
                 sub = await self.js.subscribe(queue_name)
                 self.logger.debug("Created subscription: '{}'".format(sub))
-                self.logger.debug("callback is: {}".format(callback_receive_message))
+                self.logger.debug("callback is: {}".format(callback_receive_workload))
 
                 while True and not self.shutting_down:
                     self.logger.debug("Waiting for NATS message on {}".format(queue_name))
@@ -89,7 +89,7 @@ class NatsManager:
                         self.logger.debug("Received NATS message on '{}': {}".format(queue_name, json_msg))
 
                         # We will remove the message from the queue if the callback returns anything but False
-                        worker_callback_result = await callback_receive_message(queue_name, msg.data)
+                        worker_callback_result = await callback_receive_workload(queue_name, msg.data)
                         if worker_callback_result is not False:
                             self.logger.debug("Acking message on '{}'".format(queue_name))
                             await msg.ack()

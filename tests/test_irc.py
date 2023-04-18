@@ -179,7 +179,7 @@ async def test_irc_privmsg(mock_send_cmd):
         {"output_dir": "/tmp", "triggers": ["!test"]},
         None,
     )
-    irc.callback_send_message = cb_publish
+    irc.callback_send_workload = cb_publish
 
     message = irc.parse_line(":SomeUser`^!some@1.2.3.4 PRIVMSG #channel :Some message")
     await irc.irc_received_privmsg(message)
@@ -215,7 +215,7 @@ async def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
         None,
     )
 
-    await irc.callback_receive_message(
+    await irc.callback_receive_workload(
         None,
         json.dumps(
             {
@@ -252,7 +252,7 @@ async def test_handle_response_text(mock_send_cmd):
         None,
     )
 
-    await irc.callback_receive_message(
+    await irc.callback_receive_workload(
         None,
         json.dumps(
             {
@@ -276,7 +276,7 @@ async def test_handle_response_error(mock_send_cmd):
         None,
     )
 
-    await irc.callback_receive_message(
+    await irc.callback_receive_workload(
         None,
         json.dumps(
             {
@@ -308,7 +308,7 @@ async def test_handle_response_usage(mock_send_cmd):
         None,
     )
 
-    await irc.callback_receive_message(
+    await irc.callback_receive_workload(
         None,
         json.dumps(
             {
@@ -332,7 +332,7 @@ async def test_handle_response_unknown(mock_send_cmd):
         None,
     )
 
-    await irc.callback_receive_message(
+    await irc.callback_receive_workload(
         None,
         json.dumps({"server": "test.server.com", "channel": "#testchannel", "user": "testuser"}).encode(),
     )
@@ -357,7 +357,7 @@ async def test_handle_response_invalid_json(mock_send_cmd):
         None,
     )
     irc.logger.error = MagicMock()
-    await irc.callback_receive_message(None, "{invalid, json,}".encode())
+    await irc.callback_receive_workload(None, "{invalid, json,}".encode())
 
     assert irc.send_cmd.call_count == 0
     assert irc.logger.error.call_count == 1
@@ -430,11 +430,11 @@ async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
         {"output_dir": "/tmp", "triggers": ["!test"], "uri_base": "http://testuri/"},
         None,
     )
-    irc.callback_send_message = AsyncMock(side_effect=Exception("test exception"))
+    irc.callback_send_workload = AsyncMock(side_effect=Exception("test exception"))
     await irc.handle_line(b":testuser!testident@testhost PRIVMSG #testchannel :!test some text")
 
-    assert irc.callback_send_message.call_count == 1
-    irc.callback_send_message.assert_has_calls(
+    assert irc.callback_send_workload.call_count == 1
+    irc.callback_send_workload.assert_has_calls(
         [
             call(
                 "!test",

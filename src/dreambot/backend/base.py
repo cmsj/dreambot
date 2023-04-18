@@ -8,13 +8,13 @@ class DreambotBackendBase(DreambotWorkerBase):
         self,
         name: str,
         options: dict[str, Any],
-        callback_send_message: Callable[[str, bytes], Coroutine[Any, Any, None]],
+        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         self.backend_name = name
         self.logger = logging.getLogger("dreambot.backend.base.{}".format(self.backend_name))
         self.options = options
         self.queuename: str = options["nats_queue_name"]
-        self.callback_send_message = callback_send_message
+        self.callback_send_workload = callback_send_workload
 
     def queue_name(self):
         return self.queuename

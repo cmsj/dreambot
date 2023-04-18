@@ -36,7 +36,7 @@ class DreambotFrontendIRCCLI(DreambotCLI):
 
         try:
             for server_config in self.options["irc"]:
-                server = FrontendIRC(server_config, self.options, self.callback_send_message)
+                server = FrontendIRC(server_config, self.options, self.callback_send_workload)
                 self.workers.append(server)
         except Exception as e:
             self.logger.error("Exception during boot: {}".format(e))
