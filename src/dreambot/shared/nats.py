@@ -45,7 +45,7 @@ class NatsManager:
         self.logger.info("NATS booting")
         try:
             # FIXME: We should make this an infinite loop (conditional on self.shutting_down) and disable nat.connect() reconnect
-            self.nc = await nats.connect(self.nats_uri, name="NatsManager")  # type: ignore
+            self.nc = await nats.connect(self.nats_uri, name=self.name)  # type: ignore
             self.logger.info("NATS connected to {}".format(self.nc.connected_url.netloc))  # type: ignore
             self.js = self.nc.jetstream()  # type: ignore
 
