@@ -165,4 +165,4 @@ class FrontendDiscord(DreambotWorkerBase):
                     await message.add_reaction("👎")
 
     def log_slug(self, resp: dict[str, str]) -> str:
-        return "{}:#{} <{}>".format(resp["server_name"], resp["channel"], resp["user"])
+        return "{}:#{} <{}>".format(resp["server_name"], resp["channel_name"], resp["user_name"])
