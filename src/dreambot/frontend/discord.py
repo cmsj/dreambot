@@ -58,7 +58,7 @@ class FrontendDiscord(DreambotWorkerBase):
         return "discord"
 
     async def callback_receive_message(self, queue_name: str, message: bytes) -> bool:
-        reply_args: dict[str, str | io.BytesIO] = {}
+        reply_args: dict[str, str | discord.File] = {}
         self.logger.info("Received message from queue {}".format(queue_name))
         if not self.discord.is_ready():
             self.logger.error("Discord not ready, cannot send message")
@@ -87,38 +87,27 @@ class FrontendDiscord(DreambotWorkerBase):
 
         if "reply-image" in resp:
             image_bytes = base64.standard_b64decode(resp["reply-image"])
-            reply_args["file"] = io.BytesIO(image_bytes)
-            reply_args["filename"] = self.clean_filename(
-                resp["prompt"], suffix=".png", output_dir=self.options["output_dir"]
-            )
+            file_bytes = io.BytesIO(image_bytes)
+            filename = self.clean_filename(resp["prompt"], suffix=".png", output_dir=self.options["output_dir"])
+            reply_args["file"] = discord.File(file_bytes, filename=filename)
             reply_args["content"] = "I dreamed this:"
         elif "reply-text" in resp:
             reply_args["content"] = resp["reply-text"]
-            self.logger.info(
-                "OUTPUT: {}:{} <{}> {}".format(resp["server_name"], resp["channel"], resp["user"], resp["reply-text"])
-            )
+            self.logger.info("OUTPUT: {} {}".format(self.log_slug(resp), resp["reply-text"]))
         elif "reply-none" in resp:
-            self.logger.info(
-                "SILENCE FOR {}:{} <{}> {}".format(
-                    resp["server_name"], resp["channel"], resp["user"], resp["reply-none"]
-                )
-            )
+            self.logger.info("SILENCE FOR {} {}".format(self.log_slug(resp), resp["reply-none"]))
             return True
         elif "error" in resp:
             reply_args["content"] = "Dream sequence collapsed: {}".format(resp["error"])
-            self.logger.error("OUTPUT: {}:{}: ".format(resp["server_name"], resp["channel"], reply_args["content"]))
+            self.logger.error("OUTPUT: {} {}: ".format(self.log_slug(resp), reply_args["content"]))
         elif "usage" in resp:
             reply_args["content"] = "{}".format(resp["usage"])
-            self.logger.info(
-                "OUTPUT: {}:{} <{}> {}".format(resp["server_name"], resp["channel"], resp["user"], resp["usage"])
-            )
+            self.logger.info("OUTPUT: {} {}".format(self.log_slug(resp), resp["usage"]))
         else:
             reply_args["content"] = "Dream sequence collapsed, unknown reason."
 
         try:
-            self.logger.info(
-                "Sending reply to {}: {} <{}>".format(resp["server_name"], resp["channel_name"], resp["user_name"])
-            )
+            self.logger.info("Sending reply to {}".format(self.log_slug(resp)))
             await origin_message.reply(**reply_args)  # type: ignore
         except Exception as e:
             self.logger.error("Failed to send reply: {}".format(e))
@@ -165,11 +154,7 @@ class FrontendDiscord(DreambotWorkerBase):
 
                 packet = json.dumps(packet_dict)
 
-                self.logger.info(
-                    "INPUT: {}:{} <{}> {}".format(
-                        packet_dict["server_name"], packet_dict["channel_name"], packet_dict["user_name"], text
-                    )
-                )
+                self.logger.info("INPUT: {} {}".format(self.log_slug(packet_dict), text))  # type: ignore
 
                 # Publish the trigger
                 try:
@@ -178,3 +163,6 @@ class FrontendDiscord(DreambotWorkerBase):
                 except Exception:
                     traceback.print_exc()
                     await message.add_reaction("👎")
+
+    def log_slug(self, resp: dict[str, str]) -> str:
+        return "{}:#{} <{}>".format(resp["server_name"], resp["channel"], resp["user"])
