@@ -2,6 +2,7 @@ import os
 import string
 import unicodedata
 from typing import Callable, Coroutine, Any
+from argparse import ArgumentParser, RawTextHelpFormatter
 
 
 class DreambotWorkerBase:
@@ -19,6 +20,10 @@ class DreambotWorkerBase:
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
         raise NotImplementedError
+
+    def arg_parser(self) -> ArgumentParser:
+        parser = ArgumentParser(description=self.queue_name(), formatter_class=RawTextHelpFormatter)
+        return parser
 
     def clean_filename(self, filename: str, replace: str = " ", suffix: str = ".png", output_dir: str = ""):
         char_limit = os.statvfs(output_dir).f_namemax - len(suffix)

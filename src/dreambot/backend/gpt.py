@@ -3,6 +3,7 @@ import traceback
 import openai
 
 from typing import Any, Callable, Coroutine
+from argparse import ArgumentParser, REMAINDER
 from openai.error import (
     APIError,
     Timeout,
@@ -46,7 +47,10 @@ class DreambotBackendGPT(DreambotBackendBase):
             return True
 
         try:
-            prompt = resp["prompt"]
+            argparser = self.arg_parser()
+            args = argparser.parse_args(resp["prompt"].split(" "))
+            prompt = args.prompt.join(" ")
+
             new_chat_message = {"role": "user", "content": prompt}
 
             # Ensure we have a valid cache line for this user
@@ -56,21 +60,24 @@ class DreambotBackendGPT(DreambotBackendBase):
                 self.reset_cache(cache_key)
 
             # Determine if we're adding to the cache or starting a new conversation
-            if not prompt.startswith("!followup"):
+            if not args.followup:
                 self.logger.debug("Starting new conversation for '{}'".format(cache_key))
                 self.reset_cache(cache_key)
             else:
                 self.logger.debug("Adding to existing conversation for '{}'".format(cache_key))
 
-            # Now that our cache is in the right state, add this new prompt to it
-            self.chat_cache[cache_key].append(new_chat_message)
+            if args.list_models:
+                reply = openai.Model.list().join(", ")  # type: ignore
+            else:
+                # Now that our cache is in the right state, add this new prompt to it
+                self.chat_cache[cache_key].append(new_chat_message)
 
-            # Now we can ask OpenAI for a response to the contents of our message cache
-            self.logger.debug("Sending request to OpenAI...")
-            response = openai.ChatCompletion.create(model=self.model, messages=self.chat_cache[cache_key])  # type: ignore
+                # Now we can ask OpenAI for a response to the contents of our message cache
+                self.logger.debug("Sending request to OpenAI...")
+                response = openai.ChatCompletion.create(model=args.model, messages=self.chat_cache[cache_key], temperature=args.temperature)  # type: ignore
 
-            # Fetch the response, prepare it to be sent back to the user and added to their cache
-            reply = response.choices[0].message.content  # type: ignore
+                # Fetch the response, prepare it to be sent back to the user and added to their cache
+                reply = response.choices[0].message.content  # type: ignore
 
             resp["reply-text"] = reply
             self.chat_cache[cache_key].append({"role": "assistant", "content": reply})
@@ -108,3 +115,17 @@ class DreambotBackendGPT(DreambotBackendBase):
                 "content": "You are a helpful assistant. Make your answers as brief as possible.",
             }
         ]
+
+    def arg_parser(self) -> ArgumentParser:
+        parser = super().arg_parser()
+        parser.add_argument("-m", "--model", help="GPT model to use", default=self.model)
+        parser.add_argument("-l", "--list-models", help="List available models", action="store_true")
+        parser.add_argument("-f", "--followup", help="Enable followup prompts", action="store_true")
+        parser.add_argument(
+            "-t",
+            "--temperature",
+            help="Sampling temperature of the model. Higher values make the output more random",
+            default=1.0,
+        )
+        parser.add_argument("prompt", nargs=REMAINDER)
+        return parser
