@@ -3,7 +3,7 @@ import traceback
 import openai
 
 from typing import Any, Callable, Coroutine
-from argparse import ArgumentParser, REMAINDER
+from argparse import ArgumentParser, REMAINDER, ArgumentError
 from openai.error import (
     APIError,
     Timeout,
@@ -13,6 +13,7 @@ from openai.error import (
     InvalidRequestError,
 )
 from dreambot.backend.base import DreambotBackendBase
+from dreambot.shared.worker import UsageException
 
 
 class DreambotBackendGPT(DreambotBackendBase):
@@ -49,9 +50,9 @@ class DreambotBackendGPT(DreambotBackendBase):
         try:
             argparser = self.arg_parser()
             args = argparser.parse_args(resp["prompt"].split(" "))
-            prompt = args.prompt.join(" ")
+            args.prompt = args.prompt.join(" ")
 
-            new_chat_message = {"role": "user", "content": prompt}
+            new_chat_message = {"role": "user", "content": args.prompt}
 
             # Ensure we have a valid cache line for this user
             cache_key = self.cache_name_for_prompt(resp)
@@ -81,6 +82,9 @@ class DreambotBackendGPT(DreambotBackendBase):
 
             resp["reply-text"] = reply
             self.chat_cache[cache_key].append({"role": "assistant", "content": reply})
+        except UsageException as e:
+            # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
+            resp["reply-text"] = str(e)
         except (APIError, Timeout, ServiceUnavailableError) as e:
             self.logger.error("GPT service access error: {}".format(e))
             resp["error"] = "GPT service unavailable, try again."
@@ -90,6 +94,9 @@ class DreambotBackendGPT(DreambotBackendBase):
         except InvalidRequestError as e:
             self.logger.error("GPT request error: {}".format(e))
             resp["error"] = "GPT request error, ask your bot admin to check logs."
+        except (ValueError, ArgumentError) as e:
+            self.logger.error("GPT argument error: {}".format(e))
+            resp["error"] = "Something is wrong with your arguments, try !gpt --help"
         except Exception as e:
             self.logger.error("Unknown error: {}".format(e))
             resp["error"] = "Unknown error, ask your bot admin to check logs."

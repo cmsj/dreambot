@@ -2,7 +2,26 @@ import os
 import string
 import unicodedata
 from typing import Callable, Coroutine, Any
-from argparse import ArgumentParser, RawTextHelpFormatter
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
+
+class UsageException(Exception):
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class ErrorCatchingArgumentParser(ArgumentParser):
+    def exit(self, status: int = 0, message: str | None = None):
+        raise ValueError(message)
+
+    def error(self, message: str):
+        raise ValueError(message)
+
+    def print_usage(self, file: Any = None):
+        raise UsageException(self.format_usage())
+
+    def print_help(self, file: Any = None):
+        raise UsageException(self.format_usage())
 
 
 class DreambotWorkerBase:
@@ -22,7 +41,9 @@ class DreambotWorkerBase:
         raise NotImplementedError
 
     def arg_parser(self) -> ArgumentParser:
-        parser = ArgumentParser(description=self.queue_name(), formatter_class=RawTextHelpFormatter)
+        parser = ErrorCatchingArgumentParser(
+            description=self.queue_name(), formatter_class=ArgumentDefaultsHelpFormatter, exit_on_error=False
+        )
         return parser
 
     def clean_filename(self, filename: str, replace: str = " ", suffix: str = ".png", output_dir: str = ""):
