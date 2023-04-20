@@ -2,7 +2,7 @@ import os
 import string
 import unicodedata
 from typing import Callable, Coroutine, Any
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from argparse import ArgumentParser
 
 
 class UsageException(Exception):
@@ -40,10 +40,8 @@ class DreambotWorkerBase:
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
         raise NotImplementedError
 
-    def arg_parser(self) -> ArgumentParser:
-        parser = ErrorCatchingArgumentParser(
-            description=self.queue_name(), formatter_class=ArgumentDefaultsHelpFormatter, exit_on_error=False
-        )
+    def arg_parser(self) -> ErrorCatchingArgumentParser:
+        parser = ErrorCatchingArgumentParser(prog=self.queue_name(), exit_on_error=False)
         return parser
 
     def clean_filename(self, filename: str, replace: str = " ", suffix: str = ".png", output_dir: str = ""):

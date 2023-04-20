@@ -3,7 +3,7 @@ import traceback
 import openai
 
 from typing import Any, Callable, Coroutine
-from argparse import ArgumentParser, REMAINDER, ArgumentError
+from argparse import REMAINDER, ArgumentError
 from openai.error import (
     APIError,
     Timeout,
@@ -13,7 +13,7 @@ from openai.error import (
     InvalidRequestError,
 )
 from dreambot.backend.base import DreambotBackendBase
-from dreambot.shared.worker import UsageException
+from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
 
 
 class DreambotBackendGPT(DreambotBackendBase):
@@ -123,7 +123,7 @@ class DreambotBackendGPT(DreambotBackendBase):
             }
         ]
 
-    def arg_parser(self) -> ArgumentParser:
+    def arg_parser(self) -> ErrorCatchingArgumentParser:
         parser = super().arg_parser()
         parser.add_argument("-m", "--model", help="GPT model to use", default=self.model)
         parser.add_argument("-l", "--list-models", help="List available models", action="store_true")
