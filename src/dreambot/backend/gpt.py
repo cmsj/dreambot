@@ -135,7 +135,7 @@ class DreambotBackendGPT(DreambotBackendBase):
         parser.add_argument(
             "-t",
             "--temperature",
-            help="Sampling temperature of the model. Higher values make the output more random",
+            help="Sampling temperature of the model, 0.0-2.0. Higher values make the output more random",
             default=1.0,
         )
         parser.add_argument("prompt", nargs=REMAINDER)
