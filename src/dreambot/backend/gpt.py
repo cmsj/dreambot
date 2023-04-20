@@ -68,8 +68,10 @@ class DreambotBackendGPT(DreambotBackendBase):
                 self.logger.debug("Adding to existing conversation for '{}'".format(cache_key))
 
             if args.list_models:
-                model_data: dict[str, Any] = openai.Model.list()  # type: ignore
-                models = [x["id"] for x in model_data["data"]]
+                # We have to hard code this because the OpenAI API endpoint lists dozens of models that can't be used for Chat Completions
+                # see https://platform.openai.com/docs/models/model-endpoint-compatibility
+
+                models = ["gpt-3.5-turbo", "gpt-3.5-turbo-0301"]
                 reply = ", ".join(models)  # type: ignore
             else:
                 # Now that our cache is in the right state, add this new prompt to it
