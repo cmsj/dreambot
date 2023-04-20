@@ -50,7 +50,7 @@ class DreambotBackendGPT(DreambotBackendBase):
         try:
             argparser = self.arg_parser()
             args = argparser.parse_args(resp["prompt"].split(" "))
-            args.prompt = args.prompt.join(" ")
+            args.prompt = " ".join(args.prompt)
 
             new_chat_message = {"role": "user", "content": args.prompt}
 
