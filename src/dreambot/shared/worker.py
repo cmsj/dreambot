@@ -18,10 +18,10 @@ class ErrorCatchingArgumentParser(ArgumentParser):
         raise ValueError(message)
 
     def print_usage(self, file: Any = None):
-        raise UsageException(self.format_usage())
+        raise UsageException(self.format_help())
 
     def print_help(self, file: Any = None):
-        raise UsageException(self.format_usage())
+        raise UsageException(self.format_help())
 
 
 class DreambotWorkerBase:

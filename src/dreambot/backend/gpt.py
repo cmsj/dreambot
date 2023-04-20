@@ -68,7 +68,9 @@ class DreambotBackendGPT(DreambotBackendBase):
                 self.logger.debug("Adding to existing conversation for '{}'".format(cache_key))
 
             if args.list_models:
-                reply = ", ".join(openai.Model.list())  # type: ignore
+                model_data: dict[str, Any] = openai.Model.list()  # type: ignore
+                models = [x["id"] for x in model_data["data"]]
+                reply = ", ".join(models)  # type: ignore
             else:
                 # Now that our cache is in the right state, add this new prompt to it
                 self.chat_cache[cache_key].append(new_chat_message)
