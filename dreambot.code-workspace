@@ -5,6 +5,7 @@
         }
     ],
     "settings": {
+        "editor.detectIndentation": false,
         "pytest.command": "",
         "python.testing.unittestEnabled": false,
         "python.testing.pytestEnabled": true,
@@ -38,5 +39,15 @@
         "markdownlint.config": {
             "MD033": false
         }
+    },
+    "extensions": {
+        "recommendations": [
+            "python.vscode-pylance",
+            "ryanluker.vscode-coverage-gutters",
+            "davidanson.vscode-markdownlint",
+            "ms-python.python",
+            "littlefoxteam.vscode-python-test-adapter",
+            "cameron.vscode-pytest"
+        ]
     }
 }
