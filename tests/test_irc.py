@@ -720,3 +720,29 @@ async def test_boot_reconnect_ConnectionResetError(mocker, mock_sleep):
     await irc.boot()
 
     assert mock_asyncio_open_connection.call_count == 5
+
+
+@pytest.mark.asyncio
+async def test_shutdown(mocker):
+    irc = dreambot.frontend.irc.FrontendIRC(
+        {
+            "host": "abc123",
+            "port": "1234",
+            "ssl": False,
+            "nickname": "abc",
+            "channels": ["#test1", "#test2"],
+            "ident": "testident",
+            "realname": "testrealname",
+        },
+        {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"},
+        None,
+    )
+
+    reader = AsyncMock()
+    writer = AsyncMock()
+
+    mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
+
+    assert irc.should_reconnect is True
+    await irc.shutdown()
+    assert irc.should_reconnect is False
