@@ -45,6 +45,8 @@ The initial prototype was designed to run an IRC bot frontend on a server that i
 
 While this prototype worked well, it was not easy to extend to support Discord and additional types of backend. With the current design, each process knows nothing about the other processes, and can be run on any machine that can connect to the NATS cluster.
 
+Additionally, it can be useful to spread out backends across machines that have relevant GPU hardware, and it's beneficial to have each backend in its own process because AI/ML code tends to have extremely specific requirements for Python and dependency library versions, which may not all be compatible in a single module.
+
 ## How do I deploy this?
 
 I deploy all of this using Docker Compose, and here are the approximate steps I use. This all assumes:
