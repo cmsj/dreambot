@@ -37,7 +37,8 @@
         "python.analysis.inlayHints.functionReturnTypes": false,
         "python.analysis.inlayHints.variableTypes": false,
         "markdownlint.config": {
-            "MD033": false
+            "MD033": false,
+            "MD041": false
         }
     },
     "extensions": {
