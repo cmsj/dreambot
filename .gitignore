@@ -3,6 +3,8 @@
 dist/
 typings/
 .coverage
+coverage.lcov
+junit/
 **/coverage.xml
 **/config.json
 config-*.json

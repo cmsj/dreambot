@@ -29,7 +29,7 @@ jobs:
           pip install .[test]
       - name: Test with pytest
         run: |
-          pytest --doctest-modules --junitxml=junit/test-results.xml --json-report-summary --cov=src --cov-report=lcov:/home/runner/coverage.lcov
+          pytest --doctest-modules --junitxml=junit/test-results.xml --cov=src --cov-report=lcov:/home/runner/coverage.lcov
       - name: Test Summary
         uses: test-summary/action@v2
         with:
@@ -39,8 +39,6 @@ jobs:
         uses: livewing/lcov-job-summary@v1
         with:
           lcov: /home/runner/coverage.lcov
-      - name: Update Coverage Badge
-        uses: we-cli/coverage-badge-action@main
 
   build-and-push-image:
     runs-on: ubuntu-latest
