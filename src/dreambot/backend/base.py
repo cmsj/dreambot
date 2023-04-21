@@ -19,5 +19,5 @@ class DreambotBackendBase(DreambotWorkerBase):
     def queue_name(self):
         return self.queuename
 
-    async def shutdown(self):
-        pass
+    async def shutdown(self) -> None:
+        raise NotImplementedError
