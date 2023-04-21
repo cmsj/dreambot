@@ -1,6 +1,7 @@
 import pytest
+import signal
 import dreambot.shared.cli
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import call, patch, AsyncMock, MagicMock
 
 
 def test_cli_parseargs():
@@ -36,3 +37,53 @@ def test_boot():
                 cli.boot()
     assert cli.options == {"nats_uri": "bar"}
     assert cli.nats is not None
+
+
+def test_run(mocker):
+    loop = MagicMock()
+    mock_get_event_loop = mocker.patch("asyncio.get_event_loop", MagicMock(return_value=loop))
+    cli = dreambot.shared.cli.DreambotCLI("test_run")
+    cli.nats = AsyncMock()
+    cli.workers = [AsyncMock(), AsyncMock()]
+    cli.run()
+
+    assert mock_get_event_loop.call_count == 1
+    assert loop.add_signal_handler.call_count == 3
+    assert loop.create_task.call_count == 3
+    assert loop.run_forever.call_count == 1
+    assert loop.close.call_count == 1
+    assert cli.nats.boot.call_count == 1
+    for worker in cli.workers:
+        assert worker.boot.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_shutdown(mocker):
+    loop = MagicMock()
+    mock_get_event_loop = mocker.patch("asyncio.get_event_loop", MagicMock(return_value=loop))
+    cli = dreambot.shared.cli.DreambotCLI("test_run")
+    cli.nats = AsyncMock()
+    cli.workers = [AsyncMock(), AsyncMock()]
+    await cli.shutdown(signal.Signals.SIGINT.value)
+
+    assert cli.nats.shutdown.call_count == 1
+    for worker in cli.workers:
+        assert worker.shutdown.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_callback_send_workload(mocker):
+    cli = dreambot.shared.cli.DreambotCLI("test_callback_send_workload")
+    cli.nats = AsyncMock()
+
+    json = b'{"foo": "bar"}'
+    await cli.callback_send_workload("testqueue", json)
+
+    assert cli.nats.publish.call_count == 1
+    assert cli.nats.publish.has_calls([call("testqueue", json)])
+
+    json = b'{"reply-image": "to be removed"}'
+    await cli.callback_send_workload("testqueue", json)
+
+    assert cli.nats.publish.call_count == 2
+    assert cli.nats.publish.has_calls([call("testqueue", b'{"reply-image": "** IMAGE **"}')])
