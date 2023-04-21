@@ -1,7 +1,9 @@
 # Dreambot
+
 by Chris Jones <cmsj@tenshu.net>
 
 ## What is it?
+
 Dreambot is a distributed architecture for running chat bots.
 
 ```mermaid
@@ -28,6 +30,7 @@ flowchart LR
 ```
 
 ## What are Frontends and Backends?
+
 Dreambot is designed to run as multiple processes, each of which is either a frontend or a backend.
 
 Each of these processes is intended to subscribe to one or more message queues in [NATS](https://nats.io), from which it will receive messages.
@@ -37,18 +40,21 @@ Frontends listen for trigger keywords from users and then publish them to NATS, 
 Backends then perform the requested work and publish the results back to NATS, where they are picked up by the frontends and sent back to the user.
 
 ## Why is this architecture so complicated for a simple chat bot?
+
 The initial prototype was designed to run an IRC bot frontend on a server that is trusted to talk to the Internet, and a Stable Diffusion backend process on a machine that is not trusted to talk to the Internet, with a websocket connection between them.
 
 While this prototype worked well, it was not easy to extend to support Discord and additional types of backend. With the current design, each process knows nothing about the other processes, and can be run on any machine that can connect to the NATS cluster.
 
 ## How do I deploy this?
-I deploy all of this using Docker Compose, and here are the approximate steps I use. This all assumes:
- * You're running Ubuntu Server 22.04
- * You have an NVIDIA GPU that you want to use for InvokeAI
- * You have ample storage in `/srv/docker/` to attach to the containers (in particular, InvokeAI will need >10GB for its model cache)
- * You have a web server running that can serve files from `/srv/public/`
 
-### Stages:
+I deploy all of this using Docker Compose, and here are the approximate steps I use. This all assumes:
+
+* You're running Ubuntu Server 22.04
+* You have an NVIDIA GPU that you want to use for InvokeAI
+* You have ample storage in `/srv/docker/` to attach to the containers (in particular, InvokeAI will need >10GB for its model cache)
+* You have a web server running that can serve files from `/srv/public/`
+
+### Stages
 
 ---
 
@@ -60,6 +66,7 @@ mkdir -p /srv/docker/nats/{config,nats-1,nats-2,nats-3}
 mkdir -p /srv/docker/invokeai/data
 mkdir -p /srv/docker/dreambot/config
 ```
+
 </details>
 
 ---
@@ -69,10 +76,11 @@ mkdir -p /srv/docker/dreambot/config
 ---
 
 #### NATS config file
+
 <blockquote>
 <details><summary>/srv/docker/nats/config/nats-server.conf</summary>
 
-```
+```text
 host: 0.0.0.0
 port: 4222
 http: 0.0.0.0:8222
@@ -97,11 +105,13 @@ cluster {
     ]
 }
 ```
+
 </details></blockquote>
 
 ---
 
 #### InvokeAI git checkout
+
 (This is temporary until InvokeAI officially releases their new Node API)
 <blockquote>
 <details><summary>/srv/docker/invokeai/git/InvokeAI/static</summary>
@@ -116,12 +126,15 @@ git clone https://github.com/invoke-ai/InvokeAI
 ---
 
 #### Dreambot config files
+
 <blockquote>
 <details><summary>/srv/docker/dreambot/config/config-frontend-irc.json</summary>
 
 Notes:
- * Triggers need to have a trailing space (this is an obvious deficiency that I should just fix - I can add the space in code)
- * `uri_base` should be where your webserver has this container's `/data` volume mounted
+
+* Triggers need to have a trailing space (this is an obvious deficiency that I should just fix - I can add the space in code)
+* `uri_base` should be where your webserver has this container's `/data` volume mounted
+
 ```json
 {
   "triggers": [
@@ -159,6 +172,7 @@ Notes:
   ]
 }
 ```
+
 </details></blockquote>
 
 <blockquote>
@@ -179,12 +193,13 @@ There is a bunch of Discord developer website stuff you need to do to get the to
   }
 }
 ```
+
 </details></blockquote>
 
 <blockquote>
 <details><summary>/srv/docker/dreambot/config/config-backend-gpt.json</summary>
 
-Sign up for a developer account at https://openai.com and you can get your API key and organization ID from there.
+Sign up for a developer account at [https://openai.com](https://openai.com) and you can get your API key and organization ID from there.
 
 ```json
 {
@@ -197,6 +212,7 @@ Sign up for a developer account at https://openai.com and you can get your API k
   "nats_queue_name": "!gpt"
 }
 ```
+
 </details></blockquote>
 
 <blockquote>
@@ -212,6 +228,7 @@ Sign up for a developer account at https://openai.com and you can get your API k
   "nats_queue_name": "!dream"
 }
 ```
+
 </details></blockquote>
 
 </details>
@@ -386,9 +403,11 @@ services:
         command: dreambot_backend_invokeai -c /config/config-backend-invokeai.json
 
 ```
+
 </details>
 
 ---
 
 ## That's a lot of setup, holy cow
+
 Yes, it is.
