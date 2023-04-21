@@ -1,3 +1,6 @@
+![CI Build](https://github.com/cmsj/dreambot/actions/workflows/docker_build.yml/badge.svg)
+[![Coverage](https://cmsj.github.io/dreambot/badges/coverage.svg)](https://github.com/cmsj/dreambot/actions)
+
 # Dreambot
 
 by Chris Jones <cmsj@tenshu.net>

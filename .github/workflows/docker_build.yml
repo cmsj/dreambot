@@ -39,6 +39,8 @@ jobs:
         uses: livewing/lcov-job-summary@v1
         with:
           lcov: /home/runner/coverage.lcov
+      - name: Update Coverage Badge
+        uses: we-cli/coverage-badge-action@main
 
   build-and-push-image:
     runs-on: ubuntu-latest
