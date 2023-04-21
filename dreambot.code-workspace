@@ -42,10 +42,10 @@
     },
     "extensions": {
         "recommendations": [
-            "python.vscode-pylance",
+            "ms-python.python",
+            "ms-python.vscode-pylance",
             "ryanluker.vscode-coverage-gutters",
             "davidanson.vscode-markdownlint",
-            "ms-python.python",
             "littlefoxteam.vscode-python-test-adapter",
             "cameron.vscode-pytest"
         ]
