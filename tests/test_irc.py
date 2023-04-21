@@ -186,7 +186,7 @@ async def test_irc_privmsg(mock_send_cmd):
     assert irc.send_cmd.call_count == 0
 
     irc.options["triggers"].append("!test")
-    message = irc.parse_line(":OtherUser^!other@2.3.4.5 PRIVMSG #place :!test")
+    message = irc.parse_line(":OtherUser^!other@2.3.4.5 PRIVMSG #place :!test something")
     await irc.irc_received_privmsg(message)
     assert cb_publish_called == True
 
@@ -438,7 +438,7 @@ async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
         [
             call(
                 "!test",
-                b'{"reply-to": "irc_abc123", "frontend": "irc", "server": "abc123", "channel": "#testchannel", "user": "testuser", "trigger": "!test", "prompt": " some text"}',
+                b'{"reply-to": "irc_abc123", "frontend": "irc", "server": "abc123", "channel": "#testchannel", "user": "testuser", "trigger": "!test", "prompt": "some text"}',
             )
         ]
     )
