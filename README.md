@@ -30,7 +30,11 @@ flowchart LR
 ## What are Frontends and Backends?
 Dreambot is designed to run as multiple processes, each of which is either a frontend or a backend.
 
-Each of these processes is intended to subscribe to one or more message queues in [NATS](https://nats.io), from which it will receive requests for work. It will then perform the work and send the results back to another message queue.
+Each of these processes is intended to subscribe to one or more message queues in [NATS](https://nats.io), from which it will receive messages.
+
+Frontends listen for trigger keywords from users and then publish them to NATS, where they are picked up by the backends.
+
+Backends then perform the requested work and publish the results back to NATS, where they are picked up by the frontends and sent back to the user.
 
 ## Why is this architecture so complicated for a simple chat bot?
 The initial prototype was designed to run an IRC bot frontend on a server that is trusted to talk to the Internet, and a Stable Diffusion backend process on a machine that is not trusted to talk to the Internet, with a websocket connection between them.
