@@ -31,13 +31,22 @@ flowchart LR
 
 ## What are Frontends and Backends?
 
-Dreambot is designed to run as multiple processes, each of which is either a frontend or a backend.
+* Dreambot is designed to run as multiple processes, each of which is either a frontend or a backend.
+* Each of these processes is intended to subscribe to one or more message queues in [NATS](https://nats.io), from which it will receive messages.
+* Frontends listen for trigger keywords from users and then publish them to NATS, where they are picked up by the backends.
+* Backends then perform the requested work and publish the results back to NATS, where they are picked up by the frontends and sent back to the user.
 
-Each of these processes is intended to subscribe to one or more message queues in [NATS](https://nats.io), from which it will receive messages.
+## What are the current Frontends and Backends?
 
-Frontends listen for trigger keywords from users and then publish them to NATS, where they are picked up by the backends.
+Frontends:
 
-Backends then perform the requested work and publish the results back to NATS, where they are picked up by the frontends and sent back to the user.
+* IRC
+* Discord
+
+Backends:
+
+* [OpenAI](https://www.openai.com)'s GPT [Chat Completions](https://platform.openai.com/docs/api-reference/chat/create)
+* [InvokeAI](https://invoke-ai.github.io/InvokeAI/)'s fork of Stable Diffusion
 
 ## Why is this architecture so complicated for a simple chat bot?
 
