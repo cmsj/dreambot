@@ -261,9 +261,9 @@ class FrontendIRC(DreambotWorkerBase):
             target = source
 
         for trigger in self.options["triggers"]:
-            if text.startswith(trigger):
+            if text.startswith(trigger + " "):
                 self.logger.info("INPUT: {}:{} <{}> {}".format(self.server["host"], target, source, text))
-                prompt = text[len(trigger) :]
+                prompt = text[len(trigger) + 1 :]
                 packet = json.dumps(
                     {
                         "reply-to": self.queue_name(),

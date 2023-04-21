@@ -6,8 +6,8 @@ class DreambotFrontendIRCCLI(DreambotCLI):
     example_json = """Example JSON config:
 {
     "triggers": [
-          "!dream ",
-          "!gpt "
+          "!dream",
+          "!gpt"
     ],
     "nats_uri": [ "nats://nats:4222", "nats://nats2:4222" ],
     "output_dir": "/data",

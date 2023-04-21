@@ -137,8 +137,8 @@ class FrontendDiscord(DreambotWorkerBase):
         text = message.content
 
         for trigger in self.options["triggers"]:
-            if text.startswith(trigger):
-                prompt = text[len(trigger) :]
+            if text.startswith(trigger + " "):
+                prompt = text[len(trigger) + 1 :]
 
                 packet_dict = {
                     "reply-to": self.queue_name(),
