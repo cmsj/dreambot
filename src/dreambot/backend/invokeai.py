@@ -6,7 +6,9 @@ import socketio
 import traceback
 
 from typing import Any, Callable, Coroutine
+from argparse import REMAINDER, ArgumentError
 from dreambot.backend.base import DreambotBackendBase
+from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
 
 
 class DreambotBackendInvokeAI(DreambotBackendBase):
@@ -21,6 +23,12 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.ws_uri = "ws://{}:{}/".format(self.invokeai_host, self.invokeai_port)
         self.api_uri = "http://{}:{}/api/v1/".format(self.invokeai_host, self.invokeai_port)
         self.logger.debug("Set InvokeAI options to: host={}, port={}".format(self.invokeai_host, self.invokeai_port))
+
+        # Set our default InvokeAI options
+        self.model = "stable-diffusion-1.5"
+        self.sampler = "keuler_a"
+        self.steps = 50
+        self.seed = -1
 
     async def boot(self):
         self.logger.info("InvokeAI API URI: {}".format(self.api_uri))
@@ -43,22 +51,25 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             return True
 
         try:
-            prompt = resp["prompt"]
+            argparser = self.arg_parser()
+            args = argparser.parse_args(resp["prompt"].split(" "))
+            args.prompt = " ".join(args.prompt)
+
             if not self.sio.connected:  # type: ignore
                 self.logger.error("Socket.io not connected, cannot send prompt")
                 return False
 
-            self.logger.info("Sending prompt to InvokeAI: {}".format(prompt))
+            self.logger.info("Sending prompt to InvokeAI: {}".format(args.prompt))
             id = 1
             nodes = {}
             nodes[str(id)] = {
                 "id": str(id),
                 "type": "txt2img",
-                "prompt": prompt,
-                "model": "stable-diffusion-1.5",
-                "sampler": "keuler_a",
-                "steps": 50,
-                "seed": -1,
+                "prompt": args.prompt,
+                "model": args.model,
+                "sampler": args.sampler,
+                "steps": args.steps,
+                "seed": args.seed,
             }
             id += 1
             nodes[str(id)] = {
@@ -96,6 +107,14 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
             # No more work to do here, InvokeAI will send us a message when it's done
             resp["reply-none"] = "Waiting for InvokeAI to generate a response..."
+        except UsageException as e:
+            # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
+            resp["reply-text"] = str(e)
+        except (ValueError, ArgumentError) as e:
+            self.logger.error("Error parsing arguments: {}".format(e))
+            resp[
+                "error"
+            ] = "Something is wrong with your arguments, try !dream --help"  # FIXME: !dream should be replaced with our trigger as a variable somewhere
         except Exception as e:
             self.logger.error("Unknown error: {}".format(e))
             resp["error"] = "Unknown error, ask your bot admin to check logs."
@@ -160,3 +179,13 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
         loop.close()
         self.logger.debug("Sent")
+
+    def arg_parser(self) -> ErrorCatchingArgumentParser:
+        parser = super().arg_parser()
+        parser.add_argument("-i", "--image", help="Image URL to use for InvokeAI")
+        parser.add_argument("-m", "--model", help="InvokeAI model to use", default=self.model)
+        parser.add_argument("-s", "--sampler", help="InvokeAI sampler to use", default=self.sampler)
+        parser.add_argument("-t", "--steps", help="Number of steps to run InvokeAI for", default=self.steps, type=int)
+        parser.add_argument("-e", "--seed", help="Seed to use for InvokeAI", default=self.seed, type=int)
+        parser.add_argument("prompt", nargs=REMAINDER)
+        return parser
