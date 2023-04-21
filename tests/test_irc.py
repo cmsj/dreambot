@@ -350,6 +350,24 @@ async def test_handle_response_unknown(mock_send_cmd):
 
 
 @pytest.mark.asyncio
+async def test_handle_response_silence(mock_send_cmd):
+    irc = dreambot.frontend.irc.FrontendIRC(
+        {"host": "abc123", "nickname": "abc"},
+        {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"},
+        None,
+    )
+
+    await irc.callback_receive_workload(
+        None,
+        json.dumps(
+            {"reply-none": "test reply", "server": "test.server.com", "channel": "#testchannel", "user": "testuser"}
+        ).encode(),
+    )
+
+    assert irc.send_cmd.call_count == 0
+
+
+@pytest.mark.asyncio
 async def test_handle_response_invalid_json(mock_send_cmd):
     irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123", "nickname": "abc"},
@@ -737,12 +755,34 @@ async def test_shutdown(mocker):
         {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"},
         None,
     )
-
-    reader = AsyncMock()
-    writer = AsyncMock()
-
-    mock_open_connection = mocker.patch("asyncio.open_connection", return_value=(reader, writer))
+    irc.reader = AsyncMock()
+    irc.writer = AsyncMock()
 
     assert irc.should_reconnect is True
+
     await irc.shutdown()
     assert irc.should_reconnect is False
+
+    assert irc.writer.close.call_count == 1
+    assert irc.writer.wait_closed.call_count == 1
+    assert irc.reader.feed_eof.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_send_line_no_writer():
+    irc = dreambot.frontend.irc.FrontendIRC(
+        {
+            "host": "abc123",
+            "port": "1234",
+            "ssl": False,
+            "nickname": "abc",
+            "channels": ["#test1", "#test2"],
+            "ident": "testident",
+            "realname": "testrealname",
+        },
+        {"output_dir": "/tmp", "triggers": [], "uri_base": "testuri"},
+        None,
+    )
+
+    with pytest.raises(ValueError):
+        await irc.send_line("test")

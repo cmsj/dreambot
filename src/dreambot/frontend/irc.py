@@ -257,7 +257,7 @@ class FrontendIRC(DreambotWorkerBase):
             source = "???"
             self.logger.error("Received PRIVMSG without prefix: {}".format(message))
         if not target.startswith("#"):
-            # This is a private mssage, so we need to reply to the sender
+            # This is a private message, so we need to reply to the sender
             target = source
 
         for trigger in self.options["triggers"]:
