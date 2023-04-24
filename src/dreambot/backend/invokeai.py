@@ -175,7 +175,6 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         links: list[dict[str, Any]] = []
 
         def add_node(node_type: str, **kwargs: Any):
-            nonlocal id
             nonlocal nodes
             nodes.append({"id": str(len(nodes)), "type": node_type, **kwargs})
 
