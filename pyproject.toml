@@ -31,6 +31,7 @@ dependencies = [
     "openai==0.27.2",
     "nats-py==2.2.0",
     "python-socketio[client]",
+    "aiohttp",
     "requests",
     "discord.py"
 ]

@@ -1,3 +1,4 @@
+import aiohttp
 import asyncio
 import base64
 import json
@@ -6,9 +7,14 @@ import socketio
 import traceback
 
 from typing import Any, Callable, Coroutine
-from argparse import REMAINDER, ArgumentError
+from argparse import REMAINDER, ArgumentError, Namespace
 from dreambot.backend.base import DreambotBackendBase
 from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
+
+
+class ImageFetchException(Exception):
+    def __init__(self, message: str):
+        super().__init__(message)
 
 
 class DreambotBackendInvokeAI(DreambotBackendBase):
@@ -59,51 +65,34 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 self.logger.error("Socket.io not connected, cannot send prompt")
                 return False
 
+            graph: dict[str, Any] = await self.build_image_graph(args)
+
             self.logger.info("Sending prompt to InvokeAI: {}".format(args.prompt))
-            id = 1
-            nodes = {}
-            nodes[str(id)] = {
-                "id": str(id),
-                "type": "txt2img",
-                "prompt": args.prompt,
-                "model": args.model,
-                "sampler": args.sampler,
-                "steps": args.steps,
-                "seed": args.seed,
-            }
-            id += 1
-            nodes[str(id)] = {
-                "id": str(id),
-                "type": "show_image",
-            }
-            links = [
-                {
-                    "source": {"node_id": "1", "field": "image"},
-                    "destination": {"node_id": "2", "field": "image"},
-                }
-            ]
-            graph: dict[str, Any] = {"nodes": nodes, "edges": links}
             self.logger.debug("Sending graph to InvokeAI: {}".format(graph))
 
-            r = requests.post(self.api_uri + "sessions", json=graph)
-            if r.status_code != 200:
-                self.logger.error("Error POSTing session to InvokeAI: {}".format(r.reason))
-                resp["error"] = "Error from InvokeAI: {}".format(r.reason)
-                await self.send_message(resp)
-                return True
+            sessions_url = self.api_uri + "sessions"
+            async with aiohttp.ClientSession() as session:
+                async with session.post(sessions_url, json=graph) as r:
+                    if not r.ok:
+                        self.logger.error("Error POSTing session to InvokeAI: {}".format(r.reason))  # type: ignore
+                        resp["error"] = "Error from InvokeAI: {}".format(r.reason)  # type: ignore
+                        await self.send_message(resp)
+                        return True
+                    response = await r.json()
 
-            response = r.json()
             self.request_cache[response["id"]] = resp
             self.logger.debug("InvokeAI response: {}".format(response))
 
             self.logger.info("Subscribing to InvokeAI session and invoking: {}".format(response["id"]))
             self.sio.emit("subscribe", {"session": response["id"]})  # type: ignore
-            r = requests.put(self.api_uri + "sessions/{}/invoke".format(response["id"]))
-            if r.status_code != 202:
-                self.logger.error("Error PUTing session to InvokeAI: {}".format(r.reason))
-                resp["error"] = "Error from InvokeAI: {}".format(r.reason)
-                await self.send_message(resp)
-                return True
+
+            async with aiohttp.ClientSession() as session:
+                async with session.put(sessions_url + "/{}/invoke".format(response["id"])) as r:
+                    if not r.ok:
+                        self.logger.error("Error PUTing session to InvokeAI: {}".format(r.reason))  # type: ignore
+                        resp["error"] = "Error from InvokeAI: {}".format(r.reason)  # type: ignore
+                        await self.send_message(resp)
+                        return True
 
             # No more work to do here, InvokeAI will send us a message when it's done
             resp["reply-none"] = "Waiting for InvokeAI to generate a response..."
@@ -112,9 +101,10 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             resp["reply-text"] = str(e)
         except (ValueError, ArgumentError) as e:
             self.logger.error("Error parsing arguments: {}".format(e))
-            resp[
-                "error"
-            ] = "Something is wrong with your arguments, try !dream --help"  # FIXME: !dream should be replaced with our trigger as a variable somewhere
+            # FIXME: !dream should be replaced with our trigger as a variable somewhere
+            resp["error"] = "Something is wrong with your arguments, try !dream --help"
+        except ImageFetchException as e:
+            resp["error"] = str(e)
         except Exception as e:
             self.logger.error("Unknown error: {}".format(e))
             resp["error"] = "Unknown error, ask your bot admin to check logs."
@@ -180,12 +170,86 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         loop.close()
         self.logger.debug("Sent")
 
+    async def build_image_graph(self, args: Namespace) -> dict[str, Any]:
+        nodes: list[dict[str, Any]] = []
+        links: list[dict[str, Any]] = []
+
+        def add_node(node_type: str, **kwargs: Any):
+            nonlocal id
+            nonlocal nodes
+            nodes.append({"id": str(len(nodes)), "type": node_type, **kwargs})
+
+        if args.url is not None:
+            image_name = await self.fetch_image(args.url)
+            add_node(
+                node_type="img2img",
+                image_name=image_name,
+                prompt=args.prompt,
+                model=args.model,
+                sampler=args.sampler,
+                steps=args.steps,
+                seed=args.seed,
+            )
+        else:
+            add_node(
+                node_type="txt2img",
+                prompt=args.prompt,
+                model=args.model,
+                sampler=args.sampler,
+                steps=args.steps,
+                seed=args.seed,
+            )
+        add_node(node_type="upscale")
+
+        for idx in range(0, len(nodes) - 1):
+            links.append(
+                {
+                    "source": {"node_id": str(idx), "field": "image"},
+                    "destination": {"node_id": str(idx + 1), "field": "image"},
+                }
+            )
+
+        graph: dict[str, Any] = {"nodes": nodes, "edges": links}
+        return graph
+
+    async def fetch_image(self, url: str) -> bytes:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    self.logger.error("Unable to fetch: {}".format(resp.status))
+                    raise ImageFetchException("Unable to fetch: {}".format(resp.status))
+                if not resp.content_type.startswith("image/"):
+                    self.logger.error("Not an image: {}".format(resp.content_type))
+                    raise ImageFetchException("URL was not an image: {}".format(resp.content_type))
+
+                image = await resp.read()
+                resp.close()
+                return image
+
+    async def upload_image(self, url: str) -> str:
+        image_name = "Unknown"
+        image = await self.fetch_image(url)
+
+        async with aiohttp.ClientSession() as session:
+            async with session.post(self.api_uri + "/uploads/", data=image) as r:
+                if not r.ok:
+                    self.logger.error("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
+                    raise ImageFetchException("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
+                body = await r.json()
+                image_name = body["image_name"]
+
+        return image_name
+
     def arg_parser(self) -> ErrorCatchingArgumentParser:
         parser = super().arg_parser()
         parser.add_argument("-i", "--image", help="Image URL to use for InvokeAI")
         parser.add_argument("-m", "--model", help="InvokeAI model to use", default=self.model)
         parser.add_argument("-s", "--sampler", help="InvokeAI sampler to use", default=self.sampler)
         parser.add_argument("-t", "--steps", help="Number of steps to run InvokeAI for", default=self.steps, type=int)
-        parser.add_argument("-e", "--seed", help="Seed to use for InvokeAI", default=self.seed, type=int)
+        parser.add_argument("-u", "--url", help="Start with an image from URL", default=None)
+        # parser.add_argument("-r", "--reroll", help="Reroll the image", action="store_true")
+        parser.add_argument(
+            "-e", "--seed", help="Seed to use for InvokeAI (-1 for random)", default=self.seed, type=int
+        )
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
