@@ -57,8 +57,9 @@ class DreambotCLI:
         try:
             loop = asyncio.get_event_loop()
 
-            for s in (signal.SIGHUP, signal.SIGTERM, signal.SIGINT):
+            for s in (signal.SIGTERM, signal.SIGINT):
                 loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(s)))
+            loop.add_signal_handler(signal.SIGHUP, lambda: self.toggle_debug())
 
             loop.create_task(self.nats.boot(self.workers))
             [loop.create_task(x.boot()) for x in self.workers]
@@ -67,6 +68,17 @@ class DreambotCLI:
             if loop:
                 loop.close()
             self.logger.info("Shutting down...")
+
+    # Toggle between logging.INFO and logging.DEBUG for *all* loggers in the current process
+    def toggle_debug(self):
+        if logging.root.level == logging.DEBUG:
+            level = logging.INFO
+        else:
+            level = logging.DEBUG
+
+        logging.root.setLevel(level)
+        for logger in [logging.getLogger(name) for name in logging.root.manager.loggerDict]:
+            logger.setLevel(level)
 
     async def shutdown(self, sig: int):
         self.logger.info("Received signal: {}".format(signal.Signals(sig).name))
