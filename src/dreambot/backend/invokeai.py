@@ -6,7 +6,7 @@ import requests
 import socketio
 import traceback
 
-from typing import Any, Callable, Coroutine
+from typing import Any, Callable, Coroutine, Tuple
 from argparse import REMAINDER, ArgumentError, Namespace
 from dreambot.backend.base import DreambotBackendBase
 from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
@@ -211,7 +211,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         graph: dict[str, Any] = {"nodes": dict(enumerate(nodes)), "edges": links}
         return graph
 
-    async def fetch_image(self, url: str) -> bytes:
+    async def fetch_image(self, url: str) -> Tuple[str, bytes]:
         self.logger.info("Fetching image: {}".format(url))
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -224,16 +224,18 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
                 image = await resp.read()
                 resp.close()
-                return image
+                return (resp.content_type, image)
 
     async def upload_image(self, url: str) -> str:
         image_name = "Unknown"
-        image = await self.fetch_image(url)
+        (content_type, image) = await self.fetch_image(url)
         upload_url = self.api_uri + "images/uploads/"
 
         self.logger.info("Uploading image to InvokeAI: {} -> {}".format(url, upload_url))
         async with aiohttp.ClientSession() as session:
-            async with session.post(upload_url, data=image) as r:
+            formdata = aiohttp.FormData()
+            formdata.add_field("image", image, content_type=content_type)
+            async with session.post(upload_url, data=formdata) as r:
                 if not r.ok:
                     self.logger.error("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
                     raise ImageFetchException("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
