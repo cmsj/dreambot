@@ -179,7 +179,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             nodes.append({"id": str(len(nodes)), "type": node_type, **kwargs})
 
         if args.imgurl is not None:
-            image_name = await self.upload_image(args.imgurl)
+            image_name: str = await self.upload_image(args.imgurl)
             add_node(
                 node_type="img2img",
                 image_name=image_name,
@@ -232,7 +232,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
         self.logger.debug("Uploading image to InvokeAI: {}".format(url))
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.api_uri + "/uploads/", data=image) as r:
+            async with session.post(self.api_uri + "uploads/", data=image) as r:
                 if not r.ok:
                     self.logger.error("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
                     raise ImageFetchException("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
