@@ -68,9 +68,9 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             graph: dict[str, Any] = await self.build_image_graph(args)
 
             self.logger.info("Sending prompt to InvokeAI: {}".format(args.prompt))
-            self.logger.debug("Sending graph to InvokeAI: {}".format(graph))
 
             sessions_url = self.api_uri + "sessions"
+            self.logger.debug("POSTing graph to InvokeAI: {} :: {}".format(sessions_url, graph))
             async with aiohttp.ClientSession() as session:
                 async with session.post(sessions_url, json=graph) as r:
                     if not r.ok:
@@ -208,7 +208,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 }
             )
 
-        graph: dict[str, Any] = {"nodes": nodes, "edges": links}
+        graph: dict[str, Any] = {"nodes": dict(enumerate(nodes)), "edges": links}
         return graph
 
     async def fetch_image(self, url: str) -> bytes:
