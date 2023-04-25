@@ -224,6 +224,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
                 image = await resp.read()
                 resp.close()
+                self.logger.info("Fetched {} bytes of {}".format(len(image), resp.content_type))
                 return (resp.content_type, image)
 
     async def upload_image(self, url: str) -> str:
