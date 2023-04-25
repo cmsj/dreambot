@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import base64
+import io
 import json
 import requests
 import socketio
@@ -233,16 +234,15 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         upload_url = self.api_uri + "images/uploads/"
 
         self.logger.info("Uploading image to InvokeAI: {} -> {}".format(url, upload_url))
-        async with aiohttp.ClientSession() as session:
-            formdata = aiohttp.FormData()
-            formdata.add_field("image", image, content_type=content_type)
-            async with session.post(upload_url, data=formdata) as r:
-                if not r.ok:
-                    self.logger.error("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
-                    raise ImageFetchException("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
-                body = await r.json()
-                image_name = body["image_name"]
-
+        files: dict[str, Tuple[str, io.BytesIO, str]] = {
+            "file": (image_name, io.BytesIO(image), content_type),
+        }
+        response = requests.post("http://invokeai.chrul.tenshu.net/api/v1/images/uploads/", files=files)
+        if not response.ok:
+            self.logger.error("Error uploading image to InvokeAI: {}".format(response.reason))
+            raise ImageFetchException("Error uploading image to InvokeAI: {}".format(response.reason))
+        body = response.json()
+        image_name = body["image_name"]
         return image_name
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
