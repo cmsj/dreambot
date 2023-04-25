@@ -178,8 +178,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             nonlocal nodes
             nodes.append({"id": str(len(nodes)), "type": node_type, **kwargs})
 
-        if args.url is not None:
-            image_name = await self.fetch_image(args.url)
+        if args.imgurl is not None:
+            image_name = await self.upload_image(args.imgurl)
             add_node(
                 node_type="img2img",
                 image_name=image_name,
@@ -212,6 +212,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         return graph
 
     async def fetch_image(self, url: str) -> bytes:
+        self.logger.debug("Fetching image: {}".format(url))
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 if resp.status != 200:
@@ -229,6 +230,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         image_name = "Unknown"
         image = await self.fetch_image(url)
 
+        self.logger.debug("Uploading image to InvokeAI: {}".format(url))
         async with aiohttp.ClientSession() as session:
             async with session.post(self.api_uri + "/uploads/", data=image) as r:
                 if not r.ok:
@@ -241,11 +243,10 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
         parser = super().arg_parser()
-        parser.add_argument("-i", "--image", help="Image URL to use for InvokeAI")
         parser.add_argument("-m", "--model", help="InvokeAI model to use", default=self.model)
         parser.add_argument("-s", "--sampler", help="InvokeAI sampler to use", default=self.sampler)
         parser.add_argument("-t", "--steps", help="Number of steps to run InvokeAI for", default=self.steps, type=int)
-        parser.add_argument("-u", "--url", help="Start with an image from URL", default=None)
+        parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
         # parser.add_argument("-r", "--reroll", help="Reroll the image", action="store_true")
         parser.add_argument(
             "-e", "--seed", help="Seed to use for InvokeAI (-1 for random)", default=self.seed, type=int
