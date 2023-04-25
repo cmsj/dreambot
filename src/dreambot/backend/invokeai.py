@@ -212,7 +212,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         return graph
 
     async def fetch_image(self, url: str) -> bytes:
-        self.logger.debug("Fetching image: {}".format(url))
+        self.logger.info("Fetching image: {}".format(url))
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 if resp.status != 200:
@@ -229,10 +229,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
     async def upload_image(self, url: str) -> str:
         image_name = "Unknown"
         image = await self.fetch_image(url)
+        upload_url = self.api_uri + "images/uploads/"
 
-        self.logger.debug("Uploading image to InvokeAI: {}".format(url))
+        self.logger.info("Uploading image to InvokeAI: {} -> {}".format(url, upload_url))
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.api_uri + "uploads/", data=image) as r:
+            async with session.post(upload_url, data=image) as r:
                 if not r.ok:
                     self.logger.error("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
                     raise ImageFetchException("Error uploading image to InvokeAI: {}".format(r.reason))  # type: ignore
