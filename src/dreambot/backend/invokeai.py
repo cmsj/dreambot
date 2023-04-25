@@ -70,7 +70,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
             self.logger.info("Sending prompt to InvokeAI: {}".format(args.prompt))
 
-            sessions_url = self.api_uri + "sessions/"
+            sessions_url = self.api_uri + "sessions"
             self.logger.debug("POSTing graph to InvokeAI: {} :: {}".format(sessions_url, graph))
             async with aiohttp.ClientSession() as session:
                 async with session.post(sessions_url, json=graph) as r:
