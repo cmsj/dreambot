@@ -44,6 +44,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio.on("connect", self.on_connect)  # type: ignore
         self.sio.on("disconnect", self.on_disconnect)  # type: ignore
         self.sio.on("invocation_complete", self.on_invocation_complete)  # type: ignore
+        self.sio.on("invocation_error", self.on_invocation_error)  # type: ignore
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
 
     async def shutdown(self):
@@ -171,6 +172,22 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         loop.close()
         self.logger.debug("Sent")
 
+    def on_invocation_error(self, data: dict[str, Any]):
+        id = data["graph_execution_state_id"]
+        self.logger.error("Invocation error: {}".format(id))
+
+        self.logger.info("Unsubscribing from InvokeAI session: {}".format(id))
+        self.sio.emit("unsubscribe", {"session": id})  # type: ignore
+
+        request = self.request_cache[id]
+        # We likely have a reply-none from when we first replied to this request, so remove it
+        request.pop("reply-none", None)
+        request["error"] = "InvokeAI pipeline failure, contact your bot admin"
+
+        loop = asyncio.new_event_loop()
+        loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
+        loop.close()
+
     async def build_image_graph(self, args: Namespace) -> dict[str, Any]:
         nodes: list[dict[str, Any]] = []
         links: list[dict[str, Any]] = []
@@ -180,10 +197,14 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             nodes.append({"id": str(len(nodes)), "type": node_type, **kwargs})
 
         if args.imgurl is not None:
-            image_name: str = await self.upload_image(args.imgurl)
+            (image_name, image_type) = await self.upload_image(args.imgurl)
+            add_node(
+                node_type="load_image",
+                image_name=image_name,
+                image_type=image_type,
+            )
             add_node(
                 node_type="img2img",
-                image_name=image_name,
                 prompt=args.prompt,
                 model=args.model,
                 sampler=args.sampler,
@@ -228,7 +249,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 self.logger.info("Fetched {} bytes of {}".format(len(image), resp.content_type))
                 return (resp.content_type, image)
 
-    async def upload_image(self, url: str) -> str:
+    async def upload_image(self, url: str) -> Tuple[str, str]:
         image_name = "Unknown"
         (content_type, image) = await self.fetch_image(url)
         upload_url = self.api_uri + "images/uploads/"
@@ -243,8 +264,9 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             raise ImageFetchException("Error uploading image to InvokeAI: {}".format(response.reason))
         body = response.json()
         image_name = body["image_name"]
-        self.logger.info("Image uploaded as: {}".format(image_name))
-        return image_name
+        image_type = body["image_type"]
+        self.logger.info("Image uploaded as: {} ({})".format(image_name, image_type))
+        return (image_name, image_type)
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
         parser = super().arg_parser()
