@@ -27,6 +27,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.invokeai_host = options["invokeai"]["host"]
         self.invokeai_port = options["invokeai"]["port"]
         self.request_cache: dict[str, Any] = {}
+        self.last_completion: dict[str, Any] | None = None
         self.ws_uri = "ws://{}:{}/".format(self.invokeai_host, self.invokeai_port)
         self.api_uri = "http://{}:{}/api/v1/".format(self.invokeai_host, self.invokeai_port)
         self.logger.debug("Set InvokeAI options to: host={}, port={}".format(self.invokeai_host, self.invokeai_port))
@@ -43,6 +44,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio = socketio.Client(reconnection_delay_max=10)
         self.sio.on("connect", self.on_connect)  # type: ignore
         self.sio.on("disconnect", self.on_disconnect)  # type: ignore
+        self.sio.on("invocation_complete", self.on_invocation_complete)  # type: ignore
         self.sio.on("graph_execution_state_complete", self.on_graph_execution_state_complete)  # type: ignore
         self.sio.on("invocation_error", self.on_invocation_error)  # type: ignore
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
@@ -134,6 +136,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
     def on_disconnect(self):
         self.logger.info("Disconnected from InvokeAI socket.io")
 
+    def on_execution_complete(self, data: dict[str, Any]):
+        if not self.last_completion:
+            self.last_completion = {}
+        self.last_completion[data["graph_execution_state_id"]] = data
+
     def on_graph_execution_state_complete(self, data: dict[str, Any]):
         id = data["graph_execution_state_id"]
 
@@ -147,15 +154,23 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         # We likely have a reply-none from when we first replied to this request, so remove it
         request.pop("reply-none", None)
 
+        if not self.last_completion or id not in self.last_completion:
+            request["error"] = "Unable to find a completed image"
+            self.logger.error("No last_completion for {}".format(id))
+            self.sync_send_reply(request)
+            return
+
+        data = self.last_completion[id]
         r = requests.get(self.api_uri + "images/results/{}".format(data["result"]["image"]["image_name"]))
+        self.last_completion.pop(id, None)
+
         if r.status_code != 200:
             self.logger.error("Error fetching image from InvokeAI: {}".format(r.reason))
             request["error"] = "Error from InvokeAI: {}".format(r.reason)
+            self.sync_send_reply(request)
             return
         else:
             self.logger.info("Fetched image from InvokeAI")
-            # FIXME: There is a 1MB limit on NATS messages. We should instead write to disk here and merely send a URL over NATS
-            # (or we get fancy and use some kind of object store, and send a URL to that)
             request["reply-image"] = base64.b64encode(r.content).decode("utf8")
 
         self.logger.debug(
@@ -166,7 +181,9 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 request["prompt"],
             )
         )
+        self.sync_send_reply(request)
 
+    def sync_send_reply(self, request: dict[str, Any]):
         loop = asyncio.new_event_loop()
         loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
         loop.close()
