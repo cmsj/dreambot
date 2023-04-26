@@ -43,7 +43,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio = socketio.Client(reconnection_delay_max=10)
         self.sio.on("connect", self.on_connect)  # type: ignore
         self.sio.on("disconnect", self.on_disconnect)  # type: ignore
-        self.sio.on("invocation_complete", self.on_invocation_complete)  # type: ignore
+        self.sio.on("graph_execution_state_complete", self.on_invocation_complete)  # type: ignore
         self.sio.on("invocation_error", self.on_invocation_error)  # type: ignore
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
 
