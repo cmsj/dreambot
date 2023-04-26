@@ -43,7 +43,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio = socketio.Client(reconnection_delay_max=10)
         self.sio.on("connect", self.on_connect)  # type: ignore
         self.sio.on("disconnect", self.on_disconnect)  # type: ignore
-        self.sio.on("graph_execution_state_complete", self.on_invocation_complete)  # type: ignore
+        self.sio.on("graph_execution_state_complete", self.on_graph_execution_state_complete)  # type: ignore
         self.sio.on("invocation_error", self.on_invocation_error)  # type: ignore
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
 
@@ -89,7 +89,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             self.sio.emit("subscribe", {"session": response["id"]})  # type: ignore
 
             async with aiohttp.ClientSession() as session:
-                async with session.put(sessions_url + "/{}/invoke".format(response["id"])) as r:
+                async with session.put(sessions_url + "/{}/invoke?all=true".format(response["id"])) as r:
                     if not r.ok:
                         self.logger.error("Error PUTing session to InvokeAI: {}".format(r.reason))  # type: ignore
                         resp["error"] = "Error from InvokeAI: {}".format(r.reason)  # type: ignore
@@ -134,10 +134,10 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
     def on_disconnect(self):
         self.logger.info("Disconnected from InvokeAI socket.io")
 
-    def on_invocation_complete(self, data: dict[str, Any]):
+    def on_graph_execution_state_complete(self, data: dict[str, Any]):
         id = data["graph_execution_state_id"]
 
-        self.logger.info("Invocation complete: {}".format(id))
+        self.logger.info("Graph execution state complete: {}".format(id))
         # self.logger.debug("Invocation complete data: {}".format(data))
 
         self.logger.info("Unsubscribing from InvokeAI session: {}".format(id))
@@ -210,6 +210,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 sampler=args.sampler,
                 steps=args.steps,
                 seed=args.seed,
+                progress_images=False,
             )
         else:
             add_node(
@@ -219,6 +220,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 sampler=args.sampler,
                 steps=args.steps,
                 seed=args.seed,
+                progress_images=False,
             )
         add_node(node_type="upscale")
 
