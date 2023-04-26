@@ -9,6 +9,7 @@ import traceback
 
 from typing import Any, Callable, Coroutine, Tuple
 from argparse import REMAINDER, ArgumentError, Namespace
+from PIL import Image
 from dreambot.backend.base import DreambotBackendBase
 from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
 
@@ -252,7 +253,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         graph: dict[str, Any] = {"nodes": dict(enumerate(nodes)), "edges": links}
         return graph
 
-    async def fetch_image(self, url: str) -> Tuple[str, bytes]:
+    async def fetch_image(self, url: str) -> Tuple[str, io.BytesIO]:
         self.logger.info("Fetching image: {}".format(url))
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -266,7 +267,14 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 image = await resp.read()
                 resp.close()
                 self.logger.info("Fetched {} bytes of {}".format(len(image), resp.content_type))
-                return (resp.content_type, image)
+
+                # Resize the image
+                resp_image = io.BytesIO()
+                thumbnail = Image.open(io.BytesIO(image))
+                thumbnail.thumbnail((512, 512), Image.ANTIALIAS)
+                thumbnail.save(resp_image, "JPEG")
+
+                return (resp.content_type, resp_image)
 
     async def upload_image(self, url: str) -> Tuple[str, str]:
         image_name = "Unknown"
@@ -275,7 +283,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
         self.logger.info("Uploading image to InvokeAI: {} -> {}".format(url, upload_url))
         files: dict[str, Tuple[str, io.BytesIO, str]] = {
-            "file": (image_name, io.BytesIO(image), content_type),
+            "file": (image_name, image, content_type),
         }
         response = requests.post("http://invokeai.chrul.tenshu.net/api/v1/images/uploads/", files=files)
         if not response.ok:
