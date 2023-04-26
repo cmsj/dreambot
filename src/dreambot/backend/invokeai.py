@@ -136,7 +136,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
     def on_disconnect(self):
         self.logger.info("Disconnected from InvokeAI socket.io")
 
-    def on_execution_complete(self, data: dict[str, Any]):
+    def on_invocation_complete(self, data: dict[str, Any]):
         if not self.last_completion:
             self.last_completion = {}
         self.last_completion[data["graph_execution_state_id"]] = data
