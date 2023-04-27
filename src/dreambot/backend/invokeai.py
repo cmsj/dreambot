@@ -273,6 +273,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 thumbnail = Image.open(io.BytesIO(image))
                 thumbnail.thumbnail((512, 512), Image.ANTIALIAS)
                 thumbnail.save(resp_image, "JPEG")
+                resp_image.flush()
+                resp_image.seek(0)
 
                 return ("image/jpeg", resp_image)
 
@@ -281,7 +283,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         (content_type, image) = await self.fetch_image(url)
         upload_url = self.api_uri + "images/uploads/"
 
-        self.logger.info("Uploading image to InvokeAI: {} -> {}".format(url, upload_url))
+        self.logger.info("Uploading image ({}) to InvokeAI: {} -> {}".format(content_type, url, upload_url))
         files: dict[str, Tuple[str, io.BytesIO, str]] = {
             "file": (image_name, image, content_type),
         }
