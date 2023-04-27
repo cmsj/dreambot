@@ -274,7 +274,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 thumbnail.thumbnail((512, 512), Image.ANTIALIAS)
                 thumbnail.save(resp_image, "JPEG")
 
-                return (resp.content_type, resp_image)
+                return ("image/jpeg", resp_image)
 
     async def upload_image(self, url: str) -> Tuple[str, str]:
         image_name = "Unknown"
