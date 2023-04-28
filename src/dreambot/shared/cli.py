@@ -47,7 +47,6 @@ class DreambotCLI:
             self.options = json.load(f)
 
         if "nats_uri" not in self.options:
-            self.logger.error("nats_uri missing from {}".format(self.args.config))
             raise ValueError("nats_uri not provided in JSON config")
 
         self.nats = NatsManager(nats_uri=self.options["nats_uri"], name=self.cli_name)

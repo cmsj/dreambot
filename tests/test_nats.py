@@ -164,7 +164,11 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
     assert loop_count == 0
     assert nm.logger.warning.call_count == 5
     nm.logger.warning.assert_has_calls(
-        [call("NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet")]
+        [
+            call(
+                "NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet. Sleeping..."
+            )
+        ]
     )
 
 

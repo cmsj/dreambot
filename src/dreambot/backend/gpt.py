@@ -1,5 +1,4 @@
 import json
-import traceback
 import openai
 
 from typing import Any, Callable, Coroutine
@@ -26,12 +25,6 @@ class DreambotBackendGPT(DreambotBackendBase):
         self.model = options["gpt"]["model"]
         self.chat_cache: dict[str, Any] = {}
 
-        self.logger.debug(
-            "Set GPT options to: api_key={}, organization={}, model={}".format(
-                self.api_key, self.organization, self.model
-            )
-        )
-
     async def boot(self):
         openai.api_key = self.api_key
         openai.organization = self.organization
@@ -44,7 +37,7 @@ class DreambotBackendGPT(DreambotBackendBase):
         try:
             resp = json.loads(message.decode())
         except Exception as e:
-            self.logger.error("Failed to parse messagelol: {}".format(e))
+            self.logger.error("Failed to parse message: {}".format(e))
             return True
 
         try:
@@ -55,24 +48,18 @@ class DreambotBackendGPT(DreambotBackendBase):
             new_chat_message = {"role": "user", "content": args.prompt}
 
             # Ensure we have a valid cache line for this user
-            cache_key = self.cache_name_for_prompt(resp)
-            if cache_key not in self.chat_cache:
-                self.logger.debug("Creating new cache entry for {}".format(cache_key))
-                self.reset_cache(cache_key)
+            cache_key = self.ensure_cache_for_prompt(resp)
 
             # Determine if we're adding to the cache or starting a new conversation
             if not args.followup:
-                self.logger.debug("Starting new conversation for '{}'".format(cache_key))
                 self.reset_cache(cache_key)
-            else:
-                self.logger.debug("Adding to existing conversation for '{}'".format(cache_key))
 
             if args.list_models:
                 # We have to hard code this because the OpenAI API endpoint lists dozens of models that can't be used for Chat Completions
                 # see https://platform.openai.com/docs/models/model-endpoint-compatibility
 
                 models = ["gpt-3.5-turbo", "gpt-3.5-turbo-0301"]
-                reply = ", ".join(models)  # type: ignore
+                resp["reply-text"] = ", ".join(models)  # type: ignore
             else:
                 # Now that our cache is in the right state, add this new prompt to it
                 self.chat_cache[cache_key].append(new_chat_message)
@@ -82,39 +69,40 @@ class DreambotBackendGPT(DreambotBackendBase):
                 response = openai.ChatCompletion.create(model=args.model, messages=self.chat_cache[cache_key], temperature=args.temperature)  # type: ignore
 
                 # Fetch the response, prepare it to be sent back to the user and added to their cache
-                reply = response.choices[0].message.content  # type: ignore
+                resp["reply-text"] = response.choices[0].message.content  # type: ignore
 
-            resp["reply-text"] = reply
-            self.chat_cache[cache_key].append({"role": "assistant", "content": reply})
+            self.chat_cache[cache_key].append({"role": "assistant", "content": resp["reply-text"]})
         except UsageException as e:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             resp["reply-text"] = str(e)
         except (APIError, Timeout, ServiceUnavailableError) as e:
-            self.logger.error("GPT service access error: {}".format(e))
-            resp["error"] = "GPT service unavailable, try again."
+            resp["error"] = "GPT service unavailable, try again: {}".format(e)
         except (RateLimitError, AuthenticationError) as e:
-            self.logger.error("GPT service query error: {}".format(e))
-            resp["error"] = "GPT service error, ask your bot admin to check logs."
+            resp["error"] = "GPT service query error: {}".format(e)
         except InvalidRequestError as e:
-            self.logger.error("GPT request error: {}".format(e))
-            resp["error"] = "GPT request error, ask your bot admin to check logs."
+            resp["error"] = "GPT request error: {}".format(e)
         except (ValueError, ArgumentError) as e:
-            self.logger.error("GPT argument error: {}".format(e))
-            resp["error"] = "Something is wrong with your arguments, try !gpt --help"
+            resp["error"] = "Something is wrong with your arguments, try {}} --help ({})".format(self.queue_name, e)
         except Exception as e:
-            self.logger.error("Unknown error: {}".format(e))
-            resp["error"] = "Unknown error, ask your bot admin to check logs."
+            resp["error"] = "Unknown error: {}".format(e)
 
+        await self.send_message(resp)
+        return True
+
+    async def send_message(self, resp: dict[str, Any]):
         try:
             self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_workload))
             packet = json.dumps(resp)
             await self.callback_send_workload(resp["reply-to"], packet.encode())
-            self.logger.debug("Response sent!")
         except Exception as e:
             self.logger.error("Failed to send response: {}".format(e))
-            traceback.print_exc()
 
-        return True
+    def ensure_cache_for_prompt(self, data: dict[str, Any]):
+        cache_key = self.cache_name_for_prompt(data)
+        if cache_key not in self.chat_cache:
+            self.logger.debug("Creating new cache entry for {}".format(cache_key))
+            self.reset_cache(cache_key)
+        return cache_key
 
     def cache_name_for_prompt(self, data: dict[str, Any]):
         return "{}_{}_{}".format(data["reply-to"], data["channel"], data["user"])

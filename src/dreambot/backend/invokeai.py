@@ -5,7 +5,7 @@ import io
 import json
 import requests
 import socketio
-import traceback
+
 
 from typing import Any, Callable, Coroutine, Tuple
 from argparse import REMAINDER, ArgumentError, Namespace
@@ -31,7 +31,6 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.last_completion: dict[str, Any] | None = None
         self.ws_uri = "ws://{}:{}/".format(self.invokeai_host, self.invokeai_port)
         self.api_uri = "http://{}:{}/api/v1/".format(self.invokeai_host, self.invokeai_port)
-        self.logger.debug("Set InvokeAI options to: host={}, port={}".format(self.invokeai_host, self.invokeai_port))
 
         # Set our default InvokeAI options
         self.model = "stable-diffusion-1.5"
@@ -67,19 +66,17 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             args.prompt = " ".join(args.prompt)
 
             if not self.sio.connected:  # type: ignore
-                self.logger.error("Socket.io not connected, cannot send prompt")
+                resp["error"] = "Not connected to InvokeAI right now, I'll try again later"
+                await self.send_message(resp)
                 return False
 
             graph: dict[str, Any] = await self.build_image_graph(args)
 
-            self.logger.info("Sending prompt to InvokeAI: {}".format(args.prompt))
-
-            sessions_url = self.api_uri + "sessions"
+            sessions_url = self.api_uri + "sessions/"
             self.logger.debug("POSTing graph to InvokeAI: {} :: {}".format(sessions_url, graph))
             async with aiohttp.ClientSession() as session:
                 async with session.post(sessions_url, json=graph) as r:
                     if not r.ok:
-                        self.logger.error("Error POSTing session to InvokeAI: {}".format(r.reason))  # type: ignore
                         resp["error"] = "Error from InvokeAI: {}".format(r.reason)  # type: ignore
                         await self.send_message(resp)
                         return True
@@ -92,32 +89,25 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             self.sio.emit("subscribe", {"session": response["id"]})  # type: ignore
 
             async with aiohttp.ClientSession() as session:
-                async with session.put(sessions_url + "/{}/invoke?all=true".format(response["id"])) as r:
+                async with session.put(sessions_url + "{}/invoke?all=true".format(response["id"])) as r:
                     if not r.ok:
-                        self.logger.error("Error PUTing session to InvokeAI: {}".format(r.reason))  # type: ignore
                         resp["error"] = "Error from InvokeAI: {}".format(r.reason)  # type: ignore
                         await self.send_message(resp)
                         return True
 
-            # No more work to do here, InvokeAI will send us a message when it's done
             resp["reply-none"] = "Waiting for InvokeAI to generate a response..."
         except UsageException as e:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             resp["reply-text"] = str(e)
         except (ValueError, ArgumentError) as e:
-            self.logger.error("Error parsing arguments: {}".format(e))
-            # FIXME: !dream should be replaced with our trigger as a variable somewhere
-            resp["error"] = "Something is wrong with your arguments, try !dream --help"
+            resp["error"] = "Something is wrong with your arguments, try {}} --help ({})".format(self.queue_name, e)
         except ImageFetchException as e:
             resp["error"] = str(e)
         except Exception as e:
-            self.logger.error("Unknown error: {}".format(e))
-            resp["error"] = "Unknown error, ask your bot admin to check logs."
+            resp["error"] = "Unknown error: {}".format(e)
             await self.send_message(resp)
             return True
 
-        # Technically we don't need to send this because we set reply-none, but for the sake of
-        # completeness and future possibility, we'll send it anyway
         await self.send_message(resp)
         return True
 
@@ -126,10 +116,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_workload))
             packet = json.dumps(resp)
             await self.callback_send_workload(resp["reply-to"], packet.encode())
-            self.logger.debug("Response sent!")
         except Exception as e:
             self.logger.error("Failed to send response: {}".format(e))
-            traceback.print_exc()
 
     def on_connect(self):
         self.logger.info("Connected to InvokeAI socket.io")
@@ -146,8 +134,6 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         id = data["graph_execution_state_id"]
 
         self.logger.info("Graph execution state complete: {}".format(id))
-        # self.logger.debug("Invocation complete data: {}".format(data))
-
         self.logger.info("Unsubscribing from InvokeAI session: {}".format(id))
         self.sio.emit("unsubscribe", {"session": id})  # type: ignore
 
@@ -156,7 +142,6 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         request.pop("reply-none", None)
 
         if not self.last_completion or id not in self.last_completion:
-            request["error"] = "Unable to find a completed image"
             self.logger.error("No last_completion for {}".format(id))
             self.sync_send_reply(request)
             return
@@ -166,12 +151,10 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.last_completion.pop(id, None)
 
         if r.status_code != 200:
-            self.logger.error("Error fetching image from InvokeAI: {}".format(r.reason))
             request["error"] = "Error from InvokeAI: {}".format(r.reason)
             self.sync_send_reply(request)
             return
         else:
-            self.logger.info("Fetched image from InvokeAI")
             request["reply-image"] = base64.b64encode(r.content).decode("utf8")
 
         self.logger.debug(
@@ -188,23 +171,18 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         loop = asyncio.new_event_loop()
         loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
         loop.close()
-        self.logger.debug("Sent")
 
     def on_invocation_error(self, data: dict[str, Any]):
         id = data["graph_execution_state_id"]
         self.logger.error("Invocation error: {}".format(id))
 
-        self.logger.info("Unsubscribing from InvokeAI session: {}".format(id))
         self.sio.emit("unsubscribe", {"session": id})  # type: ignore
 
         request = self.request_cache[id]
         # We likely have a reply-none from when we first replied to this request, so remove it
         request.pop("reply-none", None)
         request["error"] = "InvokeAI pipeline failure, contact your bot admin"
-
-        loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
-        loop.close()
+        self.sync_send_reply(request)
 
     async def build_image_graph(self, args: Namespace) -> dict[str, Any]:
         nodes: list[dict[str, Any]] = []
@@ -258,10 +236,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 if resp.status != 200:
-                    self.logger.error("Unable to fetch: {}".format(resp.status))
                     raise ImageFetchException("Unable to fetch: {}".format(resp.status))
                 if not resp.content_type.startswith("image/"):
-                    self.logger.error("Not an image: {}".format(resp.content_type))
                     raise ImageFetchException("URL was not an image: {}".format(resp.content_type))
 
                 image = await resp.read()

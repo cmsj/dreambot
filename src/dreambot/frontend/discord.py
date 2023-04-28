@@ -69,7 +69,6 @@ class FrontendDiscord(DreambotWorkerBase):
             resp = json.loads(message.decode())
         except Exception as e:
             self.logger.error("Failed to parse response: {}".format(e))
-            traceback.print_exc()
             return True
 
         channel = None

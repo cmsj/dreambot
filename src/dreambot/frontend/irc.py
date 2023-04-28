@@ -207,19 +207,15 @@ class FrontendIRC(DreambotWorkerBase):
 
     async def handle_line(self, data: bytes):
         try:
-            # try utf-8 first
             line = data.decode("utf-8")
         except UnicodeDecodeError:
-            # fall back that always works (but might not be correct)
             line = data.decode("latin1")
 
         line = line.strip()
         if line:
             message = self.parse_line(line)
             self.logger.debug("{} <- {}".format(self.server["host"], message))
-            if message.command.isdigit() and int(message.command) >= 400:
-                # might be an error
-                self.logger.error("Possible server error: {}".format(str(message)))
+
             if message.command == "PING":
                 await self.send_cmd("PONG", *message.params)
             elif message.command == "001":
@@ -230,6 +226,9 @@ class FrontendIRC(DreambotWorkerBase):
                 await self.irc_received_privmsg(message)
             elif message.command == "JOIN":
                 self.irc_received_join(message)
+            elif message.command.isdigit() and int(message.command) >= 400:
+                # might be an error
+                self.logger.error("Possible server error: {}".format(str(message)))
 
     async def irc_join(self, channels: list[str]):
         for channel in channels:
