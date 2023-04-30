@@ -65,6 +65,10 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             args = argparser.parse_args(resp["prompt"].split(" "))
             args.prompt = " ".join(args.prompt)
 
+            # Image URLs can arrive separately, so update args if we have one
+            if "image_url" in resp:
+                args.imgurl = resp["image_url"]
+
             if not self.sio.connected:  # type: ignore
                 resp["error"] = "Not connected to InvokeAI right now, I'll try again later"
                 await self.send_message(resp)

@@ -161,6 +161,12 @@ class FrontendDiscord(DreambotWorkerBase):
                 else:
                     packet_dict["server_name"] = "DM"
 
+                # If the message has an image, attach it to the packet
+                if len(message.embeds) > 0 and message.embeds[0].image:
+                    image = message.embeds[0].image
+                    if image:
+                        packet_dict["image_url"] = image.url
+
                 packet = json.dumps(packet_dict)
 
                 self.logger.info("INPUT: {} {}".format(self.log_slug(packet_dict), text))  # type: ignore
