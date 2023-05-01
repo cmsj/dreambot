@@ -60,7 +60,7 @@ class FrontendDiscord(DreambotWorkerBase):
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
         reply_args: dict[str, str | discord.File] = {}
-        self.logger.info("Received message from queue {}".format(queue_name))
+        self.logger.info("Received message for queue {}".format(queue_name))
         if not self.discord.is_ready():
             self.logger.error("Discord not ready, cannot send message")
             return False

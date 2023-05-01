@@ -77,7 +77,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             graph: dict[str, Any] = await self.build_image_graph(args)
 
             sessions_url = self.api_uri + "sessions/"
-            self.logger.debug("POSTing graph to InvokeAI: {} :: {}".format(sessions_url, graph))
+            self.logger.info("POSTing graph to InvokeAI: {} :: {}".format(sessions_url, graph))
             async with aiohttp.ClientSession() as session:
                 async with session.post(sessions_url, json=graph) as r:
                     if not r.ok:
