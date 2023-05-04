@@ -87,6 +87,7 @@ class NatsManager:
                                 await msg.ack()
                         except Exception as e:
                             self.logger.error("callback_receive_workload exception: {}".format(e))
+                            traceback.print_exc()
                             await msg.ack()
                     except TimeoutError:
                         await asyncio.sleep(1)
