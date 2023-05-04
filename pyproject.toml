@@ -35,10 +35,11 @@ dependencies = [
     "requests",
     "discord.py",
     "Pillow==9.5.0",
+    "accelerate",
     "transformers",
     "einops",
     "sentencepiece",
-    "torch"
+    "torch",
 ]
 
 [project.optional-dependencies]
