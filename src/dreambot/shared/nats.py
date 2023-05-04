@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import nats
+import traceback
 
 from nats.errors import TimeoutError, NoServersError
 from nats.js.errors import BadRequestError
@@ -78,15 +79,21 @@ class NatsManager:
                             json_msg["reply-image"] = "** IMAGE **"
                         self.logger.debug("Received NATS message on '{}': {}".format(queue_name, json_msg))
 
-                        # We will remove the message from the queue if the callback returns anything but False
-                        worker_callback_result = await callback_receive_workload(queue_name, msg.data)
-                        if worker_callback_result is not False:
+                        worker_callback_result = None
+                        try:
+                            # We will remove the message from the queue if the callback returns anything but False
+                            worker_callback_result = await callback_receive_workload(queue_name, msg.data)
+                            if worker_callback_result is not False:
+                                await msg.ack()
+                        except Exception as e:
+                            self.logger.error("callback_receive_workload exception: {}".format(e))
                             await msg.ack()
                     except TimeoutError:
                         await asyncio.sleep(1)
                         continue
                     except Exception as e:
                         self.logger.error("NATS message exception: {}".format(e))
+                        traceback.print_exc()
 
             except BadRequestError:
                 self.logger.warning(
