@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import signal
+import sys
 
 from dreambot.shared.nats import NatsManager
 from dreambot.shared.worker import DreambotWorkerBase
@@ -56,9 +57,11 @@ class DreambotCLI:
         try:
             loop = asyncio.get_event_loop()
 
-            for s in (signal.SIGTERM, signal.SIGINT):
-                loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(s)))
-            loop.add_signal_handler(signal.SIGHUP, lambda: self.toggle_debug())
+            # FIXME: This is ungraceful, but Windows can't do signal handling this way. We could do something like https://stackoverflow.com/questions/45987985/asyncio-loops-add-signal-handler-in-windows
+            if sys.platform != "win32":
+                for s in (signal.SIGTERM, signal.SIGINT):
+                    loop.add_signal_handler(s, lambda s=s: asyncio.create_task(self.shutdown(s)))
+                loop.add_signal_handler(signal.SIGHUP, lambda: self.toggle_debug())
 
             loop.create_task(self.nats.boot(self.workers))
             [loop.create_task(x.boot()) for x in self.workers]

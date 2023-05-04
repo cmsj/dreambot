@@ -15,6 +15,7 @@ class DreambotBackendReplit(DreambotBackendBase):
         super().__init__("Replit", options, callback_send_workload)
 
     async def boot(self):
+        self.logger.info("Booting model...")
         self.tokenizer = AutoTokenizer.from_pretrained("replit/replit-code-v1-3b", trust_remote_code=True)  # type: ignore
         self.model = AutoModelForCausalLM.from_pretrained("replit/replit-code-v1-3b", trust_remote_code=True)  # type: ignore
 
