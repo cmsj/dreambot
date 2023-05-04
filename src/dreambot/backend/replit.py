@@ -21,8 +21,7 @@ class DreambotBackendReplit(DreambotBackendBase):
         self.tokenizer = AutoTokenizer.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True)  # type: ignore
         self.tokenizer.truncation_side = "left"  # type: ignore
 
-        self.model = AutoModelForCausalLM.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True)  # type: ignore
-        self.model.to(device="cuda", dtype=torch.bfloat16)  # type: ignore
+        self.model = AutoModelForCausalLM.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True).to("cuda", dtype=torch.bfloat16)  # type: ignore
 
         self.model.eval()  # type: ignore
         self.logger.info("Booted")
@@ -45,8 +44,7 @@ class DreambotBackendReplit(DreambotBackendBase):
 
             # Tokenize our prompt and do inference
             self.logger.debug("Sending request to Replit...")
-            tokens = self.tokenizer.encode(args.prompt, return_tensors="pt", max_length=1024, truncation=True)  # type: ignore
-            tokens.to("cuda")  # type: ignore
+            tokens = self.tokenizer.encode(args.prompt, return_tensors="pt", max_length=1024, truncation=True).to("cuda")  # type: ignore
 
             set_seed(args.seed)
 
