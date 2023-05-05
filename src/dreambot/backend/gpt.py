@@ -82,7 +82,7 @@ class DreambotBackendGPT(DreambotBackendBase):
         except InvalidRequestError as e:
             resp["error"] = "GPT request error: {}".format(e)
         except (ValueError, ArgumentError) as e:
-            resp["error"] = "Something is wrong with your arguments, try {} --help ({})".format(self.queue_name, e)
+            resp["error"] = "Something is wrong with your arguments, try {} --help ({})".format(self.queue_name(), e)
         except Exception as e:
             resp["error"] = "Unknown error: {}".format(e)
 
