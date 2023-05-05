@@ -1,14 +1,15 @@
-import aiohttp
 import asyncio
 import base64
 import io
 import json
-import requests
-import socketio
-
 
 from typing import Any, Callable, Coroutine, Tuple
 from argparse import REMAINDER, ArgumentError, Namespace
+
+import aiohttp
+import requests
+import socketio
+
 from PIL import Image
 from dreambot.backend.base import DreambotBackendBase
 from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
@@ -29,8 +30,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.invokeai_port = options["invokeai"]["port"]
         self.request_cache: dict[str, Any] = {}
         self.last_completion: dict[str, Any] | None = None
-        self.ws_uri = "ws://{}:{}/".format(self.invokeai_host, self.invokeai_port)
-        self.api_uri = "http://{}:{}/api/v1/".format(self.invokeai_host, self.invokeai_port)
+        self.ws_uri = f"ws://{self.invokeai_host}:{self.invokeai_port}/"
+        self.api_uri = f"http://{self.invokeai_host}:{self.invokeai_port}/api/v1/"
 
         # Set our default InvokeAI options
         self.model = "stable-diffusion-1.5"
@@ -79,12 +80,12 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             sessions_url = f"{self.api_uri}sessions/"
             self.logger.info("POSTing graph to InvokeAI: %s :: %s", sessions_url, graph)
             async with aiohttp.ClientSession() as session:
-                async with session.post(sessions_url, json=graph) as r:
-                    if not r.ok:
-                        resp["error"] = f"Error from InvokeAI: {r.reason}"  # type: ignore
+                async with session.post(sessions_url, json=graph) as req:
+                    if not req.ok:
+                        resp["error"] = f"Error from InvokeAI: {req.reason}"  # type: ignore
                         await self.send_message(resp)
                         return True
-                    response = await r.json()
+                    response = await req.json()
 
             self.request_cache[response["id"]] = resp
             self.logger.debug("InvokeAI response: %s", response)
@@ -93,9 +94,9 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             self.sio.emit("subscribe", {"session": response["id"]})  # type: ignore
 
             async with aiohttp.ClientSession() as session:
-                async with session.put(f"{sessions_url}{response['id']}/invoke?all=true") as r:
-                    if not r.ok:
-                        resp["error"] = f"Error from InvokeAI: {r.reason}"  # type: ignore
+                async with session.put(f"{sessions_url}{response['id']}/invoke?all=true") as req:
+                    if not req.ok:
+                        resp["error"] = f"Error from InvokeAI: {req.reason}"  # type: ignore
                         await self.send_message(resp)
                         return True
 
@@ -116,6 +117,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         return True
 
     async def send_message(self, resp: dict[str, Any]):
+        """Send a message back through NATS.
+
+        Args:
+            resp (dict[str, Any]): A modified version of the original message, with our response
+        """
         try:
             self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
             packet = json.dumps(resp)
@@ -124,6 +130,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             self.logger.error("Failed to send response: %s", exc)
 
     def on_connect(self):
+        """Callback from socket.io when our websocket is connected."""
         self.logger.info("Connected to InvokeAI socket.io")
 
     def on_disconnect(self):
@@ -135,30 +142,30 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.last_completion[data["graph_execution_state_id"]] = data
 
     def on_graph_execution_state_complete(self, data: dict[str, Any]):
-        id = data["graph_execution_state_id"]
+        graph_id = data["graph_execution_state_id"]
 
-        self.logger.info("Graph execution state complete, unsubscribing from InvokeAI session: %s", id)
-        self.sio.emit("unsubscribe", {"session": id})  # type: ignore
+        self.logger.info("Graph execution state complete, unsubscribing from InvokeAI session: %s", graph_id)
+        self.sio.emit("unsubscribe", {"session": graph_id})  # type: ignore
 
-        request = self.request_cache[id]
+        request = self.request_cache[graph_id]
         # We likely have a reply-none from when we first replied to this request, so remove it
         request.pop("reply-none", None)
 
-        if not self.last_completion or id not in self.last_completion:
-            self.logger.error("No last_completion for %s", id)
+        if not self.last_completion or graph_id not in self.last_completion:
+            self.logger.error("No last_completion for %s", graph_id)
             self.sync_send_reply(request)
             return
 
-        data = self.last_completion[id]
-        r = requests.get(f"{self.api_uri}images/results/{data['result']['image']['image_name']}", timeout=30)
-        self.last_completion.pop(id, None)
+        data = self.last_completion[graph_id]
+        req = requests.get(f"{self.api_uri}images/results/{data['result']['image']['image_name']}", timeout=30)
+        self.last_completion.pop(graph_id, None)
 
-        if r.status_code != 200:
-            request["error"] = "Error from InvokeAI: {}".format(r.reason)
+        if req.status_code != 200:
+            request["error"] = f"Error from InvokeAI: {req.reason}"
             self.sync_send_reply(request)
             return
         else:
-            request["reply-image"] = base64.b64encode(r.content).decode("utf8")
+            request["reply-image"] = base64.b64encode(req.content).decode("utf8")
 
         self.logger.debug(
             "Sending image response to queue '%s': for %s <%s> %s",
@@ -175,12 +182,12 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         loop.close()
 
     def on_invocation_error(self, data: dict[str, Any]):
-        id = data["graph_execution_state_id"]
-        self.logger.error("Invocation error: %s", id)
+        graph_id = data["graph_execution_state_id"]
+        self.logger.error("Invocation error: %s", graph_id)
 
-        self.sio.emit("unsubscribe", {"session": id})  # type: ignore
+        self.sio.emit("unsubscribe", {"session": graph_id})  # type: ignore
 
-        request = self.request_cache[id]
+        request = self.request_cache[graph_id]
         # We likely have a reply-none from when we first replied to this request, so remove it
         request.pop("reply-none", None)
         request["error"] = "InvokeAI pipeline failure, contact your bot admin"

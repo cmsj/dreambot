@@ -40,7 +40,8 @@
             "MD033": false,
             "MD041": false
         },
-        "python.linting.pylintEnabled": true
+        "python.linting.pylintEnabled": true,
+        "python.linting.pydocstyleEnabled": true
     },
     "extensions": {
         "recommendations": [

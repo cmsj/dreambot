@@ -1,8 +1,9 @@
 import json
-import openai
 
 from typing import Any, Callable, Coroutine
 from argparse import REMAINDER, ArgumentError
+
+import openai
 from openai.error import (
     APIError,
     Timeout,
@@ -76,15 +77,15 @@ class DreambotBackendGPT(DreambotBackendBase):
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             resp["reply-text"] = str(exc)
         except (APIError, Timeout, ServiceUnavailableError) as exc:
-            resp["error"] = "GPT service unavailable, try again: {}".format(exc)
+            resp["error"] = f"GPT service unavailable, try again: {exc}"
         except (RateLimitError, AuthenticationError) as exc:
-            resp["error"] = "GPT service query error: {}".format(exc)
+            resp["error"] = f"GPT service query error: {exc}"
         except InvalidRequestError as exc:
-            resp["error"] = "GPT request error: {}".format(exc)
+            resp["error"] = f"GPT request error: {exc}"
         except (ValueError, ArgumentError) as exc:
-            resp["error"] = "Something is wrong with your arguments, try {} --help ({})".format(self.queue_name(), exc)
+            resp["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
         except Exception as exc:
-            resp["error"] = "Unknown error: {}".format(exc)
+            resp["error"] = f"Unknown error: {exc}"
 
         await self.send_message(resp)
         return True

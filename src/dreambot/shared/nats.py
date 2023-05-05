@@ -1,16 +1,19 @@
 import asyncio
 import json
 import logging
-import nats
 import traceback
 
-from nats.errors import TimeoutError, NoServersError
+from asyncio import Task
+from typing import Any, Coroutine, Callable
+
 from nats.js.errors import BadRequestError
 from nats.js import JetStreamContext
 from nats.aio.client import Client as NATSClient
+
+import nats
+import nats.errors
+
 from dreambot.shared.worker import DreambotWorkerBase
-from asyncio import Task
-from typing import Any, Coroutine, Callable
 
 
 class NatsManager:
@@ -19,37 +22,37 @@ class NatsManager:
         self.nats_uri = nats_uri
         self.nats_tasks: list[Task[Any]] = []
         self.shutting_down = False
-        self.logger = logging.getLogger("dreambot.shared.nats.{}".format(self.name))
+        self.logger = logging.getLogger(f"dreambot.shared.nats.{self.name}")
 
-        self.js: JetStreamContext
-        self.nc: NATSClient | None = None
+        self.jets: JetStreamContext
+        self.nats: NATSClient | None = None
 
     async def shutdown(self):
         self.shutting_down = True
 
         self.logger.info("Shutting down")
-        [task.cancel() for task in self.nats_tasks]
+        _ = [task.cancel() for task in self.nats_tasks]
         self.nats_tasks = []
 
         # We do this so the asyncio.gather() in boot() has time to notice its tasks
         # have all finished before we kill all other tasks
         await asyncio.sleep(5)
 
-        if self.nc:
-            await self.nc.close()
+        if self.nats:
+            await self.nats.close()
 
     async def boot(self, workers: list[DreambotWorkerBase]):
         self.logger.info("NATS booting")
         try:
-            self.nc = await nats.connect(self.nats_uri, name=self.name)  # type: ignore
-            self.logger.info("NATS connected to %s", self.nc.connected_url.netloc)  # type: ignore
-            self.js = self.nc.jetstream()  # type: ignore
+            self.nats = await nats.connect(self.nats_uri, name=self.name)  # type: ignore
+            self.logger.info("NATS connected to %s", self.nats.connected_url.netloc)  # type: ignore
+            self.jets = self.nats.jetstream()  # type: ignore
 
             for worker in workers:
                 self.nats_tasks.append(asyncio.create_task(self.subscribe(worker)))
 
             await asyncio.gather(*self.nats_tasks)
-        except NoServersError:
+        except nats.errors.NoServersError:
             self.logger.error("NATS failed to connect to any servers")
         except Exception as exc:
             self.logger.error("boot exception: %s", exc)
@@ -57,8 +60,8 @@ class NatsManager:
             self.logger.debug("boot() ending, cancelling any remaining NATS subscriber tasks")
             _ = [task.cancel() for task in self.nats_tasks]
             self.nats_tasks = []
-            if self.nc:
-                await self.nc.close()
+            if self.nats:
+                await self.nats.close()
 
     async def subscribe(self, worker: DreambotWorkerBase) -> None:
         callback_receive_workload: Callable[[str, bytes], Coroutine[Any, Any, bool]] = worker.callback_receive_workload
@@ -66,8 +69,8 @@ class NatsManager:
             queue_name = worker.queue_name()
             self.logger.info("NATS subscribing to %s", queue_name)
             try:
-                stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
-                sub = await self.js.subscribe(queue_name)
+                _ = await self.jets.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
+                sub = await self.jets.subscribe(queue_name)
 
                 while True and not self.shutting_down:
                     self.logger.debug("Waiting for NATS message on %s", queue_name)
@@ -89,7 +92,7 @@ class NatsManager:
                             self.logger.error("callback_receive_workload exception: %s", exc)
                             traceback.print_exc()
                             await msg.ack()
-                    except TimeoutError:
+                    except nats.errors.TimeoutError:
                         await asyncio.sleep(1)
                         continue
                     except Exception as exc:
@@ -113,4 +116,4 @@ class NatsManager:
         if "reply-image" in json_msg:
             json_msg["reply-image"] = "** IMAGE **"
         self.logger.debug("Publishing to NATS: %s %s", subject, json_msg)
-        await self.js.publish(subject, data)  # type: ignore
+        await self.jets.publish(subject, data)  # type: ignore

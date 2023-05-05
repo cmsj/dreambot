@@ -49,6 +49,10 @@ test = [
     "pytest-mock==3.10.0",
     "pytest-cov==4.0.0"
 ]
+dev = [
+    "pylint",
+    "pydocstyle"
+]
 
 [project.scripts]
 dreambot_frontend_irc = "dreambot.dreambot_frontend_irc:main"
@@ -74,4 +78,4 @@ line-length = 120
 max-line-length = 120
 
 [tool.pylint."MESSAGES CONTROL"]
-disable = "broad-exception-caught"
+disable = "broad-exception-caught, line-too-long"
