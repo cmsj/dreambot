@@ -50,7 +50,7 @@ class DreambotBackendReplit(DreambotBackendBase):
 
             generation = self.model.generate(  # type: ignore
                 tokens,
-                max_new_tokens=48,  # FIXME: Make this an arg. Min 8, Max 128, steps 1, default 48
+                max_new_tokens=args.max_new_tokens,
                 temperature=args.temperature,
                 pad_token_id=self.tokenizer.pad_token_id,  # type: ignore
                 eos_token_id=self.tokenizer.eos_token_id,  # type: ignore
@@ -95,6 +95,16 @@ class DreambotBackendReplit(DreambotBackendBase):
             "--temperature",
             help="Sampling temperature of the model, 0.0-2.0. Higher values make the output more random",
             default=0.2,
+            type=float,
+        )
+        parser.add_argument(
+            "-m",
+            "--max-new-tokens",
+            help="Maximum number of tokens to generate",
+            default=48,
+            type=int,
+            choices=range(8, 129),
+            metavar="[8-128]",
         )
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
