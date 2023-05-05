@@ -1,3 +1,4 @@
+"""NATS manager for Dreambot."""
 import asyncio
 import json
 import logging
@@ -17,7 +18,15 @@ from dreambot.shared.worker import DreambotWorkerBase
 
 
 class NatsManager:
+    """This class handles NATS connections and subscriptions for Dreambot workers."""
+
     def __init__(self, nats_uri: str, name: str):
+        """Initialise the class.
+
+        Args:
+            nats_uri (str): A URI for the NATS server to connect to, e.g. nats://localhost:4222
+            name (str): The name of this client, used for logging and as a NATS client name.
+        """
         self.name = name
         self.nats_uri = nats_uri
         self.nats_tasks: list[Task[Any]] = []
@@ -28,6 +37,7 @@ class NatsManager:
         self.nats: NATSClient | None = None
 
     async def shutdown(self):
+        """Shutdown this instance."""
         self.shutting_down = True
 
         self.logger.info("Shutting down")
@@ -42,6 +52,11 @@ class NatsManager:
             await self.nats.close()
 
     async def boot(self, workers: list[DreambotWorkerBase]):
+        """Boot this instance.
+
+        Args:
+            workers (list[DreambotWorkerBase]): A list of Dreambot workers each of which exposes a queue_name() method we can use to subscribe to their queues.
+        """
         self.logger.info("NATS booting")
         try:
             self.nats = await nats.connect(self.nats_uri, name=self.name)  # type: ignore
@@ -64,6 +79,11 @@ class NatsManager:
                 await self.nats.close()
 
     async def subscribe(self, worker: DreambotWorkerBase) -> None:
+        """Subscribe to a NATS queue.
+
+        Args:
+            worker (DreambotWorkerBase): A Dreambot worker instance that exposes a queue_name() method we can use to subscribe to its queue, and a callback_receive_workload() method we can pass messages to when they arrive.
+        """
         callback_receive_workload: Callable[[str, bytes], Coroutine[Any, Any, bool]] = worker.callback_receive_workload
         while True and not self.shutting_down:
             queue_name = worker.queue_name()
@@ -111,6 +131,12 @@ class NatsManager:
                 await asyncio.sleep(5)
 
     async def publish(self, subject: str, data: bytes):
+        """Publish a message to NATS.
+
+        Args:
+            subject (str): The NATS queue to publish to.
+            data (bytes): The message to publish, as a bytes encoded JSON string.
+        """
         raw_msg = data.decode()
         json_msg = json.loads(raw_msg)
         if "reply-image" in json_msg:

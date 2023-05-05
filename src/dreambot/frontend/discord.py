@@ -1,21 +1,27 @@
-#!/usr/bin/env python3
+"""Discord frontend for Dreambot."""
 import asyncio
 import json
 import base64
 import io
 import logging
 import traceback
-import discord
+
 from typing import Any, Callable, Coroutine
+
+import discord
+
 from dreambot.shared.worker import DreambotWorkerBase
 
 
 class FrontendDiscord(DreambotWorkerBase):
+    """Class implementing a Discord client worker."""
+
     def __init__(
         self,
         options: dict[str, Any],
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
+        """Initialise the class."""
         self.logger = logging.getLogger("dreambot.frontend.discord")
         self.token = options["discord"]["token"]
         self.options = options
@@ -25,9 +31,14 @@ class FrontendDiscord(DreambotWorkerBase):
         self.discord: discord.Client
 
     async def boot(self, reconnect: bool = True):
+        """Boot this instance.
+
+        Args:
+            reconnect (bool, optional): Should we try and reconnect to Discord after errors/failures. Defaults to True.
+        """
         while self.should_reconnect:
             self.should_reconnect = reconnect
-            self.logger.info("Booting Discord connection... (reconnect: {})".format(self.should_reconnect))
+            self.logger.info("Booting Discord connection... (reconnect: %s)", self.should_reconnect)
             try:
                 intents = discord.Intents.default()
                 intents.message_content = True
@@ -43,8 +54,8 @@ class FrontendDiscord(DreambotWorkerBase):
                     await self.on_message(message)
 
                 await self.discord.start(self.token, reconnect=False)
-            except Exception as e:
-                self.logger.error("Discord connection error: {}".format(e))
+            except Exception as exc:
+                self.logger.error("Discord connection error: %s", exc)
             finally:
                 self.logger.debug("Discord connection closed")
                 if self.should_reconnect:
@@ -52,23 +63,26 @@ class FrontendDiscord(DreambotWorkerBase):
                     await asyncio.sleep(5)
 
     async def shutdown(self):
+        """Shutdown this instance."""
         self.should_reconnect = False
         await self.discord.close()
 
     def queue_name(self):
+        """Return the name of the NATS queue this worker should subscribe to."""
         return "discord"
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+        """Message is received on the NATS queue."""
         reply_args: dict[str, str | discord.File] = {}
-        self.logger.info("Received message for queue {}".format(queue_name))
+        self.logger.info("Received message for queue %s", queue_name)
         if not self.discord.is_ready():
             self.logger.error("Discord not ready, cannot send message")
             return False
 
         try:
             resp = json.loads(message.decode())
-        except Exception as e:
-            self.logger.error("Failed to parse response: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to parse response: %s", exc)
             return True
 
         channel = None
@@ -82,16 +96,16 @@ class FrontendDiscord(DreambotWorkerBase):
             channel = self.discord.get_channel(int(resp["channel"]))
 
         if not channel:
-            self.logger.error("Failed to find channel {} ({})".format(resp["channel_name"], resp["channel"]))
+            self.logger.error("Failed to find channel %s (%s)", resp["channel_name"], resp["channel"])
             return True
 
         try:
             origin_message = await channel.fetch_message(int(resp["origin_message"]))  # type: ignore
-        except Exception as e:
-            self.logger.error("Failed to fetch message {}: {}".format(resp["origin_message"], e))
+        except Exception as exc:
+            self.logger.error("Failed to fetch message %s: %s", resp["origin_message"], exc)
             return True
         if origin_message is None:
-            self.logger.error("Failed to find origin message {}".format(resp["origin_message"]))
+            self.logger.error("Failed to find origin message %s", resp["origin_message"])
             return True
 
         if "reply-image" in resp:
@@ -102,37 +116,37 @@ class FrontendDiscord(DreambotWorkerBase):
             reply_args["content"] = "I dreamed this:"
         elif "reply-text" in resp:
             reply_args["content"] = resp["reply-text"]
-            self.logger.info("OUTPUT: {} {}".format(self.log_slug(resp), resp["reply-text"]))
+            self.logger.info("OUTPUT: %s %s", self.log_slug(resp), resp["reply-text"])
         elif "reply-none" in resp:
-            self.logger.info("SILENCE FOR {} {}".format(self.log_slug(resp), resp["reply-none"]))
+            self.logger.info("SILENCE FOR %s %s", self.log_slug(resp), resp["reply-none"])
             return True
         elif "error" in resp:
-            reply_args["content"] = "Dream sequence collapsed: {}".format(resp["error"])
-            self.logger.error("OUTPUT: {} {}: ".format(self.log_slug(resp), reply_args["content"]))
+            reply_args["content"] = f"Dream sequence collapsed: {resp['error']}"
+            self.logger.error("OUTPUT: %s %s: ", self.log_slug(resp), reply_args["content"])
         elif "usage" in resp:
-            reply_args["content"] = "{}".format(resp["usage"])
-            self.logger.info("OUTPUT: {} {}".format(self.log_slug(resp), resp["usage"]))
+            reply_args["content"] = f"{resp['usage']}"
+            self.logger.info("OUTPUT: %s %s ", self.log_slug(resp), resp["usage"])
         else:
             reply_args["content"] = "Dream sequence collapsed, unknown reason."
 
         try:
-            self.logger.info("Sending reply to {}".format(self.log_slug(resp)))
+            self.logger.info("Sending reply to %s", self.log_slug(resp))
             await origin_message.reply(**reply_args)  # type: ignore
-        except Exception as e:
-            self.logger.error("Failed to send reply: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to send reply: %s", exc)
             traceback.print_exc()
         return True
 
-    # @self.discord.event
     async def on_ready(self):
+        """Discord connection is ready."""
         self.logger.info("Discord connection established")
 
-    # @self.discord.event
     async def on_message(self, message: discord.Message):
+        """Message received on Discord."""
         if message.author == self.discord.user:
             # Discard messages from self
             return
-        self.logger.debug("Received message: {}".format(message.content))
+        self.logger.debug("Received message: %s", message.content)
         text = message.content
 
         for trigger in self.options["triggers"]:
@@ -169,7 +183,7 @@ class FrontendDiscord(DreambotWorkerBase):
 
                 packet = json.dumps(packet_dict)
 
-                self.logger.info("INPUT: {} {}".format(self.log_slug(packet_dict), text))  # type: ignore
+                self.logger.info("INPUT: %s %s", self.log_slug(packet_dict), text)  # type: ignore
 
                 # Publish the trigger
                 try:
@@ -180,4 +194,5 @@ class FrontendDiscord(DreambotWorkerBase):
                     await message.add_reaction("👎")
 
     def log_slug(self, resp: dict[str, str]) -> str:
-        return "{}:#{} <{}>".format(resp["server_name"], resp["channel_name"], resp["user_name"])
+        """Return a string to identify a message in logs."""
+        return f"{resp['server_name']}:#{resp['channel_name']} <{resp['user_name']}>"

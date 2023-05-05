@@ -26,7 +26,7 @@
         "workbench.tree.indent": 16,
         "workbench.tree.renderIndentGuides": "always",
         "github.gitProtocol": "ssh",
-        "python.formatting.provider": "black",
+        "python.formatting.provider": "none",
         "editor.formatOnSave": true,
         "python.analysis.typeCheckingMode": "strict",
         "python.analysis.diagnosticMode": "workspace",
@@ -41,7 +41,10 @@
             "MD041": false
         },
         "python.linting.pylintEnabled": true,
-        "python.linting.pydocstyleEnabled": true
+        "python.linting.pydocstyleEnabled": true,
+        "[python]": {
+            "editor.defaultFormatter": "ms-python.black-formatter"
+        }
     },
     "extensions": {
         "recommendations": [
