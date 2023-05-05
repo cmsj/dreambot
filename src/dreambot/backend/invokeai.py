@@ -39,8 +39,8 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.seed = -1
 
     async def boot(self):
-        self.logger.info("InvokeAI API URI: {}".format(self.api_uri))
-        self.logger.info("Connecting to InvokeAI socket.io at {}".format(self.ws_uri))
+        self.logger.info("InvokeAI API URI: %s", self.api_uri)
+        self.logger.info("Connecting to InvokeAI socket.io at %s", self.ws_uri)
         self.sio = socketio.Client(reconnection_delay_max=10)
         self.sio.on("connect", self.on_connect)  # type: ignore
         self.sio.on("disconnect", self.on_disconnect)  # type: ignore
@@ -53,11 +53,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio.disconnect()  # type: ignore
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
-        self.logger.info("callback_receive_workload: {}".format(message.decode()))
+        self.logger.info("callback_receive_workload: %s", message.decode())
         try:
             resp = json.loads(message.decode())
-        except Exception as e:
-            self.logger.error("Failed to parse message: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to parse message: %s", exc)
             return True
 
         try:
@@ -76,39 +76,39 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
             graph: dict[str, Any] = await self.build_image_graph(args)
 
-            sessions_url = self.api_uri + "sessions/"
-            self.logger.info("POSTing graph to InvokeAI: {} :: {}".format(sessions_url, graph))
+            sessions_url = f"{self.api_uri}sessions/"
+            self.logger.info("POSTing graph to InvokeAI: %s :: %s", sessions_url, graph)
             async with aiohttp.ClientSession() as session:
                 async with session.post(sessions_url, json=graph) as r:
                     if not r.ok:
-                        resp["error"] = "Error from InvokeAI: {}".format(r.reason)  # type: ignore
+                        resp["error"] = f"Error from InvokeAI: {r.reason}"  # type: ignore
                         await self.send_message(resp)
                         return True
                     response = await r.json()
 
             self.request_cache[response["id"]] = resp
-            self.logger.debug("InvokeAI response: {}".format(response))
+            self.logger.debug("InvokeAI response: %s", response)
 
-            self.logger.info("Subscribing to InvokeAI session and invoking: {}".format(response["id"]))
+            self.logger.info("Subscribing to InvokeAI session and invoking: %s", response["id"])
             self.sio.emit("subscribe", {"session": response["id"]})  # type: ignore
 
             async with aiohttp.ClientSession() as session:
-                async with session.put(sessions_url + "{}/invoke?all=true".format(response["id"])) as r:
+                async with session.put(f"{sessions_url}{response['id']}/invoke?all=true") as r:
                     if not r.ok:
-                        resp["error"] = "Error from InvokeAI: {}".format(r.reason)  # type: ignore
+                        resp["error"] = f"Error from InvokeAI: {r.reason}"  # type: ignore
                         await self.send_message(resp)
                         return True
 
             resp["reply-none"] = "Waiting for InvokeAI to generate a response..."
-        except UsageException as e:
+        except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
-            resp["reply-text"] = str(e)
-        except (ValueError, ArgumentError) as e:
-            resp["error"] = "Something is wrong with your arguments, try {}} --help ({})".format(self.queue_name, e)
-        except ImageFetchException as e:
-            resp["error"] = str(e)
-        except Exception as e:
-            resp["error"] = "Unknown error: {}".format(e)
+            resp["reply-text"] = str(exc)
+        except (ValueError, ArgumentError) as exc:
+            resp["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
+        except ImageFetchException as exc:
+            resp["error"] = str(exc)
+        except Exception as exc:
+            resp["error"] = f"Unknown error: {exc}"
             await self.send_message(resp)
             return True
 
@@ -117,11 +117,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
     async def send_message(self, resp: dict[str, Any]):
         try:
-            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_workload))
+            self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
             packet = json.dumps(resp)
             await self.callback_send_workload(resp["reply-to"], packet.encode())
-        except Exception as e:
-            self.logger.error("Failed to send response: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to send response: %s", exc)
 
     def on_connect(self):
         self.logger.info("Connected to InvokeAI socket.io")
@@ -137,8 +137,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
     def on_graph_execution_state_complete(self, data: dict[str, Any]):
         id = data["graph_execution_state_id"]
 
-        self.logger.info("Graph execution state complete: {}".format(id))
-        self.logger.info("Unsubscribing from InvokeAI session: {}".format(id))
+        self.logger.info("Graph execution state complete, unsubscribing from InvokeAI session: %s", id)
         self.sio.emit("unsubscribe", {"session": id})  # type: ignore
 
         request = self.request_cache[id]
@@ -146,12 +145,12 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         request.pop("reply-none", None)
 
         if not self.last_completion or id not in self.last_completion:
-            self.logger.error("No last_completion for {}".format(id))
+            self.logger.error("No last_completion for %s", id)
             self.sync_send_reply(request)
             return
 
         data = self.last_completion[id]
-        r = requests.get(self.api_uri + "images/results/{}".format(data["result"]["image"]["image_name"]))
+        r = requests.get(f"{self.api_uri}images/results/{data['result']['image']['image_name']}", timeout=30)
         self.last_completion.pop(id, None)
 
         if r.status_code != 200:
@@ -162,12 +161,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             request["reply-image"] = base64.b64encode(r.content).decode("utf8")
 
         self.logger.debug(
-            "Sending image response to queue '{}': for {} <{}> {}".format(
-                request["reply-to"],
-                request["channel"],
-                request["user"],
-                request["prompt"],
-            )
+            "Sending image response to queue '%s': for %s <%s> %s",
+            request["reply-to"],
+            request["channel"],
+            request["user"],
+            request["prompt"],
         )
         self.sync_send_reply(request)
 
@@ -178,7 +176,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
 
     def on_invocation_error(self, data: dict[str, Any]):
         id = data["graph_execution_state_id"]
-        self.logger.error("Invocation error: {}".format(id))
+        self.logger.error("Invocation error: %s", id)
 
         self.sio.emit("unsubscribe", {"session": id})  # type: ignore
 
@@ -236,17 +234,17 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         return graph
 
     async def fetch_image(self, url: str) -> Tuple[str, io.BytesIO]:
-        self.logger.info("Fetching image: {}".format(url))
+        self.logger.info("Fetching image: %s", url)
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
                 if resp.status != 200:
-                    raise ImageFetchException("Unable to fetch: {}".format(resp.status))
+                    raise ImageFetchException(f"Unable to fetch: {resp.status}")
                 if not resp.content_type.startswith("image/"):
-                    raise ImageFetchException("URL was not an image: {}".format(resp.content_type))
+                    raise ImageFetchException(f"URL was not an image: {resp.content_type}")
 
                 image = await resp.read()
                 resp.close()
-                self.logger.info("Fetched {} bytes of {}".format(len(image), resp.content_type))
+                self.logger.info("Fetched %s bytes of %s", len(image), resp.content_type)
 
                 # Resize the image
                 resp_image = io.BytesIO()
@@ -263,18 +261,18 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         (content_type, image) = await self.fetch_image(url)
         upload_url = self.api_uri + "images/uploads/"
 
-        self.logger.info("Uploading image ({}) to InvokeAI: {} -> {}".format(content_type, url, upload_url))
+        self.logger.info("Uploading image (%s) to InvokeAI: %s -> %s", content_type, url, upload_url)
         files: dict[str, Tuple[str, io.BytesIO, str]] = {
             "file": (image_name, image, content_type),
         }
-        response = requests.post("http://invokeai.chrul.tenshu.net/api/v1/images/uploads/", files=files)
+        response = requests.post("http://invokeai.chrul.tenshu.net/api/v1/images/uploads/", files=files, timeout=30)
         if not response.ok:
-            self.logger.error("Error uploading image to InvokeAI: {}".format(response.reason))
-            raise ImageFetchException("Error uploading image to InvokeAI: {}".format(response.reason))
+            self.logger.error("Error uploading image to InvokeAI: %s", response.reason)
+            raise ImageFetchException(f"Error uploading image to InvokeAI: {response.reason}")
         body = response.json()
         image_name = body["image_name"]
         image_type = body["image_type"]
-        self.logger.info("Image uploaded as: {} ({})".format(image_name, image_type))
+        self.logger.info("Image uploaded as: %s (%s)", image_name, image_type)
         return (image_name, image_type)
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:

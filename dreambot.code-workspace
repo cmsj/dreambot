@@ -39,7 +39,8 @@
         "markdownlint.config": {
             "MD033": false,
             "MD041": false
-        }
+        },
+        "python.linting.pylintEnabled": true
     },
     "extensions": {
         "recommendations": [

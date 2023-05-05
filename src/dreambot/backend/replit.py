@@ -15,6 +15,8 @@ class DreambotBackendReplit(DreambotBackendBase):
     ):
         super().__init__("Replit", options, callback_send_workload)
         self.hf_token = options["hugging_face_token"]
+        self.tokenizer = None
+        self.model = None
 
     async def boot(self):
         self.logger.info("Booting model...")
@@ -30,11 +32,11 @@ class DreambotBackendReplit(DreambotBackendBase):
         return
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
-        self.logger.info("callback_receive_workload: {}".format(message.decode()))
+        self.logger.info("callback_receive_workload: %s", message.decode())
         try:
             resp = json.loads(message.decode())
-        except Exception as e:
-            self.logger.error("Failed to parse message: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to parse message: %s", exc)
             return True
 
         try:
@@ -68,24 +70,24 @@ class DreambotBackendReplit(DreambotBackendBase):
             # Fetch the response, prepare it to be sent back to the user and added to their cache
             resp["reply-text"] = response
 
-        except UsageException as e:
+        except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
-            resp["reply-text"] = str(e)
-        except (ValueError, ArgumentError) as e:
-            resp["error"] = "Something is wrong with your arguments, try {}} --help ({})".format(self.queue_name, e)
-        except Exception as e:
-            resp["error"] = "Unknown error: {}".format(e)
+            resp["reply-text"] = str(exc)
+        except (ValueError, ArgumentError) as exc:
+            resp["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
+        except Exception as exc:
+            resp["error"] = f"Unknown error: {exc}"
 
         await self.send_message(resp)
         return True
 
     async def send_message(self, resp: dict[str, Any]):
         try:
-            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_workload))
+            self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
             packet = json.dumps(resp)
             await self.callback_send_workload(resp["reply-to"], packet.encode())
-        except Exception as e:
-            self.logger.error("Failed to send response: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to send response: %s", format(exc))
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
         parser = super().arg_parser()

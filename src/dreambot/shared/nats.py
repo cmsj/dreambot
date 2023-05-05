@@ -42,7 +42,7 @@ class NatsManager:
         self.logger.info("NATS booting")
         try:
             self.nc = await nats.connect(self.nats_uri, name=self.name)  # type: ignore
-            self.logger.info("NATS connected to {}".format(self.nc.connected_url.netloc))  # type: ignore
+            self.logger.info("NATS connected to %s", self.nc.connected_url.netloc)  # type: ignore
             self.js = self.nc.jetstream()  # type: ignore
 
             for worker in workers:
@@ -51,11 +51,11 @@ class NatsManager:
             await asyncio.gather(*self.nats_tasks)
         except NoServersError:
             self.logger.error("NATS failed to connect to any servers")
-        except Exception as e:
-            self.logger.error("boot exception: {}".format(e))
+        except Exception as exc:
+            self.logger.error("boot exception: %s", exc)
         finally:
             self.logger.debug("boot() ending, cancelling any remaining NATS subscriber tasks")
-            [task.cancel() for task in self.nats_tasks]
+            _ = [task.cancel() for task in self.nats_tasks]
             self.nats_tasks = []
             if self.nc:
                 await self.nc.close()
@@ -64,20 +64,20 @@ class NatsManager:
         callback_receive_workload: Callable[[str, bytes], Coroutine[Any, Any, bool]] = worker.callback_receive_workload
         while True and not self.shutting_down:
             queue_name = worker.queue_name()
-            self.logger.info("NATS subscribing to {}".format(queue_name))
+            self.logger.info("NATS subscribing to %s", queue_name)
             try:
                 stream = await self.js.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
                 sub = await self.js.subscribe(queue_name)
 
                 while True and not self.shutting_down:
-                    self.logger.debug("Waiting for NATS message on {}".format(queue_name))
+                    self.logger.debug("Waiting for NATS message on %s", queue_name)
                     try:
                         msg = await sub.next_msg()
                         raw_msg = msg.data.decode()
                         json_msg = json.loads(raw_msg)
                         if "reply-image" in json_msg:
                             json_msg["reply-image"] = "** IMAGE **"
-                        self.logger.debug("Received NATS message on '{}': {}".format(queue_name, json_msg))
+                        self.logger.debug("Received NATS message on '%s': %s", queue_name, json_msg)
 
                         worker_callback_result = None
                         try:
@@ -85,27 +85,26 @@ class NatsManager:
                             worker_callback_result = await callback_receive_workload(queue_name, msg.data)
                             if worker_callback_result is not False:
                                 await msg.ack()
-                        except Exception as e:
-                            self.logger.error("callback_receive_workload exception: {}".format(e))
+                        except Exception as exc:
+                            self.logger.error("callback_receive_workload exception: %s", exc)
                             traceback.print_exc()
                             await msg.ack()
                     except TimeoutError:
                         await asyncio.sleep(1)
                         continue
-                    except Exception as e:
-                        self.logger.error("NATS message exception: {}".format(e))
+                    except Exception as exc:
+                        self.logger.error("NATS message exception: %s", exc)
                         traceback.print_exc()
 
             except BadRequestError:
                 self.logger.warning(
-                    "NATS consumer '{}' already exists, likely a previous instance of us hasn't timed out yet. Sleeping...".format(
-                        queue_name
-                    )
+                    "NATS consumer '%s' already exists, likely a previous instance of us hasn't timed out yet. Sleeping...",
+                    queue_name,
                 )
                 await asyncio.sleep(5)
                 continue
-            except Exception as e:
-                self.logger.error("nats_subscribe exception: {}".format(e))
+            except Exception as exc:
+                self.logger.error("nats_subscribe exception: %s", exc)
                 await asyncio.sleep(5)
 
     async def publish(self, subject: str, data: bytes):
@@ -113,5 +112,5 @@ class NatsManager:
         json_msg = json.loads(raw_msg)
         if "reply-image" in json_msg:
             json_msg["reply-image"] = "** IMAGE **"
-        self.logger.debug("Publishing to NATS: {} {}".format(subject, json_msg))
+        self.logger.debug("Publishing to NATS: %s %s", subject, json_msg)
         await self.js.publish(subject, data)  # type: ignore

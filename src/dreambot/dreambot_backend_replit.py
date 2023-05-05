@@ -18,8 +18,8 @@ class DreambotBackendReplitCLI(DreambotCLI):
         try:
             worker = DreambotBackendReplit(self.options, self.callback_send_workload)
             self.workers.append(worker)
-        except Exception as e:
-            self.logger.error("Exception during boot: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Exception during boot: %s", exc)
 
         self.run()
 

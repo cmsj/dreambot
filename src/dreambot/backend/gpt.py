@@ -33,11 +33,11 @@ class DreambotBackendGPT(DreambotBackendBase):
         return
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
-        self.logger.info("callback_receive_workload: {}".format(message.decode()))
+        self.logger.info("callback_receive_workload: %s", message.decode())
         try:
             resp = json.loads(message.decode())
-        except Exception as e:
-            self.logger.error("Failed to parse message: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to parse message: %s", exc)
             return True
 
         try:
@@ -72,40 +72,40 @@ class DreambotBackendGPT(DreambotBackendBase):
                 resp["reply-text"] = response.choices[0].message.content  # type: ignore
 
             self.chat_cache[cache_key].append({"role": "assistant", "content": resp["reply-text"]})
-        except UsageException as e:
+        except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
-            resp["reply-text"] = str(e)
-        except (APIError, Timeout, ServiceUnavailableError) as e:
-            resp["error"] = "GPT service unavailable, try again: {}".format(e)
-        except (RateLimitError, AuthenticationError) as e:
-            resp["error"] = "GPT service query error: {}".format(e)
-        except InvalidRequestError as e:
-            resp["error"] = "GPT request error: {}".format(e)
-        except (ValueError, ArgumentError) as e:
-            resp["error"] = "Something is wrong with your arguments, try {} --help ({})".format(self.queue_name(), e)
-        except Exception as e:
-            resp["error"] = "Unknown error: {}".format(e)
+            resp["reply-text"] = str(exc)
+        except (APIError, Timeout, ServiceUnavailableError) as exc:
+            resp["error"] = "GPT service unavailable, try again: {}".format(exc)
+        except (RateLimitError, AuthenticationError) as exc:
+            resp["error"] = "GPT service query error: {}".format(exc)
+        except InvalidRequestError as exc:
+            resp["error"] = "GPT request error: {}".format(exc)
+        except (ValueError, ArgumentError) as exc:
+            resp["error"] = "Something is wrong with your arguments, try {} --help ({})".format(self.queue_name(), exc)
+        except Exception as exc:
+            resp["error"] = "Unknown error: {}".format(exc)
 
         await self.send_message(resp)
         return True
 
     async def send_message(self, resp: dict[str, Any]):
         try:
-            self.logger.info("Sending response: {} with {}".format(resp, self.callback_send_workload))
+            self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
             packet = json.dumps(resp)
             await self.callback_send_workload(resp["reply-to"], packet.encode())
-        except Exception as e:
-            self.logger.error("Failed to send response: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Failed to send response: %s", exc)
 
     def ensure_cache_for_prompt(self, data: dict[str, Any]):
         cache_key = self.cache_name_for_prompt(data)
         if cache_key not in self.chat_cache:
-            self.logger.debug("Creating new cache entry for {}".format(cache_key))
+            self.logger.debug("Creating new cache entry for %s", cache_key)
             self.reset_cache(cache_key)
         return cache_key
 
     def cache_name_for_prompt(self, data: dict[str, Any]):
-        return "{}_{}_{}".format(data["reply-to"], data["channel"], data["user"])
+        return f"{data['reply-to']}_{data['channel']}_{data['user']}"
 
     def reset_cache(self, key: str):
         self.chat_cache[key] = [
