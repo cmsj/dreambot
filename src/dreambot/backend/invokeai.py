@@ -281,7 +281,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         parser.add_argument("-s", "--sampler", help="InvokeAI sampler to use", default=self.sampler)
         parser.add_argument("-t", "--steps", help="Number of steps to run InvokeAI for", default=self.steps, type=int)
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
-        # parser.add_argument("-r", "--reroll", help="Reroll the image", action="store_true")
+        # parser.add_argument("-r", "--reroll", help="Reroll the image", action="store_true") # FIXME: Implement this?
         parser.add_argument(
             "-e", "--seed", help="Seed to use for InvokeAI (-1 for random)", default=self.seed, type=int
         )

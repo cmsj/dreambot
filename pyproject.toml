@@ -69,3 +69,9 @@ pythonpath = [
 
 [tool.black]
 line-length = 120
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = "broad-exception-caught"
