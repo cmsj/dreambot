@@ -1,8 +1,10 @@
+"""Backend for Replit."""
 import json
 
 from typing import Any, Callable, Coroutine
 from argparse import REMAINDER, ArgumentError
 from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed  # type: ignore
+
 import torch
 
 from dreambot.backend.base import DreambotBackendBase
@@ -13,25 +15,37 @@ class DreambotBackendReplit(DreambotBackendBase):
     def __init__(
         self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
+        """Initialise the Replit backend."""
         super().__init__("Replit", options, callback_send_workload)
         self.hf_token = options["hugging_face_token"]
         self.tokenizer = None
         self.model = None
 
     async def boot(self):
+        """Boot our model on the GPU."""
         self.logger.info("Booting model...")
         self.tokenizer = AutoTokenizer.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True)  # type: ignore
         self.tokenizer.truncation_side = "left"  # type: ignore
 
-        self.model = AutoModelForCausalLM.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True).to("cuda", dtype=torch.bfloat16)  # type: ignore
+        self.model = AutoModelForCausalLM.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True).to("cuda", dtype=torch.bfloat16)  # type: ignore pylint: disable=no-member
 
         self.model.eval()  # type: ignore
         self.logger.info("Booted")
 
     async def shutdown(self):
+        """Shutdown our model."""
         return
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+        """Receive work from NATS.
+
+        Args:
+            queue_name (str): The name of the queue we received the message from
+            message (bytes): The full message we received
+
+        Returns:
+            bool: True if we either processed successfully, or failed to process in a way that suggests the message should be discarded. Otherwise False.
+        """
         self.logger.info("callback_receive_workload: %s", message.decode())
         try:
             resp = json.loads(message.decode())
