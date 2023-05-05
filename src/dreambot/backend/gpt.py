@@ -1,3 +1,4 @@
+"""OpenAI GPT backend for Dreambot."""
 import json
 
 from typing import Any, Callable, Coroutine
@@ -17,9 +18,12 @@ from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
 
 
 class DreambotBackendGPT(DreambotBackendBase):
+    """OpenAI GPT backend for Dreambot."""
+
     def __init__(
         self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
+        """Initialise the class."""
         super().__init__("GPT", options, callback_send_workload)
         self.api_key = options["gpt"]["api_key"]
         self.organization = options["gpt"]["organization"]
@@ -27,13 +31,24 @@ class DreambotBackendGPT(DreambotBackendBase):
         self.chat_cache: dict[str, Any] = {}
 
     async def boot(self):
+        """Boot the backend."""
         openai.api_key = self.api_key
         openai.organization = self.organization
 
     async def shutdown(self):
+        """Shutdown the backend."""
         return
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+        """Process a workload message.
+
+        Args:
+            queue_name (str): The name of the queue the message was received on.
+            message (bytes): The message that was received, a JSON string encoded as bytes.
+
+        Returns:
+            bool: _description_
+        """
         self.logger.info("callback_receive_workload: %s", message.decode())
         try:
             resp = json.loads(message.decode())
@@ -91,6 +106,11 @@ class DreambotBackendGPT(DreambotBackendBase):
         return True
 
     async def send_message(self, resp: dict[str, Any]):
+        """Send a message back to the user.
+
+        Args:
+            resp (dict[str, Any]): A dictionary containing the response to send.
+        """
         try:
             self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
             packet = json.dumps(resp)
@@ -98,17 +118,34 @@ class DreambotBackendGPT(DreambotBackendBase):
         except Exception as exc:
             self.logger.error("Failed to send response: %s", exc)
 
-    def ensure_cache_for_prompt(self, data: dict[str, Any]):
+    def ensure_cache_for_prompt(self, data: dict[str, Any]) -> str:
+        """Ensure we have a cache entry for this user.
+
+        Args:
+            data (dict[str, Any]): A dictionary containing a NATS message.
+
+        Returns:
+            str: The cache key for this user.
+        """
         cache_key = self.cache_name_for_prompt(data)
         if cache_key not in self.chat_cache:
             self.logger.debug("Creating new cache entry for %s", cache_key)
             self.reset_cache(cache_key)
         return cache_key
 
-    def cache_name_for_prompt(self, data: dict[str, Any]):
+    def cache_name_for_prompt(self, data: dict[str, Any]) -> str:
+        """Determine the cache key for a given NATS message.
+
+        Args:
+            data (dict[str, Any]): A dictionary containing a NATS message.
+
+        Returns:
+            str: The cache key for this user.
+        """
         return f"{data['reply-to']}_{data['channel']}_{data['user']}"
 
     def reset_cache(self, key: str):
+        """Reset the cache for a given user."""
         self.chat_cache[key] = [
             {
                 "role": "system",
@@ -117,6 +154,11 @@ class DreambotBackendGPT(DreambotBackendBase):
         ]
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
+        """Parse arguments that may be contained in a workload message.
+
+        Returns:
+            ErrorCatchingArgumentParser: An argparse parser that can be used to parse arguments.
+        """
         parser = super().arg_parser()
         parser.add_argument("-m", "--model", help="GPT model to use", default=self.model)
         parser.add_argument("-l", "--list-models", help="List available models", action="store_true")

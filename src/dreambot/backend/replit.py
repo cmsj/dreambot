@@ -12,6 +12,8 @@ from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
 
 
 class DreambotBackendReplit(DreambotBackendBase):
+    """Dreambot backend for Replit."""
+
     def __init__(
         self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
@@ -96,6 +98,11 @@ class DreambotBackendReplit(DreambotBackendBase):
         return True
 
     async def send_message(self, resp: dict[str, Any]):
+        """Send a message to NATS.
+
+        Args:
+            resp (dict[str, Any]): A dictionary containing the message to send.
+        """
         try:
             self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
             packet = json.dumps(resp)
@@ -104,6 +111,11 @@ class DreambotBackendReplit(DreambotBackendBase):
             self.logger.error("Failed to send response: %s", format(exc))
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
+        """Create an argument parser for this backend.
+
+        Returns:
+            ErrorCatchingArgumentParser: An argument parser object that can with parse_args()
+        """
         parser = super().arg_parser()
         parser.add_argument("-s", "--seed", help="Random seed for the model", default=42, type=int)
         parser.add_argument(

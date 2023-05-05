@@ -1,8 +1,11 @@
+"""Dreambot Replit backend launcher."""
 from dreambot.backend.replit import DreambotBackendReplit
 from dreambot.shared.cli import DreambotCLI
 
 
 class DreambotBackendReplitCLI(DreambotCLI):
+    """Dreambot Replit backend launcher."""
+
     example_json = """Example JSON config:
 {
   "nats_queue_name": "!replit",
@@ -10,9 +13,11 @@ class DreambotBackendReplitCLI(DreambotCLI):
 }"""
 
     def __init__(self):
+        """Initialise the instance."""
         super().__init__("BackendReplit")
 
     def boot(self):
+        """Boot the instance."""
         super().boot()
 
         try:
@@ -25,6 +30,7 @@ class DreambotBackendReplitCLI(DreambotCLI):
 
 
 def main():
+    """Start the program."""
     cli = DreambotBackendReplitCLI()
     cli.boot()
 

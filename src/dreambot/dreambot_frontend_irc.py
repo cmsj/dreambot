@@ -1,8 +1,11 @@
+"""Dreambot IRC frontend launcher."""
 from dreambot.frontend.irc import FrontendIRC
 from dreambot.shared.cli import DreambotCLI
 
 
 class DreambotFrontendIRCCLI(DreambotCLI):
+    """Dreambot IRC frontend launcher."""
+
     example_json = """Example JSON config:
 {
     "triggers": [
@@ -29,22 +32,25 @@ class DreambotFrontendIRCCLI(DreambotCLI):
 }"""
 
     def __init__(self):
+        """Initialise the instance."""
         super().__init__("FrontendIRC")
 
     def boot(self):
+        """Boot the instance."""
         super().boot()
 
         try:
             for server_config in self.options["irc"]:
                 server = FrontendIRC(server_config, self.options, self.callback_send_workload)
                 self.workers.append(server)
-        except Exception as e:
-            self.logger.error("Exception during boot: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Exception during boot: %s", exc)
 
         self.run()
 
 
 def main():
+    """Start the program."""
     cli = DreambotFrontendIRCCLI()
     cli.boot()
 

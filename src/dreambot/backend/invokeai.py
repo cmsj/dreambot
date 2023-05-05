@@ -1,3 +1,4 @@
+"""InvokeAI backend for Dreambot."""
 import asyncio
 import base64
 import io
@@ -16,14 +17,20 @@ from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
 
 
 class ImageFetchException(Exception):
+    """Exception raised when we fail to fetch an image."""
+
     def __init__(self, message: str):
+        """Initialise the class."""
         super().__init__(message)
 
 
 class DreambotBackendInvokeAI(DreambotBackendBase):
+    """InvokeAI backend for Dreambot."""
+
     def __init__(
         self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
+        """Initialise the class."""
         super().__init__("InvokeAI", options, callback_send_workload)
         self.sio: socketio.Client
         self.invokeai_host = options["invokeai"]["host"]
@@ -40,6 +47,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.seed = -1
 
     async def boot(self):
+        """Boot the backend."""
         self.logger.info("InvokeAI API URI: %s", self.api_uri)
         self.logger.info("Connecting to InvokeAI socket.io at %s", self.ws_uri)
         self.sio = socketio.Client(reconnection_delay_max=10)
@@ -51,9 +59,19 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
 
     async def shutdown(self):
+        """Shutdown the backend."""
         self.sio.disconnect()  # type: ignore
 
     async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+        """Process in incoming workload message.
+
+        Args:
+            queue_name (str): The name of the queue we received the message from.
+            message (bytes): The message we received, a JSON string encoded as bytes.
+
+        Returns:
+            bool: True if the message should be ack'd to NATS, False otherwise.
+        """
         self.logger.info("callback_receive_workload: %s", message.decode())
         try:
             resp = json.loads(message.decode())
@@ -130,18 +148,29 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             self.logger.error("Failed to send response: %s", exc)
 
     def on_connect(self):
-        """Callback from socket.io when our websocket is connected."""
+        """Act on a successful connection to InvokeAI."""
         self.logger.info("Connected to InvokeAI socket.io")
 
     def on_disconnect(self):
+        """Act on a disconnection from InvokeAI."""
         self.logger.info("Disconnected from InvokeAI socket.io")
 
     def on_invocation_complete(self, data: dict[str, Any]):
+        """Handle a successful invocation from InvokeAI.
+
+        Args:
+            data (dict[str, Any]): A dictionary of data returned by InvokeAI.
+        """
         if not self.last_completion:
             self.last_completion = {}
         self.last_completion[data["graph_execution_state_id"]] = data
 
     def on_graph_execution_state_complete(self, data: dict[str, Any]):
+        """Handle a successful graph execution from InvokeAI.
+
+        Args:
+            data (dict[str, Any]): A dictionary of data returned by InvokeAI.
+        """
         graph_id = data["graph_execution_state_id"]
 
         self.logger.info("Graph execution state complete, unsubscribing from InvokeAI session: %s", graph_id)
@@ -177,11 +206,21 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sync_send_reply(request)
 
     def sync_send_reply(self, request: dict[str, Any]):
+        """Send a reply to NATS from a synchronous context.
+
+        Args:
+            request (dict[str, Any]): A dictionary containing the message to send.
+        """
         loop = asyncio.new_event_loop()
         loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
         loop.close()
 
     def on_invocation_error(self, data: dict[str, Any]):
+        """Handle an invocation error from InvokeAI.
+
+        Args:
+            data (dict[str, Any]): A dictionary of data returned by InvokeAI.
+        """
         graph_id = data["graph_execution_state_id"]
         self.logger.error("Invocation error: %s", graph_id)
 
@@ -194,6 +233,14 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sync_send_reply(request)
 
     async def build_image_graph(self, args: Namespace) -> dict[str, Any]:
+        """Build a graph for an image request.
+
+        Args:
+            args (Namespace): The output of a previous call to parse_args().
+
+        Returns:
+            dict[str, Any]: A dictionary containing a graph suitable to send to InvokeAI.
+        """
         nodes: list[dict[str, Any]] = []
         links: list[dict[str, Any]] = []
 
@@ -241,6 +288,17 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         return graph
 
     async def fetch_image(self, url: str) -> Tuple[str, io.BytesIO]:
+        """Fetch an image from InvokeAI.
+
+        Args:
+            url (str): The URL of an image to fetch from InvokeAI.
+
+        Raises:
+            ImageFetchException: Either the image could not be fetched, or the URL returned a non-image.
+
+        Returns:
+            Tuple[str, io.BytesIO]: A tuple containing the MIME type of the image and a file-like object containing the image data.
+        """
         self.logger.info("Fetching image: %s", url)
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
@@ -264,6 +322,17 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
                 return ("image/jpeg", resp_image)
 
     async def upload_image(self, url: str) -> Tuple[str, str]:
+        """Fetch an image from an arbitrary URL and upload it to InvokeAI.
+
+        Args:
+            url (str): The URL of an image to fetch and upload to InvokeAI.
+
+        Raises:
+            ImageFetchException: The image upload failed.
+
+        Returns:
+            Tuple[str, str]: A tuple containing the name of the image and the MIME type of the image.
+        """
         image_name = "Unknown"
         (content_type, image) = await self.fetch_image(url)
         upload_url = self.api_uri + "images/uploads/"
@@ -283,6 +352,11 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         return (image_name, image_type)
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
+        """Get an argument parser for this worker.
+
+        Returns:
+            ErrorCatchingArgumentParser: An argument parser that can be used with parse_args().
+        """
         parser = super().arg_parser()
         parser.add_argument("-m", "--model", help="InvokeAI model to use", default=self.model)
         parser.add_argument("-s", "--sampler", help="InvokeAI sampler to use", default=self.sampler)

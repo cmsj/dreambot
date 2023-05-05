@@ -1,8 +1,11 @@
+"""Dreambot GPT backend launcher."""
 from dreambot.backend.gpt import DreambotBackendGPT
 from dreambot.shared.cli import DreambotCLI
 
 
 class DreambotBackendGPTCLI(DreambotCLI):
+    """Dreambot GPT backend launcher."""
+
     example_json = """Example JSON config:
 {
   "gpt": {
@@ -15,21 +18,24 @@ class DreambotBackendGPTCLI(DreambotCLI):
 }"""
 
     def __init__(self):
+        """Initialise the instance."""
         super().__init__("BackendGPT")
 
     def boot(self):
+        """Boot the instance."""
         super().boot()
 
         try:
             worker = DreambotBackendGPT(self.options, self.callback_send_workload)
             self.workers.append(worker)
-        except Exception as e:
-            self.logger.error("Exception during boot: {}".format(e))
+        except Exception as exc:
+            self.logger.error("Exception during boot: %s", exc)
 
         self.run()
 
 
 def main():
+    """Start the program."""
     cli = DreambotBackendGPTCLI()
     cli.boot()
 

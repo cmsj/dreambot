@@ -78,4 +78,4 @@ line-length = 120
 max-line-length = 120
 
 [tool.pylint."MESSAGES CONTROL"]
-disable = "broad-exception-caught, line-too-long"
+disable = "broad-exception-caught, line-too-long, fixme"
