@@ -5,7 +5,7 @@ import logging
 import traceback
 
 from asyncio import Task
-from typing import Any, Coroutine, Callable
+from typing import Any
 
 from nats.js.errors import BadRequestError
 from nats.js import JetStreamContext
@@ -84,7 +84,6 @@ class NatsManager:
         Args:
             worker (DreambotWorkerBase): A Dreambot worker instance that exposes a queue_name() method we can use to subscribe to its queue, and a callback_receive_workload() method we can pass messages to when they arrive.
         """
-        callback_receive_workload: Callable[[str, bytes], Coroutine[Any, Any, bool]] = worker.callback_receive_workload
         while True and not self.shutting_down:
             queue_name = worker.queue_name()
             self.logger.info("NATS subscribing to %s", queue_name)
@@ -96,16 +95,18 @@ class NatsManager:
                     self.logger.debug("Waiting for NATS message on %s", queue_name)
                     try:
                         msg = await sub.next_msg()
-                        raw_msg = msg.data.decode()
-                        json_msg = json.loads(raw_msg)
-                        if "reply-image" in json_msg:
-                            json_msg["reply-image"] = "** IMAGE **"
-                        self.logger.debug("Received NATS message on '%s': %s", queue_name, json_msg)
+                        msg_str = msg.data.decode()
+                        msg_dict: dict[str, Any] = json.loads(msg_str)
+
+                        log_dict = msg_dict.copy()
+                        if "reply-image" in log_dict:
+                            log_dict["reply-image"] = "** IMAGE **"
+                        self.logger.debug("Received NATS message on '%s': %s", queue_name, log_dict)
 
                         worker_callback_result = None
                         try:
                             # We will remove the message from the queue if the callback returns anything but False
-                            worker_callback_result = await callback_receive_workload(queue_name, msg.data)
+                            worker_callback_result = await worker.callback_receive_workload(queue_name, msg_dict)
                             if worker_callback_result is not False:
                                 await msg.ack()
                         except Exception as exc:

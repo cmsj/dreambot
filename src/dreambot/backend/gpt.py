@@ -39,7 +39,7 @@ class DreambotBackendGPT(DreambotBackendBase):
         """Shutdown the backend."""
         return
 
-    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Process a workload message.
 
         Args:
@@ -49,22 +49,17 @@ class DreambotBackendGPT(DreambotBackendBase):
         Returns:
             bool: _description_
         """
-        self.logger.info("callback_receive_workload: %s", message.decode())
-        try:
-            resp = json.loads(message.decode())
-        except Exception as exc:
-            self.logger.error("Failed to parse message: %s", exc)
-            return True
+        self.logger.info("callback_receive_workload: %s", message)
 
         try:
             argparser = self.arg_parser()
-            args = argparser.parse_args(resp["prompt"].split(" "))
+            args = argparser.parse_args(message["prompt"].split(" "))
             args.prompt = " ".join(args.prompt)
 
             new_chat_message = {"role": "user", "content": args.prompt}
 
             # Ensure we have a valid cache line for this user
-            cache_key = self.ensure_cache_for_prompt(resp)
+            cache_key = self.ensure_cache_for_prompt(message)
 
             # Determine if we're adding to the cache or starting a new conversation
             if not args.followup:
@@ -75,7 +70,7 @@ class DreambotBackendGPT(DreambotBackendBase):
                 # see https://platform.openai.com/docs/models/model-endpoint-compatibility
 
                 models = ["gpt-3.5-turbo", "gpt-3.5-turbo-0301"]
-                resp["reply-text"] = ", ".join(models)  # type: ignore
+                message["reply-text"] = ", ".join(models)  # type: ignore
             else:
                 # Now that our cache is in the right state, add this new prompt to it
                 self.chat_cache[cache_key].append(new_chat_message)
@@ -85,24 +80,24 @@ class DreambotBackendGPT(DreambotBackendBase):
                 response = openai.ChatCompletion.create(model=args.model, messages=self.chat_cache[cache_key], temperature=args.temperature)  # type: ignore
 
                 # Fetch the response, prepare it to be sent back to the user and added to their cache
-                resp["reply-text"] = response.choices[0].message.content  # type: ignore
+                message["reply-text"] = response.choices[0].message.content  # type: ignore
 
-            self.chat_cache[cache_key].append({"role": "assistant", "content": resp["reply-text"]})
+            self.chat_cache[cache_key].append({"role": "assistant", "content": message["reply-text"]})
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
-            resp["reply-text"] = str(exc)
+            message["reply-text"] = str(exc)
         except (APIError, Timeout, ServiceUnavailableError) as exc:
-            resp["error"] = f"GPT service unavailable, try again: {exc}"
+            message["error"] = f"GPT service unavailable, try again: {exc}"
         except (RateLimitError, AuthenticationError) as exc:
-            resp["error"] = f"GPT service query error: {exc}"
+            message["error"] = f"GPT service query error: {exc}"
         except InvalidRequestError as exc:
-            resp["error"] = f"GPT request error: {exc}"
+            message["error"] = f"GPT request error: {exc}"
         except (ValueError, ArgumentError) as exc:
-            resp["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
         except Exception as exc:
-            resp["error"] = f"Unknown error: {exc}"
+            message["error"] = f"Unknown error: {exc}"
 
-        await self.send_message(resp)
+        await self.send_message(message)
         return True
 
     async def send_message(self, resp: dict[str, Any]):

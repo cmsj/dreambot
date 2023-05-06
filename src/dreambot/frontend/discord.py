@@ -71,7 +71,7 @@ class FrontendDiscord(DreambotWorkerBase):
         """Return the name of the NATS queue this worker should subscribe to."""
         return "discord"
 
-    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Message is received on the NATS queue."""
         reply_args: dict[str, str | discord.File] = {}
         self.logger.info("Received message for queue %s", queue_name)
@@ -79,58 +79,52 @@ class FrontendDiscord(DreambotWorkerBase):
             self.logger.error("Discord not ready, cannot send message")
             return False
 
-        try:
-            resp = json.loads(message.decode())
-        except Exception as exc:
-            self.logger.error("Failed to parse response: %s", exc)
-            return True
-
         channel = None
-        if "channel_name" in resp and resp["channel_name"] == "DM":
+        if "channel_name" in message and message["channel_name"] == "DM":
             # This came from a DM
-            user = await self.discord.fetch_user(int(resp["user"]))
+            user = await self.discord.fetch_user(int(message["user"]))
             if user:
                 channel = user.dm_channel or await user.create_dm()
         else:
             # This came from a real channel
-            channel = self.discord.get_channel(int(resp["channel"]))
+            channel = self.discord.get_channel(int(message["channel"]))
 
         if not channel:
-            self.logger.error("Failed to find channel %s (%s)", resp["channel_name"], resp["channel"])
+            self.logger.error("Failed to find channel %s (%s)", message["channel_name"], message["channel"])
             return True
 
         try:
-            origin_message = await channel.fetch_message(int(resp["origin_message"]))  # type: ignore
+            origin_message = await channel.fetch_message(int(message["origin_message"]))  # type: ignore
         except Exception as exc:
-            self.logger.error("Failed to fetch message %s: %s", resp["origin_message"], exc)
+            self.logger.error("Failed to fetch message %s: %s", message["origin_message"], exc)
             return True
         if origin_message is None:
-            self.logger.error("Failed to find origin message %s", resp["origin_message"])
+            self.logger.error("Failed to find origin message %s", message["origin_message"])
             return True
 
-        if "reply-image" in resp:
-            image_bytes = base64.standard_b64decode(resp["reply-image"])
+        if "reply-image" in message:
+            image_bytes = base64.standard_b64decode(message["reply-image"])
             file_bytes = io.BytesIO(image_bytes)
-            filename = self.clean_filename(resp["prompt"], suffix=".png", output_dir=self.options["output_dir"])
+            filename = self.clean_filename(message["prompt"], suffix=".png", output_dir=self.options["output_dir"])
             reply_args["file"] = discord.File(file_bytes, filename=filename)
             reply_args["content"] = "I dreamed this:"
-        elif "reply-text" in resp:
-            reply_args["content"] = resp["reply-text"]
-            self.logger.info("OUTPUT: %s %s", self.log_slug(resp), resp["reply-text"])
-        elif "reply-none" in resp:
-            self.logger.info("SILENCE FOR %s %s", self.log_slug(resp), resp["reply-none"])
+        elif "reply-text" in message:
+            reply_args["content"] = message["reply-text"]
+            self.logger.info("OUTPUT: %s %s", self.log_slug(message), message["reply-text"])
+        elif "reply-none" in message:
+            self.logger.info("SILENCE FOR %s %s", self.log_slug(message), message["reply-none"])
             return True
-        elif "error" in resp:
-            reply_args["content"] = f"Dream sequence collapsed: {resp['error']}"
-            self.logger.error("OUTPUT: %s %s: ", self.log_slug(resp), reply_args["content"])
-        elif "usage" in resp:
-            reply_args["content"] = f"{resp['usage']}"
-            self.logger.info("OUTPUT: %s %s ", self.log_slug(resp), resp["usage"])
+        elif "error" in message:
+            reply_args["content"] = f"Dream sequence collapsed: {message['error']}"
+            self.logger.error("OUTPUT: %s %s: ", self.log_slug(message), reply_args["content"])
+        elif "usage" in message:
+            reply_args["content"] = f"{message['usage']}"
+            self.logger.info("OUTPUT: %s %s ", self.log_slug(message), message["usage"])
         else:
             reply_args["content"] = "Dream sequence collapsed, unknown reason."
 
         try:
-            self.logger.info("Sending reply to %s", self.log_slug(resp))
+            self.logger.info("Sending reply to %s", self.log_slug(message))
             await origin_message.reply(**reply_args)  # type: ignore
         except Exception as exc:
             self.logger.error("Failed to send reply: %s", exc)

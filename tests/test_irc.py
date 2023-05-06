@@ -218,15 +218,13 @@ async def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        json.dumps(
-            {
-                "reply-image": "UE5HIHRlc3QK",
-                "prompt": "test prompt",
-                "server": "test.server.com",
-                "channel": "#testchannel",
-                "user": "testuser",
-            }
-        ).encode(),
+        {
+            "reply-image": "UE5HIHRlc3QK",
+            "prompt": "test prompt",
+            "server": "test.server.com",
+            "channel": "#testchannel",
+            "user": "testuser",
+        },
     )
 
     assert irc.send_cmd.call_count == 1
@@ -255,14 +253,12 @@ async def test_handle_response_text(mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        json.dumps(
-            {
-                "reply-text": "test text",
-                "server": "test.server.com",
-                "channel": "#testchannel",
-                "user": "testuser",
-            }
-        ).encode(),
+        {
+            "reply-text": "test text",
+            "server": "test.server.com",
+            "channel": "#testchannel",
+            "user": "testuser",
+        },
     )
 
     assert irc.send_cmd.call_count == 1
@@ -279,14 +275,12 @@ async def test_handle_response_error(mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        json.dumps(
-            {
-                "error": "test error",
-                "server": "test.server.com",
-                "channel": "#testchannel",
-                "user": "testuser",
-            }
-        ).encode(),
+        {
+            "error": "test error",
+            "server": "test.server.com",
+            "channel": "#testchannel",
+            "user": "testuser",
+        },
     )
 
     assert irc.send_cmd.call_count == 1
@@ -311,14 +305,12 @@ async def test_handle_response_usage(mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        json.dumps(
-            {
-                "usage": "test usage",
-                "server": "test.server.com",
-                "channel": "#testchannel",
-                "user": "testuser",
-            }
-        ).encode(),
+        {
+            "usage": "test usage",
+            "server": "test.server.com",
+            "channel": "#testchannel",
+            "user": "testuser",
+        },
     )
 
     assert irc.send_cmd.call_count == 1
@@ -335,7 +327,7 @@ async def test_handle_response_unknown(mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        json.dumps({"server": "test.server.com", "channel": "#testchannel", "user": "testuser"}).encode(),
+        {"server": "test.server.com", "channel": "#testchannel", "user": "testuser"},
     )
 
     assert irc.send_cmd.call_count == 1
@@ -360,26 +352,10 @@ async def test_handle_response_silence(mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        json.dumps(
-            {"reply-none": "test reply", "server": "test.server.com", "channel": "#testchannel", "user": "testuser"}
-        ).encode(),
+        {"reply-none": "test reply", "server": "test.server.com", "channel": "#testchannel", "user": "testuser"},
     )
 
     assert irc.send_cmd.call_count == 0
-
-
-@pytest.mark.asyncio
-async def test_handle_response_invalid_json(mock_send_cmd):
-    irc = dreambot.frontend.irc.FrontendIRC(
-        {"host": "abc123", "nickname": "abc"},
-        {"output_dir": "/tmp", "triggers": [], "uri_base": "http://testuri/"},
-        None,
-    )
-    irc.logger.error = MagicMock()
-    await irc.callback_receive_workload(None, "{invalid, json,}".encode())
-
-    assert irc.send_cmd.call_count == 0
-    assert irc.logger.error.call_count == 1
 
 
 @pytest.mark.asyncio

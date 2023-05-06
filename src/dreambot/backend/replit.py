@@ -38,7 +38,7 @@ class DreambotBackendReplit(DreambotBackendBase):
         """Shutdown our model."""
         return
 
-    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Receive work from NATS.
 
         Args:
@@ -48,16 +48,11 @@ class DreambotBackendReplit(DreambotBackendBase):
         Returns:
             bool: True if we either processed successfully, or failed to process in a way that suggests the message should be discarded. Otherwise False.
         """
-        self.logger.info("callback_receive_workload: %s", message.decode())
-        try:
-            resp = json.loads(message.decode())
-        except Exception as exc:
-            self.logger.error("Failed to parse message: %s", exc)
-            return True
+        self.logger.info("callback_receive_workload: %s", message)
 
         try:
             argparser = self.arg_parser()
-            args = argparser.parse_args(resp["prompt"].split(" "))
+            args = argparser.parse_args(message["prompt"].split(" "))
             args.prompt = " ".join(args.prompt)
 
             # Tokenize our prompt and do inference
@@ -84,17 +79,17 @@ class DreambotBackendReplit(DreambotBackendBase):
             )
 
             # Fetch the response, prepare it to be sent back to the user and added to their cache
-            resp["reply-text"] = response
+            message["reply-text"] = response
 
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
-            resp["reply-text"] = str(exc)
+            message["reply-text"] = str(exc)
         except (ValueError, ArgumentError) as exc:
-            resp["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
         except Exception as exc:
-            resp["error"] = f"Unknown error: {exc}"
+            message["error"] = f"Unknown error: {exc}"
 
-        await self.send_message(resp)
+        await self.send_message(message)
         return True
 
     async def send_message(self, resp: dict[str, Any]):

@@ -56,7 +56,7 @@ class DreambotWorkerBase:
         """Child classes must override this to perform tasks that need to happen when the worker is shutting down."""
         raise NotImplementedError
 
-    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Child classes must override this method. It is called when a message is received on the NATS queue."""
         raise NotImplementedError
 

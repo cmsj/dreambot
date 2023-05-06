@@ -116,7 +116,7 @@ class FrontendIRC(DreambotWorkerBase):
         name = name.replace(".", "_")  # This is important because periods are meaningful in NATS' subject names
         return name
 
-    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Process an incoming workload message.
 
         Args:
@@ -128,49 +128,46 @@ class FrontendIRC(DreambotWorkerBase):
         """
         reply_message = ""
 
-        try:
-            resp = json.loads(message.decode())
-        except Exception as exc:
-            self.logger.error("Failed to parse response: %s", exc)
-            traceback.print_exc()
-            return True
-
-        if "reply-image" in resp:
-            image_bytes = base64.standard_b64decode(resp["reply-image"])
-            filename = self.clean_filename(resp["prompt"], suffix=".png", output_dir=self.options["output_dir"])
+        if "reply-image" in message:
+            image_bytes = base64.standard_b64decode(message["reply-image"])
+            filename = self.clean_filename(message["prompt"], suffix=".png", output_dir=self.options["output_dir"])
             url = f"{self.options['uri_base']}/{filename}"
 
             with open(os.path.join(self.options["output_dir"], filename), "wb") as image_file:
                 image_file.write(image_bytes)
-            self.logger.info("OUTPUT: %s:%s <%s> %s", resp["server"], resp["channel"], resp["user"], url)
-            reply_message = f"{resp['user']}: I dreamed this: {url}"
-        elif "reply-text" in resp:
-            reply_message = f"{resp['user']}: {resp['reply-text']}"
-            self.logger.info("OUTPUT: %s:%s <%s> %s", resp["server"], resp["channel"], resp["user"], resp["reply-text"])
-        elif "reply-none" in resp:
+            self.logger.info("OUTPUT: %s:%s <%s> %s", message["server"], message["channel"], message["user"], url)
+            reply_message = f"{message['user']}: I dreamed this: {url}"
+        elif "reply-text" in message:
+            reply_message = f"{message['user']}: {message['reply-text']}"
             self.logger.info(
-                "SILENCE: %s:%s <%s> %s", resp["server"], resp["channel"], resp["user"], resp["reply-none"]
+                "OUTPUT: %s:%s <%s> %s", message["server"], message["channel"], message["user"], message["reply-text"]
+            )
+        elif "reply-none" in message:
+            self.logger.info(
+                "SILENCE: %s:%s <%s> %s", message["server"], message["channel"], message["user"], message["reply-none"]
             )
             return True
-        elif "error" in resp:
-            reply_message = f"{resp['user']}: Dream sequence collapsed: {resp['error']}"
-            self.logger.error("OUTPUT: %s:%s: %s", resp["server"], resp["channel"], reply_message)
-        elif "usage" in resp:
-            reply_message = f"{resp['user']}: {resp['usage']}"
-            self.logger.info("OUTPUT: %s:%s <%s> %s", resp["server"], resp["channel"], resp["user"], resp["usage"])
+        elif "error" in message:
+            reply_message = f"{message['user']}: Dream sequence collapsed: {message['error']}"
+            self.logger.error("OUTPUT: %s:%s: %s", message["server"], message["channel"], reply_message)
+        elif "usage" in message:
+            reply_message = f"{message['user']}: {message['usage']}"
+            self.logger.info(
+                "OUTPUT: %s:%s <%s> %s", message["server"], message["channel"], message["user"], message["usage"]
+            )
         else:
-            reply_message = f"{resp['user']}: Dream sequence collapsed, unknown reason."
+            reply_message = f"{message['user']}: Dream sequence collapsed, unknown reason."
 
         chunks: list[str] = []
         # We have to send multiline responses separately, so let's split the message into lines
         for line in reply_message.splitlines():
             # IRC has a max line length of 512 bytes, so we need to split the line into chunks
             max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
-            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {resp['channel']} :")
+            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel']} :")
             chunks += [line[i : i + max_chunk_size] for i in range(0, len(line), max_chunk_size)]
 
         for chunk in chunks:
-            await self.send_cmd("PRIVMSG", *[resp["channel"], chunk])
+            await self.send_cmd("PRIVMSG", *[message["channel"], chunk])
         return True
 
     def parse_line(self, line: str) -> Message:

@@ -62,7 +62,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         """Shutdown the backend."""
         self.sio.disconnect()  # type: ignore
 
-    async def callback_receive_workload(self, queue_name: str, message: bytes) -> bool:
+    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Process in incoming workload message.
 
         Args:
@@ -72,25 +72,20 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         Returns:
             bool: True if the message should be ack'd to NATS, False otherwise.
         """
-        self.logger.info("callback_receive_workload: %s", message.decode())
-        try:
-            resp = json.loads(message.decode())
-        except Exception as exc:
-            self.logger.error("Failed to parse message: %s", exc)
-            return True
+        self.logger.info("callback_receive_workload: %s", message)
 
         try:
             argparser = self.arg_parser()
-            args = argparser.parse_args(resp["prompt"].split(" "))
+            args = argparser.parse_args(message["prompt"].split(" "))
             args.prompt = " ".join(args.prompt)
 
             # Image URLs can arrive separately, so update args if we have one
-            if "image_url" in resp:
-                args.imgurl = resp["image_url"]
+            if "image_url" in message:
+                args.imgurl = message["image_url"]
 
             if not self.sio.connected:  # type: ignore
-                resp["error"] = "Not connected to InvokeAI right now, I'll try again later"
-                await self.send_message(resp)
+                message["error"] = "Not connected to InvokeAI right now, I'll try again later"
+                await self.send_message(message)
                 return False
 
             graph: dict[str, Any] = await self.build_image_graph(args)
@@ -100,12 +95,12 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             async with aiohttp.ClientSession() as session:
                 async with session.post(sessions_url, json=graph) as req:
                     if not req.ok:
-                        resp["error"] = f"Error from InvokeAI: {req.reason}"  # type: ignore
-                        await self.send_message(resp)
+                        message["error"] = f"Error from InvokeAI: {req.reason}"  # type: ignore
+                        await self.send_message(message)
                         return True
                     response = await req.json()
 
-            self.request_cache[response["id"]] = resp
+            self.request_cache[response["id"]] = message
             self.logger.debug("InvokeAI response: %s", response)
 
             self.logger.info("Subscribing to InvokeAI session and invoking: %s", response["id"])
@@ -114,24 +109,24 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
             async with aiohttp.ClientSession() as session:
                 async with session.put(f"{sessions_url}{response['id']}/invoke?all=true") as req:
                     if not req.ok:
-                        resp["error"] = f"Error from InvokeAI: {req.reason}"  # type: ignore
-                        await self.send_message(resp)
+                        message["error"] = f"Error from InvokeAI: {req.reason}"  # type: ignore
+                        await self.send_message(message)
                         return True
 
-            resp["reply-none"] = "Waiting for InvokeAI to generate a response..."
+            message["reply-none"] = "Waiting for InvokeAI to generate a response..."
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
-            resp["reply-text"] = str(exc)
+            message["reply-text"] = str(exc)
         except (ValueError, ArgumentError) as exc:
-            resp["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
         except ImageFetchException as exc:
-            resp["error"] = str(exc)
+            message["error"] = str(exc)
         except Exception as exc:
-            resp["error"] = f"Unknown error: {exc}"
-            await self.send_message(resp)
+            message["error"] = f"Unknown error: {exc}"
+            await self.send_message(message)
             return True
 
-        await self.send_message(resp)
+        await self.send_message(message)
         return True
 
     async def send_message(self, resp: dict[str, Any]):
