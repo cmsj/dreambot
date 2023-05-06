@@ -31,7 +31,7 @@
         "python.analysis.typeCheckingMode": "strict",
         "python.analysis.diagnosticMode": "workspace",
         "python.analysis.exclude": [
-            "tests/",
+            "tests/*.py",
             "typings/"
         ],
         "python.analysis.inlayHints.functionReturnTypes": false,
@@ -44,7 +44,17 @@
         "python.linting.pydocstyleEnabled": true,
         "[python]": {
             "editor.defaultFormatter": "ms-python.black-formatter"
-        }
+        },
+        "python.linting.ignorePatterns": [
+            "**/site-packages/**/*.py",
+            ".vscode/*.py",
+            "tests/*.py"
+        ],
+        "python.analysis.completeFunctionParens": true,
+        "python.analysis.ignore": [
+            "tests/*.py",
+            "typings/"
+        ]
     },
     "extensions": {
         "recommendations": [

@@ -1,3 +1,4 @@
+# pylint: skip-file
 import pytest
 import dreambot.backend.base
 from unittest.mock import MagicMock

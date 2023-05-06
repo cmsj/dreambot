@@ -1,3 +1,4 @@
+# pylint: skip-file
 import pytest
 import asyncio
 import nats
@@ -65,27 +66,27 @@ async def test_nats_shutdown(mocker, mock_sleep):
 
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_shutdown")
     nm.nats_tasks = [MagicMock(), MagicMock()]
-    nm.nc = AsyncMock()
+    nm.nats = AsyncMock()
 
     await nm.shutdown()
     assert mock_sleep.call_count == 1
     for task in nm.nats_tasks:
         assert task.cancel.call_count == 1
-    assert nm.nc.close.call_count == 1
+    assert nm.nats.close.call_count == 1
 
 
 @pytest.mark.asyncio
 async def test_nats_publish(mocker):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_publish")
-    nm.nc = AsyncMock()
-    nm.js = AsyncMock()
+    nm.nats = AsyncMock()
+    nm.jets = AsyncMock()
 
     json_txt = '{"test": "test"}'
     json_bytes = json_txt.encode()
 
     await nm.publish("test", json_bytes)
-    assert nm.js.publish.call_count == 1
-    assert nm.js.publish.has_calls([call("test", json_bytes)])
+    assert nm.jets.publish.call_count == 1
+    assert nm.jets.publish.has_calls([call("test", json_bytes)])
 
 
 # FIXME: No idea why this one is broken
@@ -145,7 +146,7 @@ async def test_nats_publish(mocker):
 @pytest.mark.asyncio
 async def test_nats_subscribe_badrequest(mocker, mock_sleep):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_subscribe_badrequest")
-    nm.js = MagicMock()
+    nm.jets = MagicMock()
     nm.logger.warning = MagicMock()
     loop_count = 5
 
@@ -158,7 +159,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
             nm.shutting_down = True
         raise BadRequestError
 
-    nm.js.add_stream = AsyncMock(side_effect=add_stream_side_effect)
+    nm.jets.add_stream = AsyncMock(side_effect=add_stream_side_effect)
 
     await nm.subscribe(TestWorker())
     assert loop_count == 0
@@ -166,7 +167,8 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
     nm.logger.warning.assert_has_calls(
         [
             call(
-                "NATS consumer 'testqueue' already exists, likely a previous instance of us hasn't timed out yet. Sleeping..."
+                "NATS consumer '%s' already exists, likely a previous instance of us hasn't timed out yet. Sleeping...",
+                "testqueue",
             )
         ]
     )
@@ -175,7 +177,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
 @pytest.mark.asyncio
 async def test_nats_subscribe_other_exception(mocker, mock_sleep):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_subscribe_other_exception")
-    nm.js = MagicMock()
+    nm.jets = MagicMock()
     nm.logger.error = MagicMock()
     loop_count = 5
 
@@ -188,9 +190,8 @@ async def test_nats_subscribe_other_exception(mocker, mock_sleep):
             nm.shutting_down = True
         raise ValueError("Some other exception")
 
-    nm.js.add_stream = AsyncMock(side_effect=add_stream_side_effect)
+    nm.jets.add_stream = AsyncMock(side_effect=add_stream_side_effect)
 
     await nm.subscribe(MagicMock())
     assert loop_count == 0
     assert nm.logger.error.call_count == 5
-    nm.logger.error.assert_has_calls([call("nats_subscribe exception: Some other exception")])

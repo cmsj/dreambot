@@ -1,3 +1,4 @@
+# pylint: skip-file
 import pytest
 import dreambot.shared.worker
 
