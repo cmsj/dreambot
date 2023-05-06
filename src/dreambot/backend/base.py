@@ -14,6 +14,7 @@ class DreambotBackendBase(DreambotWorkerBase):
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         """Initialise the class."""
+        super().__init__()
         self.backend_name = name
         self.logger = logging.getLogger(f"dreambot.backend.base.{self.backend_name}")
         self.options = options

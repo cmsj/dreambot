@@ -22,6 +22,7 @@ class FrontendDiscord(DreambotWorkerBase):
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         """Initialise the class."""
+        super().__init__()
         self.logger = logging.getLogger("dreambot.frontend.discord")
         self.token = options["discord"]["token"]
         self.options = options

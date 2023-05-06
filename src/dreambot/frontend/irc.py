@@ -35,6 +35,7 @@ class FrontendIRC(DreambotWorkerBase):
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         """Initialise the class."""
+        super().__init__()
         self.logger = logging.getLogger(f"dreambot.frontend.irc.{irc_server['host']}")
         self.server = irc_server
         self.options = options
