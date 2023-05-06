@@ -51,7 +51,8 @@ test = [
 ]
 dev = [
     "pylint",
-    "pydocstyle"
+    "pydocstyle",
+    "hatch"
 ]
 
 [project.scripts]
