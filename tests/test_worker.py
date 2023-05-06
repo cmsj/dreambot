@@ -8,7 +8,7 @@ class TestWorker(dreambot.shared.worker.DreambotWorkerBase):
         return "test_queue"
 
     async def boot(self):
-        pass
+        self.is_booted = True
 
     async def shutdown(self):
         pass

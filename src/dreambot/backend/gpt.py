@@ -34,6 +34,7 @@ class DreambotBackendGPT(DreambotBackendBase):
         """Boot the backend."""
         openai.api_key = self.api_key
         openai.organization = self.organization
+        self.is_booted = True
 
     async def shutdown(self):
         """Shutdown the backend."""

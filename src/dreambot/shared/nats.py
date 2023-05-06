@@ -105,6 +105,11 @@ class NatsManager:
 
                         worker_callback_result = None
                         try:
+                            if not worker.is_booted:
+                                self.logger.debug("Worker not fully booted yet, skipping message")
+                                await asyncio.sleep(1)
+                                continue
+
                             # We will remove the message from the queue if the callback returns anything but False
                             worker_callback_result = await worker.callback_receive_workload(queue_name, msg_dict)
                             if worker_callback_result is not False:

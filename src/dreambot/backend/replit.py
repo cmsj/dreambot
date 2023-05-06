@@ -33,6 +33,7 @@ class DreambotBackendReplit(DreambotBackendBase):
 
         self.model.eval()  # type: ignore
         self.logger.info("Booted")
+        self.is_booted = True
 
     async def shutdown(self):
         """Shutdown our model."""

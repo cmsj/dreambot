@@ -44,12 +44,19 @@ class DreambotWorkerBase:
     valid_filename_chars = f"_.() {string.ascii_letters}{string.digits}"
     callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
 
+    def __init__(self):
+        """Initialise the class."""
+        self.is_booted = False
+
     def queue_name(self) -> str:
         """Child classes must override this and return the name of the NATS queue they wish to subscribe to."""
         raise NotImplementedError
 
     async def boot(self) -> None:
-        """Child classes must override this to perform tasks that need to happen between class initialisation and the worker starting."""
+        """Child classes must override this to perform tasks that need to happen between class initialisation and the worker starting.
+
+        When the child class has reached a point where it is ready to start receiving messages, it should set self.is_booted = True.
+        """
         raise NotImplementedError
 
     async def shutdown(self) -> None:

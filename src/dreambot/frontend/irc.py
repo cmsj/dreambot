@@ -63,6 +63,7 @@ class FrontendIRC(DreambotWorkerBase):
                     await self.send_line("NICK " + self.server["nickname"])
                     await self.send_line("USER " + self.server["ident"] + " * * :" + self.server["realname"])
                     self.logger.info("IRC connection booted.")
+                    self.is_booted = True
 
                     # Loop until the connection is closed
                     while True:

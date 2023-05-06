@@ -57,6 +57,7 @@ class DreambotBackendInvokeAI(DreambotBackendBase):
         self.sio.on("graph_execution_state_complete", self.on_graph_execution_state_complete)  # type: ignore
         self.sio.on("invocation_error", self.on_invocation_error)  # type: ignore
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
+        self.is_booted = True
 
     async def shutdown(self):
         """Shutdown the backend."""

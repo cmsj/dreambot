@@ -134,6 +134,7 @@ class FrontendDiscord(DreambotWorkerBase):
     async def on_ready(self):
         """Discord connection is ready."""
         self.logger.info("Discord connection established")
+        self.is_booted = True
 
     async def on_message(self, message: discord.Message):
         """Message received on Discord."""
