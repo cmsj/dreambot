@@ -38,7 +38,7 @@ class DreambotWorkerBase:
         self.options = options
         self.callback_send_workload = callback_send_workload
         self.logger = logging.getLogger(f"dreambot.{self.end}.{self.name}")
-        self.should_reconnect = True
+        self.should_reconnect = False
         # This .replace() is important - periods have special meaning in NATS queue names.
         self.queuename = queue_name.replace(".", "_")
 

@@ -48,14 +48,13 @@ class FrontendIRC(DreambotWorkerBase):
         self.writer: asyncio.StreamWriter | None = None
         self.reader: asyncio.StreamReader | None = None
 
-    async def boot(self, reconnect: bool = True):
+    async def boot(self):
         """Boot the instance.
 
         Args:
             reconnect (bool, optional): Whether or not we should attempt to reconnect to the IRC server. Defaults to True.
         """
         while self.should_reconnect:
-            self.should_reconnect = reconnect
             self.logger.info("Booting IRC connection... (reconnect: %s)", self.should_reconnect)
             try:
                 self.reader, self.writer = await asyncio.open_connection(
