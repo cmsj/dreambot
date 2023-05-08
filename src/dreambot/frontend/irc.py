@@ -1,10 +1,11 @@
 """IRC frontend for Dreambot."""
 import asyncio
-import json
 import base64
+import json
+import logging
 import os
 import traceback
-from typing import NamedTuple, Any, Callable, Coroutine
+from typing import NamedTuple, Any, Callable, Coroutine, Self
 from dreambot.shared.worker import DreambotWorkerBase
 
 
@@ -23,146 +24,8 @@ class Message(NamedTuple):
     command: str
     params: list[str]
 
-
-class FrontendIRC(DreambotWorkerBase):
-    """IRC frontend for Dreambot."""
-
-    def __init__(
-        self,
-        irc_server: dict[str, Any],
-        options: dict[str, Any],
-        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
-    ):
-        """Initialise the class."""
-        super().__init__(
-            name="IRC",
-            queue_name=f"irc.{irc_server['host']}",
-            end="frontend",
-            options=options,
-            callback_send_workload=callback_send_workload,
-        )
-        self.should_reconnect = True
-        self.server = irc_server
-        self.full_ident = ""
-        self.irc_timeout = 300
-        self.writer: asyncio.StreamWriter | None = None
-        self.reader: asyncio.StreamReader | None = None
-
-    async def boot(self):
-        """Boot the instance.
-
-        Args:
-            reconnect (bool, optional): Whether or not we should attempt to reconnect to the IRC server. Defaults to True.
-        """
-        while self.should_reconnect:
-            self.logger.info("Booting IRC connection... (reconnect: %s)", self.should_reconnect)
-            try:
-                self.reader, self.writer = await asyncio.open_connection(
-                    self.server["host"], self.server["port"], ssl=self.server["ssl"]
-                )
-                try:
-                    await self.send_line("NICK " + self.server["nickname"])
-                    await self.send_line("USER " + self.server["ident"] + " * * :" + self.server["realname"])
-                    self.logger.info("IRC connection booted.")
-                    self.is_booted = True
-
-                    # Loop until the connection is closed
-                    while True:
-                        self.logger.debug("Waiting for IRC data...")
-                        try:
-                            if self.reader.at_eof():
-                                # There's nothing more waiting for us
-                                break
-                            data = await asyncio.wait_for(self.reader.readline(), timeout=self.irc_timeout)
-                            await self.handle_line(data)
-                        except (asyncio.TimeoutError, ConnectionResetError) as exc:
-                            self.logger.error("IRC connection timeout: %s", exc)
-                            break
-
-                finally:
-                    self.logger.info("IRC connection closed")
-                    if self.writer:
-                        self.writer.close()
-                        await self.writer.wait_closed()
-            except ConnectionRefusedError:
-                self.logger.error("IRC connection refused")
-            except Exception as exc:
-                self.logger.error("IRC connection error: %s", exc)
-            finally:
-                self.logger.debug("IRC connection closed")
-                if self.writer:
-                    self.writer.close()
-                    await self.writer.wait_closed()
-                if self.reader:
-                    self.reader.feed_eof()
-                if self.should_reconnect:
-                    self.logger.info("Sleeping before reconnecting...")
-                    await asyncio.sleep(5)
-
-    async def shutdown(self):
-        """Shutdown the instance."""
-        self.should_reconnect = False
-        if self.writer:
-            self.writer.close()
-            await self.writer.wait_closed()
-        if self.reader:
-            self.reader.feed_eof()
-
-    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
-        """Process an incoming workload message.
-
-        Args:
-            queue_name (str): The queue name the message was received on.
-            message (bytes): The workload message, a JSON string encoded as bytes.
-
-        Returns:
-            bool: True if the message should be ack'd in NATS, False otherwise.
-        """
-        reply_message = ""
-
-        if "reply-image" in message:
-            image_bytes = base64.standard_b64decode(message["reply-image"])
-            filename = self.clean_filename(message["prompt"], suffix=".png", output_dir=self.options["output_dir"])
-            url = f"{self.options['uri_base']}/{filename}"
-
-            with open(os.path.join(self.options["output_dir"], filename), "wb") as image_file:
-                image_file.write(image_bytes)
-            self.logger.info("OUTPUT: %s:%s <%s> %s", message["server"], message["channel"], message["user"], url)
-            reply_message = f"{message['user']}: I dreamed this: {url}"
-        elif "reply-text" in message:
-            reply_message = f"{message['user']}: {message['reply-text']}"
-            self.logger.info(
-                "OUTPUT: %s:%s <%s> %s", message["server"], message["channel"], message["user"], message["reply-text"]
-            )
-        elif "reply-none" in message:
-            self.logger.info(
-                "SILENCE: %s:%s <%s> %s", message["server"], message["channel"], message["user"], message["reply-none"]
-            )
-            return True
-        elif "error" in message:
-            reply_message = f"{message['user']}: Dream sequence collapsed: {message['error']}"
-            self.logger.error("OUTPUT: %s:%s: %s", message["server"], message["channel"], reply_message)
-        elif "usage" in message:
-            reply_message = f"{message['user']}: {message['usage']}"
-            self.logger.info(
-                "OUTPUT: %s:%s <%s> %s", message["server"], message["channel"], message["user"], message["usage"]
-            )
-        else:
-            reply_message = f"{message['user']}: Dream sequence collapsed, unknown reason."
-
-        chunks: list[str] = []
-        # We have to send multiline responses separately, so let's split the message into lines
-        for line in reply_message.splitlines():
-            # IRC has a max line length of 512 bytes, so we need to split the line into chunks
-            max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
-            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel']} :")
-            chunks += [line[i : i + max_chunk_size] for i in range(0, len(line), max_chunk_size)]
-
-        for chunk in chunks:
-            await self.send_cmd("PRIVMSG", *[message["channel"], chunk])
-        return True
-
-    def parse_line(self, line: str) -> Message:
+    @classmethod
+    def parse_line(cls, line: str) -> Self:
         """Parse an IRC line.
 
         Args:
@@ -206,6 +69,141 @@ class FrontendIRC(DreambotWorkerBase):
                         line = line[0]
 
         return Message(prefix, command, params)
+
+
+class FrontendIRC(DreambotWorkerBase):
+    """IRC frontend for Dreambot."""
+
+    def __init__(
+        self,
+        irc_server: dict[str, Any],
+        options: dict[str, Any],
+        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
+    ):
+        """Initialise the class."""
+        super().__init__(
+            name="IRC",
+            queue_name=f"irc.{irc_server['host']}",
+            end="frontend",
+            options=options,
+            callback_send_workload=callback_send_workload,
+        )
+        self.should_reconnect = True
+        self.server = irc_server
+        self.full_ident = ""
+        self.irc_timeout = 300
+        self.writer: asyncio.StreamWriter | None = None
+        self.reader: asyncio.StreamReader | None = None
+
+    async def boot(self):
+        """Boot the instance.
+
+        Args:
+            reconnect (bool, optional): Whether or not we should attempt to reconnect to the IRC server. Defaults to True.
+        """
+        while self.should_reconnect:
+            self.logger.info("Booting IRC connection... (reconnect: %s)", self.should_reconnect)
+            try:
+                self.reader, self.writer = await asyncio.open_connection(
+                    self.server["host"], self.server["port"], ssl=self.server["ssl"]
+                )
+                await self.send_line(f"NICK {self.server['nickname']}")
+                await self.send_line(f"USER {self.server['ident']} * * :{self.server['realname']}")
+                self.logger.info("IRC connection booted.")
+                self.is_booted = True
+
+                # Loop until the connection is closed
+                while True:
+                    self.logger.debug("Waiting for IRC data...")
+                    try:
+                        if self.reader.at_eof():
+                            # There's nothing more waiting for us
+                            break
+                        data = await asyncio.wait_for(self.reader.readline(), timeout=self.irc_timeout)
+                        await self.handle_line(data)
+                    except (asyncio.TimeoutError, ConnectionResetError) as exc:
+                        self.logger.error("IRC connection timeout: %s", exc)
+                        break
+            except ConnectionRefusedError:
+                self.logger.error("IRC connection refused")
+            except Exception as exc:
+                self.logger.error("IRC connection error: %s", exc)
+            finally:
+                self.logger.debug("IRC connection closed")
+                if self.writer:
+                    self.writer.close()
+                    await self.writer.wait_closed()
+                if self.reader:
+                    self.reader.feed_eof()
+                if self.should_reconnect:
+                    self.logger.info("Sleeping before reconnecting...")
+                    await asyncio.sleep(5)
+
+    async def shutdown(self):
+        """Shutdown the instance."""
+        self.should_reconnect = False
+        if self.writer:
+            self.writer.close()
+            await self.writer.wait_closed()
+        if self.reader:
+            self.reader.feed_eof()
+
+    async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
+        """Process an incoming workload message.
+
+        Args:
+            queue_name (str): The queue name the message was received on.
+            message (bytes): The workload message, a JSON string encoded as bytes.
+
+        Returns:
+            bool: True if the message should be ack'd in NATS, False otherwise.
+        """
+        reply_message = ""
+        reply_log_level = logging.INFO
+        reply_kind = "OUTPUT"
+
+        if "reply-image" in message:
+            image_bytes = base64.standard_b64decode(message["reply-image"])
+            filename = self.clean_filename(message["prompt"], suffix=".png", output_dir=self.options["output_dir"])
+            url = f"{self.options['uri_base']}/{filename}"
+
+            with open(os.path.join(self.options["output_dir"], filename), "wb") as image_file:
+                image_file.write(image_bytes)
+            reply_message = f"{message['user']}: I dreamed this: {url}"
+            self.log_reply(message, reply_message)
+        elif "reply-text" in message:
+            reply_message = f"{message['user']}: {message['reply-text']}"
+        elif "reply-none" in message:
+            reply_message = f"{message['user']} {message['reply-none']}"
+            reply_kind = "SILENCE"
+        elif "error" in message:
+            reply_message = f"{message['user']}: Dream sequence collapsed: {message['error']}"
+            reply_log_level = logging.ERROR
+        elif "usage" in message:
+            reply_message = f"{message['user']}: {message['usage']}"
+        else:
+            reply_message = f"{message['user']}: Dream sequence collapsed, unknown reason."
+            reply_log_level = logging.ERROR
+
+        # Log the reply
+        self.log_reply(message, reply_message, level=reply_log_level, kind=reply_kind)
+        if reply_kind == "SILENCE":
+            # We don't actually send anything back to the user for this kind of reply.
+            # Typically this is because some long-running process is now active and we will receive
+            # a message on the queue when it's done.
+            return True
+
+        chunks: list[str] = []
+        # We have to send multiline responses separately, so let's split the message into lines
+        for line in reply_message.splitlines():
+            # IRC has a max line length of 512 bytes, so we need to split the line into chunks
+            max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
+            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel']} :")
+            chunks += [line[i : i + max_chunk_size] for i in range(0, len(line), max_chunk_size)]
+
+        for chunk in chunks:
+            await self.send_cmd("PRIVMSG", *[message["channel"], chunk])
+        return True
 
     async def send_line(self, line: str):
         """Send a line of text to the IRC server.
@@ -257,7 +255,7 @@ class FrontendIRC(DreambotWorkerBase):
 
         line = line.strip()
         if line:
-            message = self.parse_line(line)
+            message = Message.parse_line(line)
             self.logger.debug("%s <- %s", self.server["host"], message)
 
             if message.command == "PING":
@@ -286,7 +284,7 @@ class FrontendIRC(DreambotWorkerBase):
     async def irc_renick(self):
         """Change the bot's nickname because our desired nickname is already in use."""
         self.server["nickname"] = self.server["nickname"] + "_"
-        await self.send_line("NICK " + self.server["nickname"])
+        await self.send_line(f"NICK {self.server['nickname']}")
 
     def irc_received_join(self, message: Message):
         """Handle a JOIN message from the IRC server. Used to build our full ident string."""
@@ -318,7 +316,7 @@ class FrontendIRC(DreambotWorkerBase):
             target = source
 
         for trigger in self.options["triggers"]:
-            if text.startswith(trigger + " "):
+            if text.startswith(f"{trigger} "):
                 self.logger.info("INPUT: %s:%s <%s> %s", self.server["host"], target, source, text)
                 prompt = text[len(trigger) + 1 :]
                 packet = json.dumps(
@@ -343,3 +341,7 @@ class FrontendIRC(DreambotWorkerBase):
                         "PRIVMSG",
                         *[target, f"{source}: Dream sequence failed."],
                     )
+
+    def log_reply(self, message: dict[str, Any], reply: str, kind: str = "OUTPUT", level: int = logging.INFO):
+        """Log reply messages with a consistent format."""
+        self.logger.log(level, "%s: %s:%s %s", kind, message["server"], message["channel"], reply)
