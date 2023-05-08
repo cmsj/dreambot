@@ -7,7 +7,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed  # type: 
 
 import torch
 
-from dreambot.shared.worker import DreambotWorkerBase, UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.custom_argparse import UsageException
+from dreambot.shared.worker import DreambotWorkerBase, ErrorCatchingArgumentParser
 
 
 class DreambotBackendReplit(DreambotWorkerBase):

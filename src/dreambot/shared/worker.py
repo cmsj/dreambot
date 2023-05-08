@@ -4,39 +4,8 @@ import os
 import string
 import unicodedata
 from typing import Callable, Coroutine, Any
-from argparse import ArgumentParser
 
-
-class UsageException(Exception):
-    """Exception for command line argument errors.
-
-    Args:
-        message (str): Usage message.
-    """
-
-    def __init__(self, message: str):
-        """Initialise the class."""
-        super().__init__(message)
-
-
-class ErrorCatchingArgumentParser(ArgumentParser):
-    """Parser class for use with argparse that raises exceptions rather than printing output."""
-
-    def exit(self, status: int = 0, message: str | None = None):
-        """Raise an exception instead of exiting."""
-        raise ValueError(message)
-
-    def error(self, message: str):
-        """Raise an exception when an argument error is encountered."""
-        raise ValueError(message)
-
-    def print_usage(self, file: Any = None):
-        """Raise an exception when usage information is required."""
-        raise UsageException(self.format_help())
-
-    def print_help(self, file: Any = None):
-        """Raise an exception when help information is required."""
-        raise UsageException(self.format_help())
+from dreambot.shared.custom_argparse import ErrorCatchingArgumentParser
 
 
 class DreambotWorkerBase:
@@ -53,16 +22,25 @@ class DreambotWorkerBase:
         options: dict[str, Any],
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
-        """Initialise the class."""
+        """Initialise the base worker class.
+
+        Args:
+            name (str): The name of the worker. Used in logging.
+            queue_name (str): The NATS queue this worker will fetch work from.
+            end (str): The "end" of the worker (frontend or backend).
+            options (dict[str, Any]): The contents of this worker's JSON config file.
+            callback_send_workload (Callable[[str, bytes], Coroutine[Any, Any, None]]): A callback function that can be used to send workloads to other workers.
+        """
         self.is_booted = False
 
-        # The .replace() is important - periods have special meaning in NATS queue names.
         self.name = name
-        self.queuename = queue_name.replace(".", "_")
         self.end = end
         self.options = options
         self.callback_send_workload = callback_send_workload
         self.logger = logging.getLogger(f"dreambot.{self.end}.{self.name}")
+        self.should_reconnect = True
+        # This .replace() is important - periods have special meaning in NATS queue names.
+        self.queuename = queue_name.replace(".", "_")
 
     def queue_name(self) -> str:
         """Return the NATS queue name for this worker."""

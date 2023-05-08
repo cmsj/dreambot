@@ -12,7 +12,8 @@ import requests
 import socketio
 
 from PIL import Image
-from dreambot.shared.worker import DreambotWorkerBase, UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.custom_argparse import UsageException
+from dreambot.shared.worker import DreambotWorkerBase, ErrorCatchingArgumentParser
 
 
 class ImageFetchException(Exception):

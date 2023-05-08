@@ -13,7 +13,8 @@ from openai.error import (
     AuthenticationError,
     InvalidRequestError,
 )
-from dreambot.shared.worker import DreambotWorkerBase, UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.custom_argparse import UsageException
+from dreambot.shared.worker import DreambotWorkerBase, ErrorCatchingArgumentParser
 
 
 class DreambotBackendGPT(DreambotWorkerBase):
