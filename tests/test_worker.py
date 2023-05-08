@@ -4,9 +4,6 @@ import dreambot.shared.worker
 
 
 class TestWorker(dreambot.shared.worker.DreambotWorkerBase):
-    def queue_name(self):
-        return "test_queue"
-
     async def boot(self):
         self.is_booted = True
 
@@ -18,7 +15,13 @@ class TestWorker(dreambot.shared.worker.DreambotWorkerBase):
 
 
 def test_clean_filename():
-    worker = dreambot.shared.worker.DreambotWorkerBase()
+    worker = dreambot.shared.worker.DreambotWorkerBase(
+        name="test_name",
+        queue_name="test_queue",
+        end="backend",
+        options={"nats_queue_name": "foo"},
+        callback_send_workload=None,
+    )
     assert worker.clean_filename("test", output_dir="/tmp/") == "test.png"
     assert worker.clean_filename("test&", output_dir="/tmp/") == "test.png"
     assert worker.clean_filename("test&", replace="&", output_dir="/tmp/") == "test_.png"
@@ -26,10 +29,13 @@ def test_clean_filename():
 
 @pytest.mark.asyncio
 async def test_unimplemented():
-    worker = dreambot.shared.worker.DreambotWorkerBase()
-
-    with pytest.raises(NotImplementedError):
-        worker.queue_name()
+    worker = dreambot.shared.worker.DreambotWorkerBase(
+        name="test_name",
+        queue_name="test_queue",
+        end="backend",
+        options={"nats_queue_name": "foo"},
+        callback_send_workload=None,
+    )
 
     with pytest.raises(NotImplementedError):
         await worker.boot()
@@ -42,7 +48,13 @@ async def test_unimplemented():
 
 
 def test_arg_parser():
-    worker = TestWorker()
+    worker = TestWorker(
+        name="test_name",
+        queue_name="test_queue",
+        end="backend",
+        options={"nats_queue_name": "foo"},
+        callback_send_workload=None,
+    )
     parser = worker.arg_parser()
 
     assert isinstance(parser, dreambot.shared.worker.ErrorCatchingArgumentParser)

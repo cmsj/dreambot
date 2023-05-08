@@ -3,7 +3,6 @@ import asyncio
 import json
 import base64
 import io
-import logging
 import traceback
 
 from typing import Any, Callable, Coroutine
@@ -22,13 +21,14 @@ class FrontendDiscord(DreambotWorkerBase):
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         """Initialise the class."""
-        super().__init__()
-        self.logger = logging.getLogger("dreambot.frontend.discord")
+        super().__init__(
+            name="Discord",
+            queue_name="discord",
+            end="frontend",
+            options=options,
+            callback_send_workload=callback_send_workload,
+        )
         self.token = options["discord"]["token"]
-        self.options = options
-        self.callback_send_workload = callback_send_workload
-
-        self.should_reconnect = True
         self.discord: discord.Client
 
     async def boot(self, reconnect: bool = True):
@@ -67,10 +67,6 @@ class FrontendDiscord(DreambotWorkerBase):
         """Shutdown this instance."""
         self.should_reconnect = False
         await self.discord.close()
-
-    def queue_name(self):
-        """Return the name of the NATS queue this worker should subscribe to."""
-        return "discord"
 
     async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Message is received on the NATS queue."""

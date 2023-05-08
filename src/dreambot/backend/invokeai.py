@@ -12,8 +12,7 @@ import requests
 import socketio
 
 from PIL import Image
-from dreambot.backend.base import DreambotBackendBase
-from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.worker import DreambotWorkerBase, UsageException, ErrorCatchingArgumentParser
 
 
 class ImageFetchException(Exception):
@@ -24,14 +23,20 @@ class ImageFetchException(Exception):
         super().__init__(message)
 
 
-class DreambotBackendInvokeAI(DreambotBackendBase):
+class DreambotBackendInvokeAI(DreambotWorkerBase):
     """InvokeAI backend for Dreambot."""
 
     def __init__(
         self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
         """Initialise the class."""
-        super().__init__("InvokeAI", options, callback_send_workload)
+        super().__init__(
+            name="InvokeAI",
+            queue_name=options["nats_queue_name"],
+            end="backend",
+            options=options,
+            callback_send_workload=callback_send_workload,
+        )
         self.sio: socketio.Client
         self.invokeai_host = options["invokeai"]["host"]
         self.invokeai_port = options["invokeai"]["port"]

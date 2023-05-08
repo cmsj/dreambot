@@ -3,7 +3,6 @@ import asyncio
 import json
 import base64
 import os
-import logging
 import traceback
 from typing import NamedTuple, Any, Callable, Coroutine
 from dreambot.shared.worker import DreambotWorkerBase
@@ -35,17 +34,19 @@ class FrontendIRC(DreambotWorkerBase):
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):
         """Initialise the class."""
-        super().__init__()
-        self.logger = logging.getLogger(f"dreambot.frontend.irc.{irc_server['host']}")
+        super().__init__(
+            name="IRC",
+            queue_name=f"irc.{irc_server['host']}",
+            end="frontend",
+            options=options,
+            callback_send_workload=callback_send_workload,
+        )
+        self.should_reconnect = True
         self.server = irc_server
-        self.options = options
-        self.callback_send_workload = callback_send_workload
-
+        self.full_ident = ""
+        self.irc_timeout = 300
         self.writer: asyncio.StreamWriter | None = None
         self.reader: asyncio.StreamReader | None = None
-        self.full_ident = ""
-        self.should_reconnect = True
-        self.irc_timeout = 300
 
     async def boot(self, reconnect: bool = True):
         """Boot the instance.
@@ -107,16 +108,6 @@ class FrontendIRC(DreambotWorkerBase):
             await self.writer.wait_closed()
         if self.reader:
             self.reader.feed_eof()
-
-    def queue_name(self) -> str:
-        """Get the NATS queue name for this instance.
-
-        Returns:
-            str: The queue name.
-        """
-        name = f"irc.{self.server['host']}"
-        name = name.replace(".", "_")  # This is important because periods are meaningful in NATS' subject names
-        return name
 
     async def callback_receive_workload(self, queue_name: str, message: dict[str, Any]) -> bool:
         """Process an incoming workload message.

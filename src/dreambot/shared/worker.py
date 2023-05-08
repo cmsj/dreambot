@@ -1,4 +1,5 @@
 """Base class for Dreambot workers."""
+import logging
 import os
 import string
 import unicodedata
@@ -44,13 +45,28 @@ class DreambotWorkerBase:
     valid_filename_chars = f"_.() {string.ascii_letters}{string.digits}"
     callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
 
-    def __init__(self):
+    def __init__(
+        self,
+        name: str,
+        queue_name: str,
+        end: str,
+        options: dict[str, Any],
+        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
+    ):
         """Initialise the class."""
         self.is_booted = False
 
+        # The .replace() is important - periods have special meaning in NATS queue names.
+        self.name = name
+        self.queuename = queue_name.replace(".", "_")
+        self.end = end
+        self.options = options
+        self.callback_send_workload = callback_send_workload
+        self.logger = logging.getLogger(f"dreambot.{self.end}.{self.name}")
+
     def queue_name(self) -> str:
-        """Child classes must override this and return the name of the NATS queue they wish to subscribe to."""
-        raise NotImplementedError
+        """Return the NATS queue name for this worker."""
+        return self.queuename
 
     async def boot(self) -> None:
         """Child classes must override this to perform tasks that need to happen between class initialisation and the worker starting.

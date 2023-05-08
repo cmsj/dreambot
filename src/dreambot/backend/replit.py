@@ -7,18 +7,23 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed  # type: 
 
 import torch
 
-from dreambot.backend.base import DreambotBackendBase
-from dreambot.shared.worker import UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.worker import DreambotWorkerBase, UsageException, ErrorCatchingArgumentParser
 
 
-class DreambotBackendReplit(DreambotBackendBase):
+class DreambotBackendReplit(DreambotWorkerBase):
     """Dreambot backend for Replit."""
 
     def __init__(
         self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
     ):
         """Initialise the Replit backend."""
-        super().__init__("Replit", options, callback_send_workload)
+        super().__init__(
+            name="Replit",
+            queue_name=options["nats_queue_name"],
+            end="backend",
+            options=options,
+            callback_send_workload=callback_send_workload,
+        )
         self.hf_token = options["hugging_face_token"]
         self.tokenizer = None
         self.model = None
