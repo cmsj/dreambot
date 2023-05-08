@@ -70,6 +70,26 @@ class Message(NamedTuple):
 
         return Message(prefix, command, params)
 
+    def full_ident(self) -> str:
+        """Return the full ident of the message."""
+        if self.prefix:
+            return f"{self.prefix.nick}!{self.prefix.ident}@{self.prefix.host}"
+        return "???!???@???"
+
+    def source(self) -> str:
+        """Return the source of the message."""
+        if self.prefix:
+            return self.prefix.nick
+        return "???"
+
+    def target(self) -> str:
+        """Return the target of the message."""
+        target = self.params[0]
+        if not target.startswith("#"):
+            # This is a private message, so the target is the source
+            return self.source()
+        return target
+
 
 class FrontendIRC(DreambotWorkerBase):
     """IRC frontend for Dreambot."""
@@ -288,13 +308,7 @@ class FrontendIRC(DreambotWorkerBase):
 
     def irc_received_join(self, message: Message):
         """Handle a JOIN message from the IRC server. Used to build our full ident string."""
-        if message.prefix:
-            nick = message.prefix.nick
-            ident = message.prefix.ident
-            host = message.prefix.host
-        else:
-            nick = ident = host = "???"
-        self.full_ident = f":{nick}!{ident}@{host} "
+        self.full_ident = f":{message.full_ident()} "
 
     async def irc_received_privmsg(self, message: Message):
         """Handle a PRIVMSG message from the IRC server.
@@ -304,16 +318,9 @@ class FrontendIRC(DreambotWorkerBase):
         Args:
             message (Message): A Message object containing the message
         """
-        target = message.params[0]  # channel or
+        source = message.source()
+        target = message.target()
         text = message.params[1].lstrip()
-        if message.prefix:
-            source = message.prefix.nick
-        else:
-            source = "???"
-            self.logger.error("Received PRIVMSG without prefix: %s", message)
-        if not target.startswith("#"):
-            # This is a private message, so we need to reply to the sender
-            target = source
 
         for trigger in self.options["triggers"]:
             if text.startswith(f"{trigger} "):
@@ -334,7 +341,6 @@ class FrontendIRC(DreambotWorkerBase):
                 # Publish the trigger
                 try:
                     await self.callback_send_workload(trigger, packet.encode())
-                    # await self.send_cmd('PRIVMSG', *[target, "{}: Dream sequence accepted.".format(source)])
                 except Exception:
                     traceback.print_exc()
                     await self.send_cmd(
