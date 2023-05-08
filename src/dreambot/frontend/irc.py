@@ -121,7 +121,7 @@ class FrontendIRC(DreambotWorkerBase):
         Args:
             reconnect (bool, optional): Whether or not we should attempt to reconnect to the IRC server. Defaults to True.
         """
-        while self.should_reconnect:
+        while True:
             self.logger.info("Booting IRC connection... (reconnect: %s)", self.should_reconnect)
             try:
                 self.reader, self.writer = await asyncio.open_connection(
@@ -158,6 +158,8 @@ class FrontendIRC(DreambotWorkerBase):
                 if self.should_reconnect:
                     self.logger.info("Sleeping before reconnecting...")
                     await asyncio.sleep(5)
+            if not self.should_reconnect:
+                break
 
     async def shutdown(self):
         """Shutdown the instance."""

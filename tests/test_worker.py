@@ -1,6 +1,7 @@
 # pylint: skip-file
 import pytest
 import dreambot.shared.worker
+import dreambot.shared.custom_argparse
 
 
 class TestWorker(dreambot.shared.worker.DreambotWorkerBase):
@@ -57,9 +58,9 @@ def test_arg_parser():
     )
     parser = worker.arg_parser()
 
-    assert isinstance(parser, dreambot.shared.worker.ErrorCatchingArgumentParser)
+    assert isinstance(parser, dreambot.shared.custom_argparse.ErrorCatchingArgumentParser)
 
-    with pytest.raises(dreambot.shared.worker.UsageException):
+    with pytest.raises(dreambot.shared.custom_argparse.UsageException):
         args = parser.parse_args(["-h"])
 
     parser.add_argument("-t", "--test", help="test help")
