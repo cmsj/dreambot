@@ -155,10 +155,12 @@ class FrontendIRC(DreambotWorkerBase):
                     await self.writer.wait_closed()
                 if self.reader:
                     self.reader.feed_eof()
-                if self.should_reconnect:
-                    self.logger.info("Sleeping before reconnecting...")
-                    await asyncio.sleep(5)
-            if not self.should_reconnect:
+
+            if self.should_reconnect:
+                self.logger.info("Sleeping before reconnecting...")
+                await asyncio.sleep(5)
+            else:
+                # We don't want to reconnect, so break out of our while True loop
                 break
 
     async def shutdown(self):
