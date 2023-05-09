@@ -8,8 +8,8 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed  # type: 
 
 import torch
 
-from dreambot.shared.custom_argparse import UsageException
-from dreambot.shared.worker import DreambotWorkerBase, ErrorCatchingArgumentParser
+from dreambot.shared.custom_argparse import UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
 
 
 class DreambotBackendReplit(DreambotWorkerBase):
@@ -22,7 +22,7 @@ class DreambotBackendReplit(DreambotWorkerBase):
         super().__init__(
             name="Replit",
             queue_name=options["nats_queue_name"],
-            end="backend",
+            end=DreambotWorkerEndType.BACKEND,
             options=options,
             callback_send_workload=callback_send_workload,
         )

@@ -3,9 +3,17 @@ import logging
 import os
 import string
 import unicodedata
+from enum import Enum
 from typing import Callable, Coroutine, Any
 
 from dreambot.shared.custom_argparse import ErrorCatchingArgumentParser
+
+
+class DreambotWorkerEndType(Enum):
+    """Enum for identifying frontend/backend workers."""
+
+    FRONTEND = "frontend"
+    BACKEND = "backend"
 
 
 class DreambotWorkerBase:
@@ -18,7 +26,7 @@ class DreambotWorkerBase:
         self,
         name: str,
         queue_name: str,
-        end: str,
+        end: DreambotWorkerEndType,
         options: dict[str, Any],
         callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
     ):

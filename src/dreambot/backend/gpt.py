@@ -13,8 +13,8 @@ from openai.error import (
     AuthenticationError,
     InvalidRequestError,
 )
-from dreambot.shared.custom_argparse import UsageException
-from dreambot.shared.worker import DreambotWorkerBase, ErrorCatchingArgumentParser
+from dreambot.shared.custom_argparse import UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
 
 
 class DreambotBackendGPT(DreambotWorkerBase):
@@ -27,7 +27,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
         super().__init__(
             name="GPT",
             queue_name=options["nats_queue_name"],
-            end="backend",
+            end=DreambotWorkerEndType.BACKEND,
             options=options,
             callback_send_workload=callback_send_workload,
         )

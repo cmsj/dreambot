@@ -9,7 +9,7 @@ from typing import Any, Callable, Coroutine
 
 import discord
 
-from dreambot.shared.worker import DreambotWorkerBase
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
 
 
 class FrontendDiscord(DreambotWorkerBase):
@@ -24,7 +24,7 @@ class FrontendDiscord(DreambotWorkerBase):
         super().__init__(
             name="Discord",
             queue_name="discord",
-            end="frontend",
+            end=DreambotWorkerEndType.FRONTEND,
             options=options,
             callback_send_workload=callback_send_workload,
         )

@@ -6,7 +6,7 @@ import logging
 import os
 import traceback
 from typing import NamedTuple, Any, Callable, Coroutine, Self
-from dreambot.shared.worker import DreambotWorkerBase
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
 
 
 class Prefix(NamedTuple):
@@ -104,7 +104,7 @@ class FrontendIRC(DreambotWorkerBase):
         super().__init__(
             name="IRC",
             queue_name=f"irc.{irc_server['host']}",
-            end="frontend",
+            end=DreambotWorkerEndType.FRONTEND,
             options=options,
             callback_send_workload=callback_send_workload,
         )

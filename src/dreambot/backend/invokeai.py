@@ -12,8 +12,8 @@ import requests
 import socketio
 
 from PIL import Image
-from dreambot.shared.custom_argparse import UsageException
-from dreambot.shared.worker import DreambotWorkerBase, ErrorCatchingArgumentParser
+from dreambot.shared.custom_argparse import UsageException, ErrorCatchingArgumentParser
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
 
 
 class ImageFetchException(Exception):
@@ -34,7 +34,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         super().__init__(
             name="InvokeAI",
             queue_name=options["nats_queue_name"],
-            end="backend",
+            end=DreambotWorkerEndType.BACKEND,
             options=options,
             callback_send_workload=callback_send_workload,
         )
