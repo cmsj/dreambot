@@ -1,4 +1,5 @@
 """Backend for Replit."""
+import asyncio
 import json
 
 from typing import Any, Callable, Coroutine
@@ -31,10 +32,13 @@ class DreambotBackendReplit(DreambotWorkerBase):
 
     async def boot(self):
         """Boot our model on the GPU."""
-        self.logger.info("Booting model...")
+        self.logger.info("Loading tokenizer...")
         self.tokenizer = AutoTokenizer.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True)  # type: ignore
         self.tokenizer.truncation_side = "left"  # type: ignore
 
+        await asyncio.sleep(0)  # Since our boot takes a long time, give asyncio a chance to run its tasks
+
+        self.logger.info("Loading model...")
         self.model = AutoModelForCausalLM.from_pretrained("replit/replit-code-v1-3b", use_auth_token=self.hf_token, trust_remote_code=True).to("cuda", dtype=torch.bfloat16)  # type: ignore pylint: disable=no-member
 
         self.model.eval()  # type: ignore

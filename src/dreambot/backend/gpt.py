@@ -147,7 +147,10 @@ class DreambotBackendGPT(DreambotWorkerBase):
         return f"{data['reply-to']}_{data['channel']}_{data['user']}"
 
     def reset_cache(self, key: str):
-        """Reset the cache for a given user."""
+        """Reset the cache for a given user.
+
+        This is where our initial 'system' prompt is set, which guides GPT to behave the way we want.
+        """
         self.chat_cache[key] = [
             {
                 "role": "system",

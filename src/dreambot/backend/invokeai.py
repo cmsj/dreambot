@@ -54,8 +54,8 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
 
     async def boot(self):
         """Boot the backend."""
-        self.logger.info("InvokeAI API URI: %s", self.api_uri)
-        self.logger.info("Connecting to InvokeAI socket.io at %s", self.ws_uri)
+        self.logger.info("InvokeAI API URI: %s, socket.io URI: %s", self.api_uri, self.ws_uri)
+
         self.sio = socketio.Client(reconnection_delay_max=10)
         self.sio.on("connect", self.on_connect)  # type: ignore
         self.sio.on("disconnect", self.on_disconnect)  # type: ignore
@@ -63,6 +63,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         self.sio.on("graph_execution_state_complete", self.on_graph_execution_state_complete)  # type: ignore
         self.sio.on("invocation_error", self.on_invocation_error)  # type: ignore
         self.sio.connect(self.ws_uri, socketio_path="/ws/socket.io")  # type: ignore
+
         self.is_booted = True
 
     async def shutdown(self):
@@ -290,10 +291,10 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         return graph
 
     async def fetch_image(self, url: str) -> Tuple[str, io.BytesIO]:
-        """Fetch an image from InvokeAI.
+        """Fetch an image from a URL.
 
         Args:
-            url (str): The URL of an image to fetch from InvokeAI.
+            url (str): The URL of an image to fetch.
 
         Raises:
             ImageFetchException: Either the image could not be fetched, or the URL returned a non-image.
@@ -313,7 +314,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
                 resp.close()
                 self.logger.info("Fetched %s bytes of %s", len(image), resp.content_type)
 
-                # Resize the image
+                # Resize the image so it's not too big for our VRAM
                 resp_image = io.BytesIO()
                 thumbnail = Image.open(io.BytesIO(image))
                 thumbnail.thumbnail((512, 512), Image.ANTIALIAS)
@@ -343,7 +344,9 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         files: dict[str, Tuple[str, io.BytesIO, str]] = {
             "file": (image_name, image, content_type),
         }
-        response = requests.post("http://invokeai.chrul.tenshu.net/api/v1/images/uploads/", files=files, timeout=30)
+        response = requests.post(
+            f"http://{self.invokeai_host}:{self.invokeai_port}/api/v1/images/uploads/", files=files, timeout=30
+        )
         if not response.ok:
             self.logger.error("Error uploading image to InvokeAI: %s", response.reason)
             raise ImageFetchException(f"Error uploading image to InvokeAI: {response.reason}")
