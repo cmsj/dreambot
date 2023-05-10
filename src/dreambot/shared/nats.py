@@ -85,7 +85,7 @@ class NatsManager:
             worker (DreambotWorkerBase): A Dreambot worker instance that exposes a queue_name() method we can use to subscribe to its queue, and a callback_receive_workload() method we can pass messages to when they arrive.
         """
         while True and not self.shutting_down:
-            queue_name = worker.queue_name()
+            queue_name = worker.queue_name
             self.logger.info("NATS subscribing to %s", queue_name)
             try:
                 _ = await self.jets.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore

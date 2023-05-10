@@ -100,7 +100,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
         except InvalidRequestError as exc:
             message["error"] = f"GPT request error: {exc}"
         except (ValueError, ArgumentError) as exc:
-            message["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.queue_name} --help ({exc})"
         except Exception as exc:
             message["error"] = f"Unknown error: {exc}"
             traceback.print_exc()

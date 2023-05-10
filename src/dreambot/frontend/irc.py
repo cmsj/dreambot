@@ -332,7 +332,7 @@ class FrontendIRC(DreambotWorkerBase):
                 prompt = text[len(trigger) + 1 :]
                 reply = {
                     "to": trigger,
-                    "reply-to": self.queue_name(),
+                    "reply-to": self.queue_name,
                     "frontend": "irc",
                     "server": self.server["host"],
                     "channel": target,

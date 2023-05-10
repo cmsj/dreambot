@@ -125,7 +125,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
         except (ValueError, ArgumentError) as exc:
-            message["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.queue_name} --help ({exc})"
         except ImageFetchException as exc:
             message["error"] = str(exc)
         except Exception as exc:

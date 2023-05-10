@@ -47,11 +47,12 @@ class DreambotWorkerBase:
         self.logger = logging.getLogger(f"dreambot.{self.end.value}.{self.name}")
         self.should_reconnect = False
         # This .replace() is important - periods have special meaning in NATS queue names.
-        self.queuename = queue_name.replace(".", "_")
+        self._queue_name = queue_name.replace(".", "_")
 
+    @property
     def queue_name(self) -> str:
         """Return the NATS queue name for this worker."""
-        return self.queuename
+        return self._queue_name
 
     async def send_message(self, resp: dict[str, Any]):
         """Send a message to NATS.
@@ -60,9 +61,9 @@ class DreambotWorkerBase:
             resp (dict[str, Any]): A dictionary containing the message to send.
         """
         # Worker subclasses are not expected to flip the to/reply-to, we do it for them here
-        if resp["to"] == self.queue_name():
+        if resp["to"] == self.queue_name:
             resp["to"] = resp["reply-to"]
-            resp["reply-to"] = self.queue_name()
+            resp["reply-to"] = self.queue_name
 
         try:
             self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
@@ -90,7 +91,7 @@ class DreambotWorkerBase:
 
         This can be used to parse incoming messages for arguments.
         """
-        parser = ErrorCatchingArgumentParser(prog=self.queue_name(), exit_on_error=False)
+        parser = ErrorCatchingArgumentParser(prog=self.queue_name, exit_on_error=False)
         return parser
 
     def clean_filename(self, filename: str, replace: str = " ", suffix: str = ".png", output_dir: str = ""):

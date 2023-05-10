@@ -147,7 +147,7 @@ class FrontendDiscord(DreambotWorkerBase):
 
                 reply = {
                     "to": trigger,
-                    "reply-to": self.queue_name(),
+                    "reply-to": self.queue_name,
                     "frontend": "discord",
                     "channel": message.channel.id,
                     "user": message.author.id,
