@@ -134,17 +134,14 @@ class FrontendIRC(DreambotWorkerBase):
                 # Loop until the connection is closed
                 while True:
                     self.logger.debug("Waiting for IRC data...")
-                    try:
-                        if self.reader.at_eof():
-                            # There's nothing more waiting for us
-                            break
-                        data = await asyncio.wait_for(self.reader.readline(), timeout=self.irc_timeout)
-                        await self.handle_line(data)
-                    except (asyncio.TimeoutError, ConnectionResetError) as exc:
-                        self.logger.error("IRC connection timeout: %s", exc)
+                    if self.reader.at_eof():  # There's nothing more waiting for us
                         break
+                    data = await asyncio.wait_for(self.reader.readline(), timeout=self.irc_timeout)
+                    await self.handle_line(data)
             except ConnectionRefusedError:
                 self.logger.error("IRC connection refused")
+            except (asyncio.TimeoutError, ConnectionResetError) as exc:
+                self.logger.error("IRC connection timeout: %s", exc)
             except Exception as exc:
                 self.logger.error("IRC connection error: %s", exc)
             finally:
@@ -155,12 +152,12 @@ class FrontendIRC(DreambotWorkerBase):
                 if self.reader:
                     self.reader.feed_eof()
 
-            if self.should_reconnect:
-                self.logger.info("Sleeping before reconnecting...")
-                await asyncio.sleep(5)
-            else:
+            if not self.should_reconnect:
                 # We don't want to reconnect, so break out of our while True loop
                 break
+
+            self.logger.info("Sleeping before reconnecting...")
+            await asyncio.sleep(5)
 
     async def shutdown(self):
         """Shutdown the instance."""
@@ -217,15 +214,7 @@ class FrontendIRC(DreambotWorkerBase):
             # a message on the queue when it's done.
             return True
 
-        chunks: list[str] = []
-        # We have to send multiline responses separately, so let's split the message into lines
-        for line in reply_message.splitlines():
-            # IRC has a max line length of 512 bytes, so we need to split the line into chunks
-            max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
-            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel']} :")
-            chunks += [line[i : i + max_chunk_size] for i in range(0, len(line), max_chunk_size)]
-
-        for chunk in chunks:
+        for chunk in self.split_lines(message, reply_message):
             await self.send_cmd("PRIVMSG", *[message["channel"], chunk])
         return True
 
@@ -350,6 +339,25 @@ class FrontendIRC(DreambotWorkerBase):
                         "PRIVMSG",
                         *[target, f"{source}: Dream sequence failed."],
                     )
+
+    def split_lines(self, message: dict[str, Any], reply_message: str) -> list[str]:
+        """Split lines to safe IRC lengths.
+
+        Args:
+            message (dict[str, Any]): Original message object we received.
+            reply_message (str): Our reply back to IRC.
+
+        Returns:
+            list[str]: A list of strings that are IRC RFC compliant lengths (ie <510 characters)
+        """
+        chunks: list[str] = []
+        # We have to send multiline responses separately, so let's split the message into lines
+        for line in reply_message.splitlines():
+            # IRC has a max line length of 512 bytes, so we need to split the line into chunks
+            max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
+            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel']} :")
+            chunks += [line[i : i + max_chunk_size] for i in range(0, len(line), max_chunk_size)]
+        return chunks
 
     def log_reply(self, message: dict[str, Any], reply: str, kind: str = "OUTPUT", level: int = logging.INFO):
         """Log reply messages with a consistent format."""

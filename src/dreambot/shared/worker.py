@@ -46,13 +46,13 @@ class DreambotWorkerBase:
         self.callback_send_workload = callback_send_workload
         self.logger = logging.getLogger(f"dreambot.{self.end.value}.{self.name}")
         self.should_reconnect = False
-        # This .replace() is important - periods have special meaning in NATS queue names.
-        self._queue_name = queue_name.replace(".", "_")
+        self._queue_name = queue_name
 
     @property
     def queue_name(self) -> str:
         """Return the NATS queue name for this worker."""
-        return self._queue_name
+        # This .replace() is important - periods have special meaning in NATS queue names.
+        return self._queue_name.replace(".", "_")
 
     async def send_message(self, resp: dict[str, Any]):
         """Send a message to NATS.
@@ -91,8 +91,7 @@ class DreambotWorkerBase:
 
         This can be used to parse incoming messages for arguments.
         """
-        parser = ErrorCatchingArgumentParser(prog=self.queue_name, exit_on_error=False)
-        return parser
+        return ErrorCatchingArgumentParser(prog=self.queue_name, exit_on_error=False)
 
     def clean_filename(self, filename: str, replace: str = " ", suffix: str = ".png", output_dir: str = ""):
         """Clean a filename to ensure it is valid for the host OS filesystem.
