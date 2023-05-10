@@ -19,7 +19,7 @@ def test_clean_filename():
     worker = dreambot.shared.worker.DreambotWorkerBase(
         name="test_name",
         queue_name="test_queue",
-        end="backend",
+        end=dreambot.shared.worker.DreambotWorkerEndType.BACKEND,
         options={"nats_queue_name": "foo"},
         callback_send_workload=None,
     )
@@ -33,7 +33,7 @@ async def test_unimplemented():
     worker = dreambot.shared.worker.DreambotWorkerBase(
         name="test_name",
         queue_name="test_queue",
-        end="backend",
+        end=dreambot.shared.worker.DreambotWorkerEndType.FRONTEND,
         options={"nats_queue_name": "foo"},
         callback_send_workload=None,
     )
@@ -52,7 +52,7 @@ def test_arg_parser():
     worker = TestWorker(
         name="test_name",
         queue_name="test_queue",
-        end="backend",
+        end=dreambot.shared.worker.DreambotWorkerEndType.BACKEND,
         options={"nats_queue_name": "foo"},
         callback_send_workload=None,
     )

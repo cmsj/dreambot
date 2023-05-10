@@ -77,14 +77,14 @@ async def test_callback_send_workload(mocker):
     cli = dreambot.shared.cli.DreambotCLI("test_callback_send_workload")
     cli.nats = AsyncMock()
 
-    json = b'{"foo": "bar"}'
-    await cli.callback_send_workload("testqueue", json)
+    json = b'{"to": "testqueue", "foo": "bar"}'
+    await cli.callback_send_workload(json)
 
     assert cli.nats.publish.call_count == 1
-    assert cli.nats.publish.has_calls([call("testqueue", json)])
+    assert cli.nats.publish.has_calls([call(json)])
 
     json = b'{"reply-image": "to be removed"}'
-    await cli.callback_send_workload("testqueue", json)
+    await cli.callback_send_workload(json)
 
     assert cli.nats.publish.call_count == 2
-    assert cli.nats.publish.has_calls([call("testqueue", b'{"reply-image": "** IMAGE **"}')])
+    assert cli.nats.publish.has_calls([call(b'{"reply-image": "** IMAGE **"}')])

@@ -81,12 +81,11 @@ async def test_nats_publish(mocker):
     nm.nats = AsyncMock()
     nm.jets = AsyncMock()
 
-    json_txt = '{"test": "test"}'
-    json_bytes = json_txt.encode()
+    data = {"to": "!test", "test": "test"}
 
-    await nm.publish("test", json_bytes)
+    await nm.publish(data)
     assert nm.jets.publish.call_count == 1
-    assert nm.jets.publish.has_calls([call("test", json_bytes)])
+    assert nm.jets.publish.has_calls([call(data)])
 
 
 # FIXME: No idea why this one is broken
@@ -161,14 +160,15 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
 
     nm.jets.add_stream = AsyncMock(side_effect=add_stream_side_effect)
 
-    await nm.subscribe(TestWorker())
+    worker = TestWorker()
+    await nm.subscribe(worker)
     assert loop_count == 0
     assert nm.logger.warning.call_count == 5
     nm.logger.warning.assert_has_calls(
         [
             call(
                 "NATS consumer '%s' already exists, likely a previous instance of us hasn't timed out yet. Sleeping...",
-                "testqueue",
+                worker.queue_name,
             )
         ]
     )

@@ -99,7 +99,7 @@ def mock_builtins_open(mocker):
 
 def test_queue_name():
     irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123"}, {"output_dir": "/tmp"}, None)
-    assert irc.queue_name() == "irc_abc123"
+    assert irc.queue_name == "irc_abc123"
 
 
 def test_parse_line():
@@ -171,7 +171,7 @@ async def test_irc_renick(mock_send_line):
 async def test_irc_privmsg(mock_send_cmd):
     cb_publish_called = False
 
-    async def cb_publish(trigger, packet):
+    async def cb_publish(packet):
         nonlocal cb_publish_called
         cb_publish_called = True
         pass
@@ -433,8 +433,16 @@ async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
     irc.callback_send_workload.assert_has_calls(
         [
             call(
-                "!test",
-                b'{"reply-to": "irc_abc123", "frontend": "irc", "server": "abc123", "channel": "#testchannel", "user": "testuser", "trigger": "!test", "prompt": "some text"}',
+                {
+                    "to": "!test",
+                    "reply-to": "irc_abc123",
+                    "frontend": "irc",
+                    "server": "abc123",
+                    "channel": "#testchannel",
+                    "user": "testuser",
+                    "trigger": "!test",
+                    "prompt": "some text",
+                },
             )
         ]
     )
