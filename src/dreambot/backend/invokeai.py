@@ -41,7 +41,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         self.invokeai_host = options["invokeai"]["host"]
         self.invokeai_port = options["invokeai"]["port"]
         self.request_cache: dict[str, Any] = {}
-        self.last_completion: dict[str, Any] | None = None
+        self.last_completion: dict[str, Any] = {}
         self.ws_uri = f"ws://{self.invokeai_host}:{self.invokeai_port}/"
         self.api_uri = f"http://{self.invokeai_host}:{self.invokeai_port}/api/v1/"
 
@@ -148,8 +148,6 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         Args:
             data (dict[str, Any]): A dictionary of data returned by InvokeAI.
         """
-        if not self.last_completion:
-            self.last_completion = {}
         self.last_completion[data["graph_execution_state_id"]] = data
 
     def on_graph_execution_state_complete(self, data: dict[str, Any]):
@@ -167,7 +165,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         # We likely have a reply-none from when we first replied to this request, so remove it
         request.pop("reply-none", None)
 
-        if not self.last_completion or graph_id not in self.last_completion:
+        if graph_id not in self.last_completion:
             self.logger.error("No last_completion for %s", graph_id)
             self.sync_send_reply(request)
             return
