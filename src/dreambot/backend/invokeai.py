@@ -2,7 +2,6 @@
 import asyncio
 import base64
 import io
-import json
 
 from typing import Any, Callable, Coroutine, Tuple
 from argparse import REMAINDER, ArgumentError, Namespace
@@ -28,7 +27,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
     """InvokeAI backend for Dreambot."""
 
     def __init__(
-        self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
+        self, options: dict[str, Any], callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
     ):
         """Initialise the class."""
         super().__init__(
@@ -131,24 +130,9 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
             message["error"] = str(exc)
         except Exception as exc:
             message["error"] = f"Unknown error: {exc}"
-            await self.send_message(message)
-            return True
 
         await self.send_message(message)
         return True
-
-    async def send_message(self, resp: dict[str, Any]):
-        """Send a message back through NATS.
-
-        Args:
-            resp (dict[str, Any]): A modified version of the original message, with our response
-        """
-        try:
-            self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
-            packet = json.dumps(resp)
-            await self.callback_send_workload(resp["reply-to"], packet.encode())
-        except Exception as exc:
-            self.logger.error("Failed to send response: %s", exc)
 
     def on_connect(self):
         """Act on a successful connection to InvokeAI."""
@@ -215,7 +199,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
             request (dict[str, Any]): A dictionary containing the message to send.
         """
         loop = asyncio.new_event_loop()
-        loop.run_until_complete(self.callback_send_workload(request["reply-to"], json.dumps(request).encode()))
+        loop.run_until_complete(self.callback_send_workload(request))
         loop.close()
 
     def on_invocation_error(self, data: dict[str, Any]):

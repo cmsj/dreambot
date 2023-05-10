@@ -1,6 +1,6 @@
 """Backend for Replit."""
 import asyncio
-import json
+import traceback
 
 from typing import Any, Callable, Coroutine
 from argparse import REMAINDER, ArgumentError
@@ -16,7 +16,7 @@ class DreambotBackendReplit(DreambotWorkerBase):
     """Dreambot backend for Replit."""
 
     def __init__(
-        self, options: dict[str, Any], callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
+        self, options: dict[str, Any], callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
     ):
         """Initialise the Replit backend."""
         super().__init__(
@@ -99,22 +99,10 @@ class DreambotBackendReplit(DreambotWorkerBase):
             message["error"] = f"Something is wrong with your arguments, try {self.queue_name()} --help ({exc})"
         except Exception as exc:
             message["error"] = f"Unknown error: {exc}"
+            traceback.print_exc()
 
         await self.send_message(message)
         return True
-
-    async def send_message(self, resp: dict[str, Any]):
-        """Send a message to NATS.
-
-        Args:
-            resp (dict[str, Any]): A dictionary containing the message to send.
-        """
-        try:
-            self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
-            packet = json.dumps(resp)
-            await self.callback_send_workload(resp["reply-to"], packet.encode())
-        except Exception as exc:
-            self.logger.error("Failed to send response: %s", format(exc))
 
     def arg_parser(self) -> ErrorCatchingArgumentParser:
         """Create an argument parser for this backend.

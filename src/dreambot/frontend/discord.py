@@ -1,6 +1,5 @@
 """Discord frontend for Dreambot."""
 import asyncio
-import json
 import base64
 import io
 import traceback
@@ -18,7 +17,7 @@ class FrontendDiscord(DreambotWorkerBase):
     def __init__(
         self,
         options: dict[str, Any],
-        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
+        callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
     ):
         """Initialise the class."""
         super().__init__(
@@ -119,6 +118,7 @@ class FrontendDiscord(DreambotWorkerBase):
             self.logger.info("OUTPUT: %s %s ", self.log_slug(message), message["usage"])
         else:
             reply_args["content"] = "Dream sequence collapsed, unknown reason."
+            self.logger.error("Unknown workload message: %s", message)
 
         try:
             self.logger.info("Sending reply to %s", self.log_slug(message))
@@ -145,7 +145,8 @@ class FrontendDiscord(DreambotWorkerBase):
             if text.startswith(trigger + " "):
                 prompt = text[len(trigger) + 1 :]
 
-                packet_dict = {
+                reply = {
+                    "to": trigger,
                     "reply-to": self.queue_name(),
                     "frontend": "discord",
                     "channel": message.channel.id,
@@ -157,29 +158,27 @@ class FrontendDiscord(DreambotWorkerBase):
                 }
 
                 if hasattr(message.channel, "name"):
-                    packet_dict["channel_name"] = str(message.channel.name) if message.channel.name else "DM"  # type: ignore
+                    reply["channel_name"] = str(message.channel.name) if message.channel.name else "DM"  # type: ignore
                 else:
-                    packet_dict["channel_name"] = "DM"
+                    reply["channel_name"] = "DM"
 
                 if message.guild:
-                    packet_dict["server_name"] = message.guild.name
-                    packet_dict["server_id"] = message.guild.id
+                    reply["server_name"] = message.guild.name
+                    reply["server_id"] = message.guild.id
                 else:
-                    packet_dict["server_name"] = "DM"
+                    reply["server_name"] = "DM"
 
                 # If the message has an image, attach it to the packet
                 if len(message.embeds) > 0 and message.embeds[0].image:
                     image = message.embeds[0].image
                     if image:
-                        packet_dict["image_url"] = image.url
+                        reply["image_url"] = image.url
 
-                packet = json.dumps(packet_dict)
-
-                self.logger.info("INPUT: %s %s", self.log_slug(packet_dict), text)  # type: ignore
+                self.logger.info("INPUT: %s %s", self.log_slug(reply), text)  # type: ignore
 
                 # Publish the trigger
                 try:
-                    await self.callback_send_workload(trigger, packet.encode())
+                    await self.callback_send_workload(reply)
                     await message.add_reaction("👍")
                 except Exception:
                     traceback.print_exc()

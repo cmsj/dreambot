@@ -136,16 +136,17 @@ class NatsManager:
                 self.logger.error("nats_subscribe exception: %s", exc)
                 await asyncio.sleep(5)
 
-    async def publish(self, subject: str, data: bytes):
+    async def publish(self, message: dict[str, Any]):
         """Publish a message to NATS.
 
         Args:
             subject (str): The NATS queue to publish to.
             data (bytes): The message to publish, as a bytes encoded JSON string.
         """
-        raw_msg = data.decode()
-        json_msg = json.loads(raw_msg)
+        json_msg = message.copy()
         if "reply-image" in json_msg:
             json_msg["reply-image"] = "** IMAGE **"
-        self.logger.debug("Publishing to NATS: %s %s", subject, json_msg)
-        await self.jets.publish(subject, data)  # type: ignore
+        self.logger.debug("Publishing to NATS: %s", json_msg)
+
+        data = json.dumps(message).encode()
+        await self.jets.publish(message["to"], data)  # type: ignore

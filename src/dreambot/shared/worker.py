@@ -20,7 +20,6 @@ class DreambotWorkerBase:
     """Base class for Dreambot workers."""
 
     valid_filename_chars = f"_.() {string.ascii_letters}{string.digits}"
-    callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]]
 
     def __init__(
         self,
@@ -28,7 +27,7 @@ class DreambotWorkerBase:
         queue_name: str,
         end: DreambotWorkerEndType,
         options: dict[str, Any],
-        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
+        callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
     ):
         """Initialise the base worker class.
 
@@ -45,7 +44,7 @@ class DreambotWorkerBase:
         self.end = end
         self.options = options
         self.callback_send_workload = callback_send_workload
-        self.logger = logging.getLogger(f"dreambot.{self.end}.{self.name}")
+        self.logger = logging.getLogger(f"dreambot.{self.end.value}.{self.name}")
         self.should_reconnect = False
         # This .replace() is important - periods have special meaning in NATS queue names.
         self.queuename = queue_name.replace(".", "_")
@@ -53,6 +52,23 @@ class DreambotWorkerBase:
     def queue_name(self) -> str:
         """Return the NATS queue name for this worker."""
         return self.queuename
+
+    async def send_message(self, resp: dict[str, Any]):
+        """Send a message to NATS.
+
+        Args:
+            resp (dict[str, Any]): A dictionary containing the message to send.
+        """
+        # Worker subclasses are not expected to flip the to/reply-to, we do it for them here
+        if resp["to"] == self.queue_name():
+            resp["to"] = resp["reply-to"]
+            resp["reply-to"] = self.queue_name()
+
+        try:
+            self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
+            await self.callback_send_workload(resp)
+        except Exception as exc:
+            self.logger.error("Failed to send response: %s", format(exc))
 
     async def boot(self) -> None:
         """Child classes must override this to perform tasks that need to happen between class initialisation and the worker starting.

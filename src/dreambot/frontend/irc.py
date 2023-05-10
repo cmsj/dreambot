@@ -1,7 +1,6 @@
 """IRC frontend for Dreambot."""
 import asyncio
 import base64
-import json
 import logging
 import os
 import traceback
@@ -98,7 +97,7 @@ class FrontendIRC(DreambotWorkerBase):
         self,
         irc_server: dict[str, Any],
         options: dict[str, Any],
-        callback_send_workload: Callable[[str, bytes], Coroutine[Any, Any, None]],
+        callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
     ):
         """Initialise the class."""
         super().__init__(
@@ -208,6 +207,7 @@ class FrontendIRC(DreambotWorkerBase):
         else:
             reply_message = f"{message['user']}: Dream sequence collapsed, unknown reason."
             reply_log_level = logging.ERROR
+            self.logger.error("Unknown workload message: %s", message)
 
         # Log the reply
         self.log_reply(message, reply_message, level=reply_log_level, kind=reply_kind)
@@ -330,21 +330,20 @@ class FrontendIRC(DreambotWorkerBase):
             if text.startswith(f"{trigger} "):
                 self.logger.info("INPUT: %s:%s <%s> %s", self.server["host"], target, source, text)
                 prompt = text[len(trigger) + 1 :]
-                packet = json.dumps(
-                    {
-                        "reply-to": self.queue_name(),
-                        "frontend": "irc",
-                        "server": self.server["host"],
-                        "channel": target,
-                        "user": source,
-                        "trigger": trigger,
-                        "prompt": prompt,
-                    }
-                )
+                reply = {
+                    "to": trigger,
+                    "reply-to": self.queue_name(),
+                    "frontend": "irc",
+                    "server": self.server["host"],
+                    "channel": target,
+                    "user": source,
+                    "trigger": trigger,
+                    "prompt": prompt,
+                }
 
                 # Publish the trigger
                 try:
-                    await self.callback_send_workload(trigger, packet.encode())
+                    await self.callback_send_workload(reply)
                 except Exception:
                     traceback.print_exc()
                     await self.send_cmd(
