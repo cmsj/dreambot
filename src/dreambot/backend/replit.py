@@ -91,7 +91,6 @@ class DreambotBackendReplit(DreambotWorkerBase):
 
             # Fetch the response, prepare it to be sent back to the user and added to their cache
             message["reply-text"] = response
-
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
