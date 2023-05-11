@@ -7,7 +7,7 @@ import traceback
 from asyncio import Task
 from typing import Any
 
-from nats.js.errors import BadRequestError
+from nats.js.errors import BadRequestError, NotFoundError
 from nats.js import JetStreamContext
 from nats.aio.client import Client as NATSClient
 
@@ -88,8 +88,15 @@ class NatsManager:
             queue_name = worker.queue_name
             self.logger.info("NATS subscribing to %s", queue_name)
             try:
-                _ = await self.jets.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
-                sub = await self.jets.subscribe(queue_name)
+                jsm = self.nats.jsm()  # type: ignore
+                try:
+                    _ = await jsm.stream_info(queue_name)  # type: ignore
+                    self.logger.error("NATS stream '%s' already exists, not creating it", queue_name)
+                except NotFoundError:
+                    self.logger.error("NATS stream '%s' does not exist, creating it", queue_name)
+                    _ = await self.jets.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
+
+                sub = await self.jets.subscribe(queue_name, durable=queue_name, manual_ack=True, queue=queue_name)
 
                 while True and not self.shutting_down:
                     self.logger.debug("Waiting for NATS message on %s", queue_name)
