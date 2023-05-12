@@ -101,11 +101,11 @@ class FrontendIRC(DreambotWorkerBase):
     ):
         """Initialise the class."""
         super().__init__(
-            name="IRC",
-            queue_name=f"irc.{irc_server['host']}",
+            name="irc",
             end=DreambotWorkerEndType.FRONTEND,
             options=options,
             callback_send_workload=callback_send_workload,
+            subname=irc_server["host"],
         )
         self.should_reconnect = True
         self.server = irc_server
@@ -321,7 +321,7 @@ class FrontendIRC(DreambotWorkerBase):
                 prompt = text[len(trigger) + 1 :]
                 reply = {
                     "to": trigger,
-                    "reply-to": self.queue_name,
+                    "reply-to": self.address,
                     "frontend": "irc",
                     "server": self.server["host"],
                     "channel": target,

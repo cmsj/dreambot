@@ -8,7 +8,6 @@ class DreambotBackendReplitCLI(DreambotCLI):
 
     example_json = """Example JSON config:
 {
-  "nats_queue_name": "!replit",
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 }"""
 

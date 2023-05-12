@@ -13,7 +13,6 @@ class DreambotBackendGPTCLI(DreambotCLI):
       "organization": "dreambot",
       "model": "davinci"
   },
-  "nats_queue_name": "!gpt",
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 }"""
 

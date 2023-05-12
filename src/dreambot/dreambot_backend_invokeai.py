@@ -12,7 +12,6 @@ class DreambotBackendInvokeAICLI(DreambotCLI):
       "host": "localhost",
       "port": "9090"
   },
-  "nats_queue_name": "!invokeai",
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 }"""
 

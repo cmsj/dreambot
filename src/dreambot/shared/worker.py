@@ -24,35 +24,31 @@ class DreambotWorkerBase:
     def __init__(
         self,
         name: str,
-        queue_name: str,
         end: DreambotWorkerEndType,
         options: dict[str, Any],
         callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
+        subname: str = "",
     ):
         """Initialise the base worker class.
 
         Args:
-            name (str): The name of the worker. Used in logging.
+            name (str): The name of the worker. This should be a single word that contains no periods. The combination of `name` and `subname` arguments must be unique across all workers.
             queue_name (str): The NATS queue this worker will fetch work from.
             end (str): The "end" of the worker (frontend or backend).
             options (dict[str, Any]): The contents of this worker's JSON config file.
             callback_send_workload (Callable[[str, bytes], Coroutine[Any, Any, None]]): A callback function that can be used to send workloads to other workers.
+            subname (str, optional): A subname for this worker. Defaults to "". This is used to disamiguate multiple workers of the same `name`. For example, multiple IRC frontend workers can specify `name="irc"` and `subname` as the IRC server hostname.
         """
         self.is_booted = False
 
         self.name = name
+        self.subname = subname
         self.end = end
         self.options = options
         self.callback_send_workload = callback_send_workload
         self.logger = logging.getLogger(f"dreambot.{self.end.value}.{self.name}")
         self.should_reconnect = False
-        self._queue_name = queue_name
-
-    @property
-    def queue_name(self) -> str:
-        """Return the NATS queue name for this worker."""
-        # This .replace() is important - periods have special meaning in NATS queue names.
-        return self._queue_name.replace(".", "_")
+        self.address = ""  # This will be given to us later by NatsManager
 
     async def send_message(self, resp: dict[str, Any]):
         """Send a message to NATS.
@@ -61,9 +57,9 @@ class DreambotWorkerBase:
             resp (dict[str, Any]): A dictionary containing the message to send.
         """
         # Worker subclasses are not expected to flip the to/reply-to, we do it for them here
-        if resp["to"] == self.queue_name:
+        if resp["to"] == self.address:
             resp["to"] = resp["reply-to"]
-            resp["reply-to"] = self.queue_name
+            resp["reply-to"] = self.address
 
         try:
             self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
@@ -91,7 +87,7 @@ class DreambotWorkerBase:
 
         This can be used to parse incoming messages for arguments.
         """
-        return ErrorCatchingArgumentParser(prog=self.queue_name, exit_on_error=False)
+        return ErrorCatchingArgumentParser(prog=self.name, exit_on_error=False)
 
     def clean_filename(self, filename: str, replace: str = " ", suffix: str = ".png", output_dir: str = ""):
         """Clean a filename to ensure it is valid for the host OS filesystem.

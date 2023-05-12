@@ -31,8 +31,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
     ):
         """Initialise the class."""
         super().__init__(
-            name="InvokeAI",
-            queue_name=options["nats_queue_name"],
+            name="dream",  # This should really be "invokeai", but historically the simpler bot responded to !dream
             end=DreambotWorkerEndType.BACKEND,
             options=options,
             callback_send_workload=callback_send_workload,
@@ -125,7 +124,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
         except (ValueError, ArgumentError) as exc:
-            message["error"] = f"Something is wrong with your arguments, try {self.queue_name} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.name} --help ({exc})"
         except ImageFetchException as exc:
             message["error"] = str(exc)
         except Exception as exc:

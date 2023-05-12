@@ -25,8 +25,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
     ):
         """Initialise the class."""
         super().__init__(
-            name="GPT",
-            queue_name=options["nats_queue_name"],
+            name="gpt",
             end=DreambotWorkerEndType.BACKEND,
             options=options,
             callback_send_workload=callback_send_workload,
@@ -100,7 +99,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
         except InvalidRequestError as exc:
             message["error"] = f"GPT request error: {exc}"
         except (ValueError, ArgumentError) as exc:
-            message["error"] = f"Something is wrong with your arguments, try {self.queue_name} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.name} --help ({exc})"
         except Exception as exc:
             message["error"] = f"Unknown error: {exc}"
             traceback.print_exc()

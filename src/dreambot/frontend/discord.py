@@ -22,7 +22,6 @@ class FrontendDiscord(DreambotWorkerBase):
         """Initialise the class."""
         super().__init__(
             name="Discord",
-            queue_name="discord",
             end=DreambotWorkerEndType.FRONTEND,
             options=options,
             callback_send_workload=callback_send_workload,
@@ -147,7 +146,7 @@ class FrontendDiscord(DreambotWorkerBase):
 
                 reply = {
                     "to": trigger,
-                    "reply-to": self.queue_name,
+                    "reply-to": self.address,
                     "frontend": "discord",
                     "channel": message.channel.id,
                     "user": message.author.id,

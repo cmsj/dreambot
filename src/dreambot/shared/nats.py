@@ -14,7 +14,7 @@ from nats.aio.client import Client as NATSClient
 import nats
 import nats.errors
 
-from dreambot.shared.worker import DreambotWorkerBase
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
 
 
 class NatsManager:
@@ -32,6 +32,7 @@ class NatsManager:
         self.nats_tasks: list[Task[Any]] = []
         self.shutting_down = False
         self.logger = logging.getLogger(f"dreambot.shared.nats.{self.name}")
+        self.stream_name = "dreambot"
 
         self.jets: JetStreamContext
         self.nats: NATSClient | None = None
@@ -84,21 +85,25 @@ class NatsManager:
         Args:
             worker (DreambotWorkerBase): A Dreambot worker instance that exposes a queue_name() method we can use to subscribe to its queue, and a callback_receive_workload() method we can pass messages to when they arrive.
         """
-        while True and not self.shutting_down:
-            queue_name = worker.queue_name
-            self.logger.info("NATS subscribing to %s", queue_name)
+        while not self.shutting_down:
+            queue_name = self.get_queue_name(worker)
+            subject = self.get_subject(worker)
+
+            self.logger.info("NATS subscribing on stream '%s' to subject '%s'", self.stream_name, subject)
             try:
                 jsm = self.nats.jsm()  # type: ignore
                 try:
-                    _ = await jsm.stream_info(queue_name)  # type: ignore
-                    self.logger.error("NATS stream '%s' already exists, not creating it", queue_name)
+                    _ = await jsm.stream_info(self.stream_name)  # type: ignore
+                    self.logger.error("NATS stream '%s' already exists, not creating it", self.stream_name)
                 except NotFoundError:
-                    self.logger.error("NATS stream '%s' does not exist, creating it", queue_name)
-                    _ = await self.jets.add_stream(name=queue_name, subjects=[queue_name], retention="workqueue")  # type: ignore
+                    self.logger.error("NATS stream '%s' does not exist, creating it", self.stream_name)
+                    _ = await self.jets.add_stream(name=self.stream_name, subjects=[f"{end.value}.>" for end in DreambotWorkerEndType], retention="workqueue")  # type: ignore
 
-                sub = await self.jets.subscribe(queue_name, durable=queue_name, manual_ack=True, queue=queue_name)
+                sub = await self.jets.subscribe(
+                    subject, stream=self.stream_name, durable=queue_name, manual_ack=True, queue=queue_name
+                )
 
-                while True and not self.shutting_down:
+                while not self.shutting_down:
                     self.logger.debug("Waiting for NATS message on %s", queue_name)
                     try:
                         msg = await sub.next_msg()
@@ -141,6 +146,7 @@ class NatsManager:
                 continue
             except Exception as exc:
                 self.logger.error("nats_subscribe exception: %s", exc)
+                traceback.print_exc()
                 await asyncio.sleep(5)
 
     async def publish(self, message: dict[str, Any]):
@@ -157,3 +163,28 @@ class NatsManager:
 
         data = json.dumps(message).encode()
         await self.jets.publish(message["to"], data)  # type: ignore
+
+    def get_queue_name(self, worker: DreambotWorkerBase) -> str:
+        """Construct the queue name for a worker.
+
+        Args:
+            worker (DreambotWorkerBase): A Dreambot worker instance.
+
+        Returns:
+            str: The name of the queue for the given worker.
+        """
+        if worker.subname != "":
+            return f"{worker.name}.{worker.subname}"
+        else:
+            return worker.name
+
+    def get_subject(self, worker: DreambotWorkerBase) -> str:
+        """Construct the subject a worker should subscribe to.
+
+        Args:
+            worker (DreambotWorkerBase): A Dreambot worker instance.
+
+        Returns:
+            str: The subject the given worker should subscribe to.
+        """
+        return f"{worker.end.value}.{self.get_queue_name(worker)}"

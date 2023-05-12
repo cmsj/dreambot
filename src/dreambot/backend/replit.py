@@ -20,8 +20,7 @@ class DreambotBackendReplit(DreambotWorkerBase):
     ):
         """Initialise the Replit backend."""
         super().__init__(
-            name="Replit",
-            queue_name=options["nats_queue_name"],
+            name="replit",
             end=DreambotWorkerEndType.BACKEND,
             options=options,
             callback_send_workload=callback_send_workload,
@@ -95,7 +94,7 @@ class DreambotBackendReplit(DreambotWorkerBase):
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
         except (ValueError, ArgumentError) as exc:
-            message["error"] = f"Something is wrong with your arguments, try {self.queue_name} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {self.name} --help ({exc})"
         except Exception as exc:
             message["error"] = f"Unknown error: {exc}"
             traceback.print_exc()
