@@ -150,10 +150,10 @@ Notes:
 
 ```json
 {
-  "triggers": [
-          "!gpt ",
-          "!dream "
-  ],
+  "triggers": {
+          "!gpt": "backend.gpt",
+          "!dream": "backend.invokeai"
+  },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
   "output_dir": "/data",
   "uri_base": "https://dreams.mydomain.com",
@@ -195,10 +195,10 @@ There is a bunch of Discord developer website stuff you need to do to get the to
 
 ```json
 {
-  "triggers": [
-          "!gpt ",
-          "!dream "
-  ],
+  "triggers": {
+          "!gpt": "backend.gpt",
+          "!dream": "backend.invokeai"
+  },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
   "output_dir": "/data",
   "discord": {
@@ -222,7 +222,6 @@ Sign up for a developer account at [https://openai.com](https://openai.com) and 
       "model": "gpt-3.5-turbo"
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
-  "nats_queue_name": "!gpt"
 }
 ```
 
@@ -238,7 +237,6 @@ Sign up for a developer account at [https://openai.com](https://openai.com) and 
       "port": "9090"
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
-  "nats_queue_name": "!dream"
 }
 ```
 
