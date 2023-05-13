@@ -31,7 +31,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
     ):
         """Initialise the class."""
         super().__init__(
-            name="dream",  # This should really be "invokeai", but historically the simpler bot responded to !dream
+            name="invokeai",
             end=DreambotWorkerEndType.BACKEND,
             options=options,
             callback_send_workload=callback_send_workload,

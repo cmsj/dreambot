@@ -145,7 +145,7 @@ class FrontendDiscord(DreambotWorkerBase):
                 prompt = text[len(trigger) + 1 :]
 
                 reply = {
-                    "to": trigger,
+                    "to": self.options["triggers"][trigger],
                     "reply-to": self.address,
                     "frontend": "discord",
                     "channel": message.channel.id,

@@ -8,7 +8,7 @@ from asyncio import Task
 from typing import Any
 
 from nats.js.errors import BadRequestError, NotFoundError
-from nats.js import JetStreamContext
+from nats.js import JetStreamContext, JetStreamManager
 from nats.aio.client import Client as NATSClient
 
 import nats
@@ -34,8 +34,9 @@ class NatsManager:
         self.logger = logging.getLogger(f"dreambot.shared.nats.{self.name}")
         self.stream_name = "dreambot"
 
-        self.jets: JetStreamContext
         self.nats: NATSClient | None = None
+        self.jets: JetStreamContext
+        self.jsm: JetStreamManager
 
     async def shutdown(self):
         """Shutdown this instance."""
@@ -56,15 +57,17 @@ class NatsManager:
         """Boot this instance.
 
         Args:
-            workers (list[DreambotWorkerBase]): A list of Dreambot workers each of which exposes a queue_name() method we can use to subscribe to their queues.
+            workers (list[DreambotWorkerBase]): A list of Dreambot workers.
         """
         self.logger.info("NATS booting")
         try:
             self.nats = await nats.connect(self.nats_uri, name=self.name)  # type: ignore
             self.logger.info("NATS connected to %s", self.nats.connected_url.netloc)  # type: ignore
             self.jets = self.nats.jetstream()  # type: ignore
+            self.jsm = self.nats.jsm()  # type: ignore
 
             for worker in workers:
+                worker.address = self.get_subject(worker)
                 self.nats_tasks.append(asyncio.create_task(self.subscribe(worker)))
 
             await asyncio.gather(*self.nats_tasks)
@@ -83,28 +86,33 @@ class NatsManager:
         """Subscribe to a NATS queue.
 
         Args:
-            worker (DreambotWorkerBase): A Dreambot worker instance that exposes a queue_name() method we can use to subscribe to its queue, and a callback_receive_workload() method we can pass messages to when they arrive.
+            worker (DreambotWorkerBase): A Dreambot worker instance.
         """
         while not self.shutting_down:
-            queue_name = self.get_queue_name(worker)
+            queue_name = self.get_queue_name(worker).replace(".", "_")
             subject = self.get_subject(worker)
 
-            self.logger.info("NATS subscribing on stream '%s' to subject '%s'", self.stream_name, subject)
             try:
-                jsm = self.nats.jsm()  # type: ignore
                 try:
-                    _ = await jsm.stream_info(self.stream_name)  # type: ignore
+                    _ = await self.jsm.stream_info(self.stream_name)  # type: ignore
                     self.logger.error("NATS stream '%s' already exists, not creating it", self.stream_name)
                 except NotFoundError:
                     self.logger.error("NATS stream '%s' does not exist, creating it", self.stream_name)
                     _ = await self.jets.add_stream(name=self.stream_name, subjects=[f"{end.value}.>" for end in DreambotWorkerEndType], retention="workqueue")  # type: ignore
 
+                self.logger.info(
+                    "Subscribing on stream '%s' to subject '%s', durable name '%s', queue group '%s'",
+                    self.stream_name,
+                    subject,
+                    queue_name,
+                    queue_name,
+                )
                 sub = await self.jets.subscribe(
                     subject, stream=self.stream_name, durable=queue_name, manual_ack=True, queue=queue_name
                 )
 
                 while not self.shutting_down:
-                    self.logger.debug("Waiting for NATS message on %s", queue_name)
+                    self.logger.debug("Waiting for NATS message on %s", subject)
                     try:
                         msg = await sub.next_msg()
                         msg_str = msg.data.decode()
@@ -113,7 +121,7 @@ class NatsManager:
                         log_dict = msg_dict.copy()
                         if "reply-image" in log_dict:
                             log_dict["reply-image"] = "** IMAGE **"
-                        self.logger.debug("Received NATS message on '%s': %s", queue_name, log_dict)
+                        self.logger.debug("Received NATS message on '%s': %s", subject, log_dict)
 
                         worker_callback_result = None
                         try:
@@ -123,7 +131,7 @@ class NatsManager:
                                 continue
 
                             # We will remove the message from the queue if the callback returns anything but False
-                            worker_callback_result = await worker.callback_receive_workload(queue_name, msg_dict)
+                            worker_callback_result = await worker.callback_receive_workload(subject, msg_dict)
                             if worker_callback_result is not False:
                                 await msg.ack()
                         except Exception as exc:
@@ -140,7 +148,7 @@ class NatsManager:
             except BadRequestError:
                 self.logger.warning(
                     "NATS consumer '%s' already exists, likely a previous instance of us hasn't timed out yet. Sleeping...",
-                    queue_name,
+                    subject,
                 )
                 await asyncio.sleep(5)
                 continue
@@ -174,7 +182,7 @@ class NatsManager:
             str: The name of the queue for the given worker.
         """
         if worker.subname != "":
-            return f"{worker.name}.{worker.subname}"
+            return f"{worker.name}.{worker.subname.replace('.', '_')}"
         else:
             return worker.name
 

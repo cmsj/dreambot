@@ -8,10 +8,10 @@ class DreambotFrontendDiscordCLI(DreambotCLI):
 
     example_json = """Example JSON config:
 {
-    "triggers": [
-          "!dream",
-          "!gpt"
-    ],
+    "triggers": {
+          "!dream": "backend.invokeai",
+          "!gpt": "backend.gpt"
+    },
     "nats_uri": [ "nats://nats:4222", "nats://nats2:4222" ],
     "output_dir": "/data",
     "uri_base": "http://localhost:8080/dreams",

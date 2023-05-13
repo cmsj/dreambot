@@ -97,11 +97,6 @@ def mock_builtins_open(mocker):
 # FrontendIRC Tests
 
 
-def test_queue_name():
-    irc = dreambot.frontend.irc.FrontendIRC({"host": "abc123"}, {"output_dir": "/tmp"}, None)
-    assert irc.queue_name == "irc_abc123"
-
-
 def test_parse_line():
     result = dreambot.frontend.irc.Message.parse_line("PRIVMSG #channel :hello world")
     assert result.prefix == None
@@ -178,7 +173,7 @@ async def test_irc_privmsg(mock_send_cmd):
 
     irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123", "nickname": "abc"},
-        {"output_dir": "/tmp", "triggers": ["!test"]},
+        {"output_dir": "/tmp", "triggers": {}},
         None,
     )
     irc.callback_send_workload = cb_publish
@@ -187,7 +182,7 @@ async def test_irc_privmsg(mock_send_cmd):
     await irc.irc_received_privmsg(message)
     assert irc.send_cmd.call_count == 0
 
-    irc.options["triggers"].append("!test")
+    irc.options["triggers"]["!test"] = "testend.test2"
     message = dreambot.frontend.irc.Message.parse_line(":OtherUser^!other@2.3.4.5 PRIVMSG #place :!test something")
     await irc.irc_received_privmsg(message)
     assert cb_publish_called == True
@@ -423,7 +418,7 @@ async def test_handle_line_privmsg(mock_irc_privmsg):
 async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
     irc = dreambot.frontend.irc.FrontendIRC(
         {"host": "abc123", "nickname": "abc", "channels": ["#test1", "#test2"]},
-        {"output_dir": "/tmp", "triggers": ["!test"], "uri_base": "http://testuri/"},
+        {"output_dir": "/tmp", "triggers": {"!test": "testend.test"}, "uri_base": "http://testuri/"},
         None,
     )
     irc.callback_send_workload = AsyncMock(side_effect=Exception("test exception"))
@@ -434,8 +429,8 @@ async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
         [
             call(
                 {
-                    "to": "!test",
-                    "reply-to": "irc_abc123",
+                    "to": "testend.test",
+                    "reply-to": "",
                     "frontend": "irc",
                     "server": "abc123",
                     "channel": "#testchannel",

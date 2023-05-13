@@ -6,10 +6,14 @@ import signal
 import time
 import dreambot.shared.nats
 from unittest.mock import call, patch, AsyncMock, MagicMock
-from nats.js.errors import BadRequestError
+from nats.js.errors import BadRequestError, NotFoundError
+from dreambot.shared.worker import DreambotWorkerEndType, DreambotWorkerBase
 
 
-class TestWorker:
+class TestWorker(DreambotWorkerBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(name="test_worker", end=DreambotWorkerEndType.BACKEND, options={}, callback_send_workload=None)
+
     def queue_name(self):
         return "testqueue"
 
@@ -43,6 +47,13 @@ def mock_sleep(create_mock_coro):
 @pytest.fixture
 def mock_nats_next_msg(create_mock_coro):
     mock, _ = create_mock_coro(to_patch="nats.aio.subscription.Subscription.next_msg")
+    return mock
+
+
+@pytest.fixture
+def mock_nats_jsm(create_mock_coro):
+    mock, _ = create_mock_coro(to_patch="nats.js.JetStreamManager")
+    mock.stream_info = AsyncMock(side_effect=NotFoundError)
     return mock
 
 
@@ -145,7 +156,9 @@ async def test_nats_publish(mocker):
 @pytest.mark.asyncio
 async def test_nats_subscribe_badrequest(mocker, mock_sleep):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_subscribe_badrequest")
-    nm.jets = MagicMock()
+    nm.nats = AsyncMock()
+    nm.jets = AsyncMock()
+    nm.jsm = AsyncMock()
     nm.logger.warning = MagicMock()
     loop_count = 5
 
@@ -159,6 +172,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
         raise BadRequestError
 
     nm.jets.add_stream = AsyncMock(side_effect=add_stream_side_effect)
+    nm.jsm.stream_info = AsyncMock(side_effect=NotFoundError)
 
     worker = TestWorker()
     await nm.subscribe(worker)
@@ -168,7 +182,7 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
         [
             call(
                 "NATS consumer '%s' already exists, likely a previous instance of us hasn't timed out yet. Sleeping...",
-                worker.queue_name,
+                "backend.test_worker",
             )
         ]
     )
@@ -178,6 +192,8 @@ async def test_nats_subscribe_badrequest(mocker, mock_sleep):
 async def test_nats_subscribe_other_exception(mocker, mock_sleep):
     nm = dreambot.shared.nats.NatsManager(nats_uri="nats://test:1234", name="test_nats_subscribe_other_exception")
     nm.jets = MagicMock()
+    nm.jsm = AsyncMock()
+
     nm.logger.error = MagicMock()
     loop_count = 5
 
@@ -191,7 +207,8 @@ async def test_nats_subscribe_other_exception(mocker, mock_sleep):
         raise ValueError("Some other exception")
 
     nm.jets.add_stream = AsyncMock(side_effect=add_stream_side_effect)
+    nm.jsm.stream_info = AsyncMock(side_effect=NotFoundError)
 
     await nm.subscribe(MagicMock())
     assert loop_count == 0
-    assert nm.logger.error.call_count == 5
+    assert nm.logger.error.call_count == 10
