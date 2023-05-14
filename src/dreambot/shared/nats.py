@@ -67,7 +67,10 @@ class NatsManager:
             self.jsm = self.nats.jsm()  # type: ignore
 
             for worker in workers:
+                # Each worker needs to know its own NATS 'address' (ie subject)
                 worker.address = self.get_subject(worker)
+
+                # Set up NATS subscriptions for each worker
                 self.nats_tasks.append(asyncio.create_task(self.subscribe(worker)))
 
             await asyncio.gather(*self.nats_tasks)
