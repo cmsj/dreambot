@@ -3,6 +3,7 @@ import asyncio
 import base64
 import logging
 import os
+import textwrap
 import traceback
 from typing import NamedTuple, Any, Self
 from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
@@ -335,10 +336,7 @@ class FrontendIRC(DreambotWorkerBase):
                     await self.callback_send_workload(reply)
                 except Exception:
                     traceback.print_exc()
-                    await self.send_cmd(
-                        "PRIVMSG",
-                        *[target, f"{source}: Dream sequence failed."],
-                    )
+                    await self.send_cmd("PRIVMSG", *[target, f"{source}: Dream sequence failed."])
 
     def split_lines(self, message: dict[str, Any], reply_message: str) -> list[str]:
         """Split lines to safe IRC lengths.
@@ -356,7 +354,7 @@ class FrontendIRC(DreambotWorkerBase):
             # IRC has a max line length of 512 bytes, so we need to split the line into chunks
             max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
             max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel']} :")
-            chunks += [line[i : i + max_chunk_size] for i in range(0, len(line), max_chunk_size)]
+            chunks += textwrap.wrap(line, max_chunk_size)
         return chunks
 
     def log_reply(self, message: dict[str, Any], reply: str, kind: str = "OUTPUT", level: int = logging.INFO):
