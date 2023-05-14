@@ -8,6 +8,8 @@ from typing import Callable, Coroutine, Any
 
 from dreambot.shared.custom_argparse import ErrorCatchingArgumentParser
 
+CallbackSendWorkload = Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
+
 
 class DreambotWorkerEndType(Enum):
     """Enum for identifying frontend/backend workers."""
@@ -26,7 +28,7 @@ class DreambotWorkerBase:
         name: str,
         end: DreambotWorkerEndType,
         options: dict[str, Any],
-        callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
+        callback_send_workload: CallbackSendWorkload,
         subname: str = "",
     ):
         """Initialise the base worker class.

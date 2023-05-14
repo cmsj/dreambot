@@ -2,22 +2,20 @@
 import asyncio
 import traceback
 
-from typing import Any, Callable, Coroutine
+from typing import Any
 from argparse import REMAINDER, ArgumentError
 from transformers import AutoModelForCausalLM, AutoTokenizer, set_seed  # type: ignore
 
 import torch
 
 from dreambot.shared.custom_argparse import UsageException, ErrorCatchingArgumentParser
-from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
 
 
 class DreambotBackendReplit(DreambotWorkerBase):
     """Dreambot backend for Replit."""
 
-    def __init__(
-        self, options: dict[str, Any], callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
-    ):
+    def __init__(self, options: dict[str, Any], callback_send_workload: CallbackSendWorkload):
         """Initialise the Replit backend."""
         super().__init__(
             name="replit",

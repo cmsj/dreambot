@@ -1,7 +1,7 @@
 """OpenAI GPT backend for Dreambot."""
 import traceback
 
-from typing import Any, Callable, Coroutine
+from typing import Any
 from argparse import REMAINDER, ArgumentError
 
 import openai
@@ -14,15 +14,13 @@ from openai.error import (
     InvalidRequestError,
 )
 from dreambot.shared.custom_argparse import UsageException, ErrorCatchingArgumentParser
-from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
 
 
 class DreambotBackendGPT(DreambotWorkerBase):
     """OpenAI GPT backend for Dreambot."""
 
-    def __init__(
-        self, options: dict[str, Any], callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
-    ):
+    def __init__(self, options: dict[str, Any], callback_send_workload: CallbackSendWorkload):
         """Initialise the class."""
         super().__init__(
             name="gpt",

@@ -3,7 +3,7 @@ import asyncio
 import base64
 import io
 
-from typing import Any, Callable, Coroutine, Tuple
+from typing import Any, Tuple
 from argparse import REMAINDER, ArgumentError, Namespace
 
 import aiohttp
@@ -12,7 +12,7 @@ import socketio
 
 from PIL import Image
 from dreambot.shared.custom_argparse import UsageException, ErrorCatchingArgumentParser
-from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
 
 
 class ImageFetchException(Exception):
@@ -26,9 +26,7 @@ class ImageFetchException(Exception):
 class DreambotBackendInvokeAI(DreambotWorkerBase):
     """InvokeAI backend for Dreambot."""
 
-    def __init__(
-        self, options: dict[str, Any], callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]]
-    ):
+    def __init__(self, options: dict[str, Any], callback_send_workload: CallbackSendWorkload):
         """Initialise the class."""
         super().__init__(
             name="invokeai",

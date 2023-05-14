@@ -4,8 +4,8 @@ import base64
 import logging
 import os
 import traceback
-from typing import NamedTuple, Any, Callable, Coroutine, Self
-from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
+from typing import NamedTuple, Any, Self
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
 
 
 class Prefix(NamedTuple):
@@ -97,7 +97,7 @@ class FrontendIRC(DreambotWorkerBase):
         self,
         irc_server: dict[str, Any],
         options: dict[str, Any],
-        callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
+        callback_send_workload: CallbackSendWorkload,
     ):
         """Initialise the class."""
         super().__init__(

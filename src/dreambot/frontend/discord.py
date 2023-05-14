@@ -4,11 +4,11 @@ import base64
 import io
 import traceback
 
-from typing import Any, Callable, Coroutine
+from typing import Any
 
 import discord
 
-from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType
+from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
 
 
 class FrontendDiscord(DreambotWorkerBase):
@@ -17,7 +17,7 @@ class FrontendDiscord(DreambotWorkerBase):
     def __init__(
         self,
         options: dict[str, Any],
-        callback_send_workload: Callable[[dict[str, Any]], Coroutine[Any, Any, None]],
+        callback_send_workload: CallbackSendWorkload,
     ):
         """Initialise the class."""
         super().__init__(
