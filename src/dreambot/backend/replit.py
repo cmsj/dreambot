@@ -92,7 +92,7 @@ class DreambotBackendReplit(DreambotWorkerBase):
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
         except (ValueError, ArgumentError) as exc:
-            message["error"] = f"Something is wrong with your arguments, try {self.name} --help ({exc})"
+            message["error"] = f"Something is wrong with your arguments, try {message['trigger']} --help ({exc})"
         except Exception as exc:
             message["error"] = f"Unknown error: {exc}"
             traceback.print_exc()
