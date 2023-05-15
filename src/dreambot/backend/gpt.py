@@ -84,6 +84,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
                 # Fetch the response, prepare it to be sent back to the user and added to their cache
                 message["reply-text"] = response.choices[0].message.content  # type: ignore
 
+            # Add the response to the user's cache
             self.conversation_cache[cache_key].append({"role": "assistant", "content": message["reply-text"]})
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
