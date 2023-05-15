@@ -31,7 +31,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
         self.api_key = options["gpt"]["api_key"]
         self.organization = options["gpt"]["organization"]
         self.model = options["gpt"]["model"]
-        self.chat_cache: dict[str, Any] = {}
+        self.conversation_cache: dict[str, Any] = {}
 
     async def boot(self):
         """Boot the backend."""
@@ -60,10 +60,8 @@ class DreambotBackendGPT(DreambotWorkerBase):
             args = argparser.parse_args(message["prompt"].split(" "))
             args.prompt = " ".join(args.prompt)
 
-            new_chat_message = {"role": "user", "content": args.prompt}
-
-            # Ensure we have a valid cache line for this user
-            cache_key = self.ensure_cache_for_prompt(message)
+            # Ensure we have a valid conversation cache for this user
+            cache_key = self.ensure_cache_for_user(message)
 
             # Determine if we're adding to the cache or starting a new conversation
             if not args.followup:
@@ -77,16 +75,16 @@ class DreambotBackendGPT(DreambotWorkerBase):
                 message["reply-text"] = ", ".join(models)  # type: ignore
             else:
                 # Now that our cache is in the right state, add this new prompt to it
-                self.chat_cache[cache_key].append(new_chat_message)
+                self.conversation_cache[cache_key].append({"role": "user", "content": args.prompt})
 
                 # Now we can ask OpenAI for a response to the contents of our message cache
                 self.logger.debug("Sending request to OpenAI...")
-                response = openai.ChatCompletion.create(model=args.model, messages=self.chat_cache[cache_key], temperature=args.temperature)  # type: ignore
+                response = openai.ChatCompletion.create(model=args.model, messages=self.conversation_cache[cache_key], temperature=args.temperature)  # type: ignore
 
                 # Fetch the response, prepare it to be sent back to the user and added to their cache
                 message["reply-text"] = response.choices[0].message.content  # type: ignore
 
-            self.chat_cache[cache_key].append({"role": "assistant", "content": message["reply-text"]})
+            self.conversation_cache[cache_key].append({"role": "assistant", "content": message["reply-text"]})
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
@@ -105,7 +103,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
         await self.send_message(message)
         return True
 
-    def ensure_cache_for_prompt(self, data: dict[str, Any]) -> str:
+    def ensure_cache_for_user(self, data: dict[str, Any]) -> str:
         """Ensure we have a cache entry for this user.
 
         Args:
@@ -115,7 +113,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
             str: The cache key for this user.
         """
         cache_key = self.cache_name_for_prompt(data)
-        if cache_key not in self.chat_cache:
+        if cache_key not in self.conversation_cache:
             self.logger.debug("Creating new cache entry for %s", cache_key)
             self.reset_cache(cache_key)
         return cache_key
@@ -136,7 +134,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
 
         This is where our initial 'system' prompt is set, which guides GPT to behave the way we want.
         """
-        self.chat_cache[key] = [
+        self.conversation_cache[key] = [
             {
                 "role": "system",
                 "content": "You are a helpful assistant. Make your answers as brief as possible.",
