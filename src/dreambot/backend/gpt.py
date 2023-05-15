@@ -48,7 +48,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
 
         Args:
             queue_name (str): The name of the queue the message was received on.
-            message (bytes): The message that was received, a JSON string encoded as bytes.
+            message (bytes): The message that was received, as a dictionary.
 
         Returns:
             bool: _description_

@@ -51,7 +51,7 @@ class DreambotBackendReplit(DreambotWorkerBase):
 
         Args:
             queue_name (str): The name of the queue we received the message from
-            message (bytes): The full message we received
+            message (bytes): The full message we received, as a dictionary
 
         Returns:
             bool: True if we either processed successfully, or failed to process in a way that suggests the message should be discarded. Otherwise False.

@@ -71,7 +71,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
 
         Args:
             queue_name (str): The name of the queue we received the message from.
-            message (bytes): The message we received, a JSON string encoded as bytes.
+            message (bytes): The message we received, as a dictionary.
 
         Returns:
             bool: True if the message should be ack'd to NATS, False otherwise.
