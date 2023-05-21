@@ -31,11 +31,7 @@ class FrontendDiscord(DreambotWorkerBase):
         self.should_reconnect = True
 
     async def boot(self):
-        """Boot this instance.
-
-        Args:
-            reconnect (bool, optional): Should we try and reconnect to Discord after errors/failures. Defaults to True.
-        """
+        """Boot this instance."""
         while self.should_reconnect:
             self.logger.info("Booting Discord connection... (reconnect: %s)", self.should_reconnect)
             try:

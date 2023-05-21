@@ -34,6 +34,7 @@ dependencies = [
     "aiohttp",
     "requests",
     "discord.py",
+    "slack_bolt",
     "Pillow==9.5.0",
     "accelerate",
     "transformers",
@@ -58,6 +59,7 @@ dev = [
 [project.scripts]
 dreambot_frontend_irc = "dreambot.dreambot_frontend_irc:main"
 dreambot_frontend_discord = "dreambot.dreambot_frontend_discord:main"
+dreambot_frontend_slack = "dreambot.dreambot_frontend_slack:main"
 dreambot_backend_gpt = "dreambot.dreambot_backend_gpt:main"
 dreambot_backend_invokeai = "dreambot.dreambot_backend_invokeai:main"
 dreambot_backend_replit = "dreambot.dreambot_backend_replit:main"
