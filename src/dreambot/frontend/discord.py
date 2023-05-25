@@ -21,7 +21,7 @@ class FrontendDiscord(DreambotWorkerBase):
     ):
         """Initialise the class."""
         super().__init__(
-            name="Discord",
+            name="discord",
             end=DreambotWorkerEndType.FRONTEND,
             options=options,
             callback_send_workload=callback_send_workload,
