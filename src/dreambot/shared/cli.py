@@ -125,4 +125,5 @@ class DreambotCLI:
             queue_name (str): The queue to send the message to.
             message (bytes): The message to send, as a JSON string encoded as bytes.
         """
+        self.logger.info("callback_send_workload: %s", message")
         await self.nats.publish(message)
