@@ -71,7 +71,7 @@ class DreambotBackendGPT(DreambotWorkerBase):
                 # We have to hard code this because the OpenAI API endpoint lists dozens of models that can't be used for Chat Completions
                 # see https://platform.openai.com/docs/models/model-endpoint-compatibility
 
-                models = ["gpt-3.5-turbo", "gpt-3.5-turbo-0301"]
+                models = ["gpt-4", "gpt-3.5-turbo", "gpt-3.5-turbo-0301"]
                 message["reply-text"] = ", ".join(models)  # type: ignore
             else:
                 # Now that our cache is in the right state, add this new prompt to it
