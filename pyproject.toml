@@ -63,6 +63,7 @@ dreambot_frontend_slack = "dreambot.dreambot_frontend_slack:main"
 dreambot_backend_gpt = "dreambot.dreambot_backend_gpt:main"
 dreambot_backend_invokeai = "dreambot.dreambot_backend_invokeai:main"
 dreambot_backend_replit = "dreambot.dreambot_backend_replit:main"
+dreambot_backend_commands = "dreambot.dreambot_backend_commands:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
