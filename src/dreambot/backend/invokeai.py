@@ -223,6 +223,207 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
         Returns:
             dict[str, Any]: A dictionary containing a graph suitable to send to InvokeAI.
         """
+
+        # Example txt2img graph:
+        # {
+        #     "id": "77154ebd-4539-4a5a-ad63-3d7d8a0d1572",
+        #     "nodes": {
+        #         "93dc02a4-d05b-48ed-b99c-c9b616af3402": {
+        #             "id": "93dc02a4-d05b-48ed-b99c-c9b616af3402",
+        #             "is_intermediate": true,
+        #             "use_cache": true,
+        #             "prompt": "",
+        #             "clip": null,
+        #             "type": "compel"
+        #         },
+        #         "55705012-79b9-4aac-9f26-c0b10309785b": {
+        #             "id": "55705012-79b9-4aac-9f26-c0b10309785b",
+        #             "is_intermediate": true,
+        #             "use_cache": true,
+        #             "seed": 0,
+        #             "width": 512,
+        #             "height": 512,
+        #             "use_cpu": true,
+        #             "type": "noise"
+        #         },
+        #         "c8d55139-f380-4695-b7f2-8b3d1e1e3db8": {
+        #             "id": "c8d55139-f380-4695-b7f2-8b3d1e1e3db8",
+        #             "is_intermediate": true,
+        #             "use_cache": true,
+        #             "model": {
+        #                 "key": "081d864e-2c02-4362-8c94-dd37d10878b6",
+        #                 "hash": "4b394e9f74f765b8b1518a9d3571827967c84f5e8dd3b1a7497c551eec696d7a",
+        #                 "name": "stable-diffusion-v1-5",
+        #                 "base": "sd-1",
+        #                 "type": "main",
+        #                 "submodel_type": null
+        #             },
+        #             "type": "main_model_loader"
+        #         },
+        #         "7d8bf987-284f-413a-b2fd-d825445a5d6c": {
+        #             "id": "7d8bf987-284f-413a-b2fd-d825445a5d6c",
+        #             "is_intermediate": true,
+        #             "use_cache": true,
+        #             "prompt": "Tired programmer",
+        #             "clip": null,
+        #             "type": "compel"
+        #         },
+        #         "ea94bc37-d995-4a83-aa99-4af42479f2f2": {
+        #             "id": "ea94bc37-d995-4a83-aa99-4af42479f2f2",
+        #             "is_intermediate": true,
+        #             "use_cache": false,
+        #             "low": 0,
+        #             "high": 2147483647,
+        #             "type": "rand_int"
+        #         },
+        #         "eea2702a-19fb-45b5-9d75-56b4211ec03c": {
+        #             "id": "eea2702a-19fb-45b5-9d75-56b4211ec03c",
+        #             "is_intermediate": true,
+        #             "use_cache": true,
+        #             "positive_conditioning": null,
+        #             "negative_conditioning": null,
+        #             "noise": null,
+        #             "steps": 50,
+        #             "cfg_scale": 7.5,
+        #             "denoising_start": 0,
+        #             "denoising_end": 1,
+        #             "scheduler": "unipc",
+        #             "unet": null,
+        #             "control": null,
+        #             "ip_adapter": null,
+        #             "t2i_adapter": null,
+        #             "cfg_rescale_multiplier": 0,
+        #             "latents": null,
+        #             "denoise_mask": null,
+        #             "type": "denoise_latents"
+        #         },
+        #         "58c957f5-0d01-41fc-a803-b2bbf0413d4f": {
+        #             "board": null,
+        #             "metadata": null,
+        #             "id": "58c957f5-0d01-41fc-a803-b2bbf0413d4f",
+        #             "is_intermediate": false,
+        #             "use_cache": true,
+        #             "latents": null,
+        #             "vae": null,
+        #             "tiled": false,
+        #             "fp32": true,
+        #             "type": "l2i"
+        #         },
+        #         "5186c8b7-b415-497b-8908-b2a99ea2e54b": {
+        #             "board": null,
+        #             "metadata": null,
+        #             "id": "5186c8b7-b415-497b-8908-b2a99ea2e54b",
+        #             "is_intermediate": true,
+        #             "use_cache": true,
+        #             "image": null,
+        #             "model_name": "RealESRGAN_x4plus.pth",
+        #             "tile_size": 400,
+        #             "type": "esrgan"
+        #         }
+        #     },
+        #     "edges": [
+        #         {
+        #             "source": {
+        #                 "node_id": "ea94bc37-d995-4a83-aa99-4af42479f2f2",
+        #                 "field": "value"
+        #             },
+        #             "destination": {
+        #                 "node_id": "55705012-79b9-4aac-9f26-c0b10309785b",
+        #                 "field": "seed"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "c8d55139-f380-4695-b7f2-8b3d1e1e3db8",
+        #                 "field": "clip"
+        #             },
+        #             "destination": {
+        #                 "node_id": "7d8bf987-284f-413a-b2fd-d825445a5d6c",
+        #                 "field": "clip"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "c8d55139-f380-4695-b7f2-8b3d1e1e3db8",
+        #                 "field": "clip"
+        #             },
+        #             "destination": {
+        #                 "node_id": "93dc02a4-d05b-48ed-b99c-c9b616af3402",
+        #                 "field": "clip"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "55705012-79b9-4aac-9f26-c0b10309785b",
+        #                 "field": "noise"
+        #             },
+        #             "destination": {
+        #                 "node_id": "eea2702a-19fb-45b5-9d75-56b4211ec03c",
+        #                 "field": "noise"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "7d8bf987-284f-413a-b2fd-d825445a5d6c",
+        #                 "field": "conditioning"
+        #             },
+        #             "destination": {
+        #                 "node_id": "eea2702a-19fb-45b5-9d75-56b4211ec03c",
+        #                 "field": "positive_conditioning"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "93dc02a4-d05b-48ed-b99c-c9b616af3402",
+        #                 "field": "conditioning"
+        #             },
+        #             "destination": {
+        #                 "node_id": "eea2702a-19fb-45b5-9d75-56b4211ec03c",
+        #                 "field": "negative_conditioning"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "c8d55139-f380-4695-b7f2-8b3d1e1e3db8",
+        #                 "field": "unet"
+        #             },
+        #             "destination": {
+        #                 "node_id": "eea2702a-19fb-45b5-9d75-56b4211ec03c",
+        #                 "field": "unet"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "eea2702a-19fb-45b5-9d75-56b4211ec03c",
+        #                 "field": "latents"
+        #             },
+        #             "destination": {
+        #                 "node_id": "58c957f5-0d01-41fc-a803-b2bbf0413d4f",
+        #                 "field": "latents"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "c8d55139-f380-4695-b7f2-8b3d1e1e3db8",
+        #                 "field": "vae"
+        #             },
+        #             "destination": {
+        #                 "node_id": "58c957f5-0d01-41fc-a803-b2bbf0413d4f",
+        #                 "field": "vae"
+        #             }
+        #         },
+        #         {
+        #             "source": {
+        #                 "node_id": "58c957f5-0d01-41fc-a803-b2bbf0413d4f",
+        #                 "field": "image"
+        #             },
+        #             "destination": {
+        #                 "node_id": "5186c8b7-b415-497b-8908-b2a99ea2e54b",
+        #                 "field": "image"
+        #             }
+        #         }
+        #     ]
+        # }
         nodes: list[dict[str, Any]] = []
         links: list[dict[str, Any]] = []
 

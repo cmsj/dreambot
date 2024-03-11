@@ -23,11 +23,11 @@ flowchart LR
         B([IRC Frontend])
         E([GPT Backend])
         D([Discord Frontend])
-        F([InvokeAI Backend])
+        F([A1111 Backend])
         NATS
     end
     A((Users)) <-. IRC Servers .-> B <--> NATS <--> E <-.-> G{{OpenAI API}}
-    A <-. Discord Servers .-> D <--> NATS <--> F <-.-> H{{InvokeAI API}} <--> L{{GPU}}
+    A <-. Discord Servers .-> D <--> NATS <--> F <-.-> H{{A1111 API}} <--> L{{GPU}}
 
 ```
 
@@ -48,7 +48,7 @@ Frontends:
 Backends:
 
 * [OpenAI](https://www.openai.com)'s GPT [Chat Completions](https://platform.openai.com/docs/api-reference/chat/create)
-* [InvokeAI](https://invoke-ai.github.io/InvokeAI/)'s fork of Stable Diffusion
+* [A1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui)'s fork of Stable Diffusion
 
 ## Why is this architecture so complicated for a simple chat bot?
 
@@ -63,8 +63,8 @@ Additionally, it can be useful to spread out backends across machines that have 
 I deploy all of this using Docker Compose, and here are the approximate steps I use. This all assumes:
 
 * You're running Ubuntu Server 22.04
-* You have an NVIDIA GPU that you want to use for InvokeAI
-* You have ample storage in `/srv/docker/` to attach to the containers (in particular, InvokeAI will need >10GB for its model cache)
+* You have an NVIDIA GPU that you want to use for A1111
+* You have ample storage in `/srv/docker/` to attach to the containers (in particular, A1111 will need >10GB for its model cache)
 * You have a web server running that can serve files from `/srv/public/`
 
 ### Stages
@@ -76,7 +76,7 @@ I deploy all of this using Docker Compose, and here are the approximate steps I 
 
 ```bash
 mkdir -p /srv/docker/nats/{config,nats-1,nats-2,nats-3}
-mkdir -p /srv/docker/invokeai/data
+mkdir -p /srv/docker/A1111/data
 mkdir -p /srv/docker/dreambot/config
 ```
 
@@ -123,18 +123,9 @@ cluster {
 
 ---
 
-#### InvokeAI git checkout
+#### Install A1111
 
-(This is temporary until InvokeAI officially releases their new Node API)
-<blockquote>
-<details><summary>/srv/docker/invokeai/git/InvokeAI/static</summary>
-
-```bash
-cd /srv/docker/invokeai/git
-git clone https://github.com/invoke-ai/InvokeAI
-```
-
-</details></blockquote>
+See their docs for this
 
 ---
 
@@ -152,7 +143,7 @@ Notes:
 {
   "triggers": {
           "!gpt": "backend.gpt",
-          "!dream": "backend.invokeai"
+          "!dream": "backend.a1111"
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
   "output_dir": "/data",
@@ -197,7 +188,7 @@ There is a bunch of Discord developer website stuff you need to do to get the to
 {
   "triggers": {
           "!gpt": "backend.gpt",
-          "!dream": "backend.invokeai"
+          "!dream": "backend.a1111"
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
   "output_dir": "/data",
@@ -228,12 +219,12 @@ Sign up for a developer account at [https://openai.com](https://openai.com) and 
 </details></blockquote>
 
 <blockquote>
-<details><summary>/srv/docker/dreambot/config/config-backend-invokeai.json</summary>
+<details><summary>/srv/docker/dreambot/config/config-backend-a1111.json</summary>
 
 ```json
 {
-  "invokeai": {
-      "host": "invokeai",
+  "a1111": {
+      "host": "a1111",
       "port": "9090"
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
@@ -245,7 +236,7 @@ Sign up for a developer account at [https://openai.com](https://openai.com) and 
 </details>
 
 ---
-<details><summary>Ansible playbook to install/configure CUDA (required for InvokeAI backend)</summary>
+<details><summary>Ansible playbook to install/configure CUDA (required for A1111 backend)</summary>
 
 To run a container that accesses GPUs for CUDA, you need to install nvidia drivers, the nvidia-container-toolkit package, and then configure the docker daemon to use it as a runtime.
 
@@ -343,11 +334,10 @@ services:
         entrypoint: /nats-server
         command: --name nats-3 -c /config/nats-server.conf
 
-    # Deploy InvokeAI with access to our GPU
-    # I built a custom Docker image for this, because InvokeAI's new Nodes API is not yet officially part of their Docker image
-    invokeai:
-        hostname: invokeai
-        image: ghcr.io/cmsj/invokeai-nodes:latest
+    # Deploy A1111 with access to our GPU
+    a1111:
+        hostname: a1111
+        image: ghcr.io/neggles/sd-webui-docker:latest
         restart: unless-stopped
         deploy:
         resources:
@@ -359,13 +349,16 @@ services:
         networks:
             - dreambot
         environment:
-            HUGGING_FACE_HUB_TOKEN: abc123 # Create an account with HuggingFace to get a real token
+            CLI_ARGS: "--skip-version-check --allow-code --enable-insecure-extension-access --api --xformers --opt-channelslast"
+            SD_WEBUI_VARIANT: "default"
+            # make TQDM behave a little better
+            PYTHONUNBUFFERED: "1"
+            TERM: "vt100"
         expose:
             - "9090"
         volumes:
-            - /srv/docker/invokeai/data:/data
-            - /srv/docker/invokeai/git/InvokeAI/static:/static # This is a checkout of https://github.com/Invoke-AI/invokeai/ because the Docker image doesn't contain all of the required files
-            - /srv/public/outputs:/outputs # This is where the outputs of InvokeAI will be stored if you talk to it directly rather than through Dreambot (e.g. their web interface)
+            - /srv/docker/a1111/data:/data
+            - /srv/public/outputs:/outputs # This is where the outputs of A1111 will be stored if you talk to it directly rather than through Dreambot (e.g. their web interface)
 
     # Deploy the Dreambot Frontends
     dreambot-frontend-irc:
@@ -402,8 +395,8 @@ services:
             - /srv/public/dreams:/data
         command: dreambot_backend_gpt -c /config/config-backend-gpt.json
 
-    dreambot-backend-invokeai:
-        hostname: dreambot_backend_invokeai
+    dreambot-backend-a1111:
+        hostname: dreambot_backend_a1111
         image: ghcr.io/cmsj/dreambot:latest
         restart: unless-stopped
         networks:
@@ -411,7 +404,7 @@ services:
         volumes:
             - /srv/docker/dreambot/config:/config
             - /srv/public/dreams:/data
-        command: dreambot_backend_invokeai -c /config/config-backend-invokeai.json
+        command: dreambot_backend_a1111 -c /config/config-backend-a1111.json
 
 ```
 
