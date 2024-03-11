@@ -1,4 +1,5 @@
 """InvokeAI backend for Dreambot."""
+
 import asyncio
 import base64
 import io
@@ -497,7 +498,7 @@ class DreambotBackendInvokeAI(DreambotWorkerBase):
                 # Resize the image so it's not too big for our VRAM
                 resp_image = io.BytesIO()
                 thumbnail = Image.open(io.BytesIO(image))
-                thumbnail.thumbnail((512, 512), Image.ANTIALIAS)
+                thumbnail.thumbnail((512, 512), Image.Resampling.LANCZOS)
                 thumbnail.save(resp_image, "JPEG")
                 resp_image.flush()
                 resp_image.seek(0)
