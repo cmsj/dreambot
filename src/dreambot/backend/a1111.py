@@ -38,7 +38,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
 
         # Set our default A1111 options
         self.model = "sd_xl_turbo_1.0_fp16"
-        self.sampler = "Heun"
+        self.sampler = "Restart"
         self.steps = 20
         self.seed = -1
         self.cfg_scale = 1
