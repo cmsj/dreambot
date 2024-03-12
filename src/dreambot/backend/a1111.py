@@ -36,13 +36,6 @@ class DreambotBackendA1111(DreambotWorkerBase):
         self.a1111_port = options["a1111"]["port"]
         self.api_uri = f"http://{self.a1111_host}:{self.a1111_port}/sdapi/v1"
 
-        # Set our default A1111 options
-        self.model = "sd_xl_turbo_1.0_fp16"
-        self.sampler = "Restart"
-        self.steps = 40
-        self.seed = -1
-        self.cfg_scale = 4.0
-
     async def boot(self):
         """Boot the backend."""
         self.logger.info("A1111 API URI: %s", self.api_uri)
@@ -72,18 +65,8 @@ class DreambotBackendA1111(DreambotWorkerBase):
             if "image_url" in message:
                 args.imgurl = message["image_url"]
 
-            payload = {
-                "prompt": args.prompt,
-                "seed": args.seed,
-                "steps": args.steps,
-                "sampler_name": args.sampler,
-                "cfg_scale": args.cfgscale,
-                "restore_faces": True,
-                "hr_upscaler": "SwinIR_4x",
-                "override_settings": {
-                    "sd_model_checkpoint": args.model,
-                },
-            }
+            payload = self.options["a1111"]["payload"].copy()
+            payload["prompt"] = args.prompt
 
             post_url = f"{self.api_uri}/txt2img"
             if args.imgurl:
@@ -163,12 +146,6 @@ class DreambotBackendA1111(DreambotWorkerBase):
             ErrorCatchingArgumentParser: An argument parser that can be used with parse_args().
         """
         parser = super().arg_parser()
-        parser.add_argument("-m", "--model", help="A1111 model to use", default=self.model)
-        parser.add_argument("-s", "--sampler", help="A1111 sampler to use", default=self.sampler)
-        parser.add_argument("-t", "--steps", help="Number of steps to run A1111 for", default=self.steps, type=int)
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
-        # parser.add_argument("-r", "--reroll", help="Reroll the image", action="store_true") # FIXME: Implement this?
-        parser.add_argument("-e", "--seed", help="Seed to use for A1111 (-1 for random)", default=self.seed, type=int)
-        parser.add_argument("-c", "--cfgscale", help="CFG Scale", default=self.cfg_scale, type=float)
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser

@@ -11,7 +11,18 @@ class DreambotBackendA1111CLI(DreambotCLI):
 {
   "a1111": {
       "host": "localhost",
-      "port": "9090"
+      "port": "9090",
+      "payload": {
+        'hr_upscaler': 'SwinIR_4x',
+        'sampler_name': 'Restart',
+        'seed': -1,
+        'restore_faces': True,
+        'cfg_scale': 4.0,
+        'override_settings': {
+            'sd_model_checkpoint': 'sd_xl_turbo_1.0_fp16'
+        },
+        'steps': 40
+    }
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222" ]
 }"""
