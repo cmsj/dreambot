@@ -90,10 +90,10 @@ class DreambotCLI:
                 for sig in (signal.SIGTERM, signal.SIGINT):
                     # Shutdown signals
                     loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(self.shutdown(sig)))
-                    # Reload config signal
-                    loop.add_signal_handler(
-                        signal.SIGHUP, lambda: self.load_config()  # pylint: disable=unnecessary-lambda
-                    )
+
+                # Reload config signal
+                loop.add_signal_handler(signal.SIGHUP, lambda: self.load_config())  # pylint: disable=unnecessary-lambda
+
                 # Toggle debug signal
                 loop.add_signal_handler(
                     signal.SIGUSR1, lambda: self.toggle_debug()  # pylint: disable=unnecessary-lambda
