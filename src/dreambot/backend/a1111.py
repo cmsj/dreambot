@@ -77,7 +77,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
                 "seed": args.seed,
                 "steps": args.steps,
                 "sampler_name": args.sampler,
-                "cfg_scale": args.cfg_scale,
+                "cfg_scale": args.cfgscale,
                 "restore_faces": True,
                 "hr_upscaler": "SwinIR_4x",
                 "override_settings": {
