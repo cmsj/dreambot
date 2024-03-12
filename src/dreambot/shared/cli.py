@@ -71,6 +71,7 @@ class DreambotCLI:
         Raises:
             ValueError: If nats_uri is not provided in the config.
         """
+        self.logger.info("Loading config from %s", self.args.config)
         with open(self.args.config, encoding="utf8") as config_file:
             self.options = json.load(config_file)
 
