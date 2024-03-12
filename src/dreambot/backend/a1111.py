@@ -101,7 +101,8 @@ class DreambotBackendA1111(DreambotWorkerBase):
                     if "images" not in response:
                         raise ImageFetchException("A1111 did not return any images")
                     i = response["images"][0]
-                    message["reply-image"] = Image.open(io.BytesIO(base64.b64decode(i.split(",", 1)[0])))
+                    # A1111 returns a base64 encoded image, so we can just send that as a reply
+                    message["reply-image"] = i.split(",", 1)[0]
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
