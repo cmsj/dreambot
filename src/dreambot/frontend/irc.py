@@ -1,12 +1,15 @@
 """IRC frontend for Dreambot."""
+
 import asyncio
 import base64
 import logging
 import os
 import textwrap
 import traceback
-from typing import NamedTuple, Any, Self
+from typing import NamedTuple, Any, TypeVar, Type
 from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
+
+MESSAGETYPE = TypeVar("MESSAGETYPE", bound="Message")
 
 
 class Prefix(NamedTuple):
@@ -25,7 +28,7 @@ class Message(NamedTuple):
     params: list[str]
 
     @classmethod
-    def parse_line(cls, line: str) -> Self:
+    def parse_line(cls: Type[MESSAGETYPE], line: str) -> MESSAGETYPE:
         """Parse an IRC line.
 
         Args:
@@ -68,7 +71,7 @@ class Message(NamedTuple):
                     if line:
                         line = line[0]
 
-        return Message(prefix, command, params)
+        return cls(prefix, command, params)
 
     def full_ident(self) -> str:
         """Return the full ident of the message."""
