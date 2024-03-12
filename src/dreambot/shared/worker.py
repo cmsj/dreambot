@@ -1,4 +1,5 @@
 """Base class for Dreambot workers."""
+
 import logging
 import os
 import string
@@ -64,7 +65,11 @@ class DreambotWorkerBase:
             resp["reply-to"] = self.address
 
         try:
-            self.logger.info("Sending response: %s with %s", resp, self.callback_send_workload)
+            self.logger.info(
+                "Sending response: %s with %s",
+                {k: resp[k] for k in set(list(resp.keys())) - set(["reply-image"])},
+                self.callback_send_workload,
+            )
             await self.callback_send_workload(resp)
         except Exception as exc:
             self.logger.error("Failed to send response: %s", format(exc))
