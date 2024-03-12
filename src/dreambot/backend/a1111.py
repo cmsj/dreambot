@@ -37,10 +37,11 @@ class DreambotBackendA1111(DreambotWorkerBase):
         self.api_uri = f"http://{self.a1111_host}:{self.a1111_port}/sdapi/v1"
 
         # Set our default A1111 options
-        self.model = "stable-diffusion-1.5"
-        self.sampler = "Euler"
-        self.steps = 50
+        self.model = "sd_xl_turbo_1.0_fp16"
+        self.sampler = "Heun"
+        self.steps = 20
         self.seed = -1
+        self.cfg_scale = 1
 
     async def boot(self):
         """Boot the backend."""
@@ -76,7 +77,12 @@ class DreambotBackendA1111(DreambotWorkerBase):
                 "seed": args.seed,
                 "steps": args.steps,
                 "sampler_name": args.sampler,
-                "cfg_scale": 4,
+                "cfg_scale": args.cfg_scale,
+                "restore_faces": True,
+                "hr_upscaler": "SwinIR_4x",
+                "override_settings": {
+                    "sd_model_checkpoint": args.model,
+                },
             }
 
             post_url = f"{self.api_uri}/txt2img"
@@ -163,5 +169,6 @@ class DreambotBackendA1111(DreambotWorkerBase):
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
         # parser.add_argument("-r", "--reroll", help="Reroll the image", action="store_true") # FIXME: Implement this?
         parser.add_argument("-e", "--seed", help="Seed to use for A1111 (-1 for random)", default=self.seed, type=int)
+        parser.add_argument("-c", "--cfgscale", help="CFG Scale", default=self.cfg_scale, type=float())
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
