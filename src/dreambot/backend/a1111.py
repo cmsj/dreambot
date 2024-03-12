@@ -39,9 +39,9 @@ class DreambotBackendA1111(DreambotWorkerBase):
         # Set our default A1111 options
         self.model = "sd_xl_turbo_1.0_fp16"
         self.sampler = "Restart"
-        self.steps = 20
+        self.steps = 40
         self.seed = -1
-        self.cfg_scale = 1
+        self.cfg_scale = 4.0
 
     async def boot(self):
         """Boot the backend."""
