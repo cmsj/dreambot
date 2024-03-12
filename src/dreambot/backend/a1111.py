@@ -38,7 +38,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
 
         # Set our default A1111 options
         self.model = "stable-diffusion-1.5"
-        self.sampler = "keuler_a"
+        self.sampler = "Euler"
         self.steps = 50
         self.seed = -1
 
