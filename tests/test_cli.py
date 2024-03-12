@@ -49,7 +49,7 @@ def test_run(mocker):
     cli.run()
 
     assert mock_get_event_loop.call_count == 1
-    assert loop.add_signal_handler.call_count == 5
+    assert loop.add_signal_handler.call_count == 4
     assert loop.create_task.call_count == 3
     assert loop.run_forever.call_count == 1
     assert loop.close.call_count == 1
