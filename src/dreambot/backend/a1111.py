@@ -169,6 +169,6 @@ class DreambotBackendA1111(DreambotWorkerBase):
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
         # parser.add_argument("-r", "--reroll", help="Reroll the image", action="store_true") # FIXME: Implement this?
         parser.add_argument("-e", "--seed", help="Seed to use for A1111 (-1 for random)", default=self.seed, type=int)
-        parser.add_argument("-c", "--cfgscale", help="CFG Scale", default=self.cfg_scale, type=float())
+        parser.add_argument("-c", "--cfgscale", help="CFG Scale", default=self.cfg_scale, type=float)
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
