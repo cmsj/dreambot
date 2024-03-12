@@ -1,4 +1,5 @@
 """Scaffolding for building a Dreambot worker command."""
+
 import asyncio
 import json
 import logging
@@ -50,9 +51,6 @@ class DreambotCLI:
         """Boot this instance.
 
         Prepares logging, loads config, and configures NATS.
-
-        Raises:
-            ValueError: If nats_uri is not provided in the config.
         """
         self.parse_args()
         if self.args.debug:
@@ -64,13 +62,20 @@ class DreambotCLI:
 
         self.logger.info("Starting up...")
 
+        self.load_config()
+        self.nats = NatsManager(nats_uri=self.options["nats_uri"], name=self.cli_name)
+
+    def load_config(self):
+        """Load our config file
+
+        Raises:
+            ValueError: If nats_uri is not provided in the config.
+        """
         with open(self.args.config, encoding="utf8") as config_file:
             self.options = json.load(config_file)
 
         if "nats_uri" not in self.options:
             raise ValueError("nats_uri not provided in JSON config")
-
-        self.nats = NatsManager(nats_uri=self.options["nats_uri"], name=self.cli_name)
 
     def run(self):
         """Establish the event loop and run the associated tasks."""
@@ -78,13 +83,22 @@ class DreambotCLI:
         try:
             loop = asyncio.get_event_loop()
 
-            # FIXME: This is ungraceful, but Windows can't do signal handling this way. We could do something like https://stackoverflow.com/questions/45987985/asyncio-loops-add-signal-handler-in-windows
+            # FIXME: This is ungraceful, but Windows can't do signal handling this way.
+            # We could do something like https://stackoverflow.com/questions/45987985/asyncio-loops-add-signal-handler-in-windows
             if sys.platform != "win32":
                 for sig in (signal.SIGTERM, signal.SIGINT):
+                    # Shutdown signals
                     loop.add_signal_handler(sig, lambda sig=sig: asyncio.create_task(self.shutdown(sig)))
+                    # Reload config signal
+                    loop.add_signal_handler(
+                        signal.SIGHUP, lambda: self.load_config()  # pylint: disable=unnecessary-lambda
+                    )
+                # Toggle debug signal
                 loop.add_signal_handler(
-                    signal.SIGHUP, lambda: self.toggle_debug()  # pylint: disable=unnecessary-lambda
+                    signal.SIGUSR1, lambda: self.toggle_debug()  # pylint: disable=unnecessary-lambda
                 )
+
+            # Boot all our tasks and start asyncio's runloop
             loop.create_task(self.nats.boot(self.workers))
             _ = [loop.create_task(x.boot()) for x in self.workers]
             loop.run_forever()

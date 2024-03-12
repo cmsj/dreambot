@@ -34,7 +34,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
         )
         self.a1111_host = options["a1111"]["host"]
         self.a1111_port = options["a1111"]["port"]
-        self.api_uri = f"http://{self.a1111_host}:{self.a1111_port}/sdapi/v1/"
+        self.api_uri = f"http://{self.a1111_host}:{self.a1111_port}/sdapi/v1"
 
         # Set our default A1111 options
         self.model = "stable-diffusion-1.5"
