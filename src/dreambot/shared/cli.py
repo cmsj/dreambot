@@ -74,6 +74,7 @@ class DreambotCLI:
         self.logger.info("Loading config from %s", self.args.config)
         with open(self.args.config, encoding="utf8") as config_file:
             self.options = json.load(config_file)
+            self.logger.debug("Config: %s", self.options)
 
         if "nats_uri" not in self.options:
             raise ValueError("nats_uri not provided in JSON config")

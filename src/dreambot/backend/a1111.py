@@ -132,6 +132,9 @@ class DreambotBackendA1111(DreambotWorkerBase):
                 # Resize the image so it's not too big for our VRAM
                 resp_image = io.BytesIO()
                 thumbnail = Image.open(io.BytesIO(image))
+                if thumbnail.mode != "RGB":
+                    # Some images have weird colour modes, so convert them to RGB
+                    thumbnail = thumbnail.convert("RGB")
                 thumbnail.thumbnail((512, 512), Image.Resampling.LANCZOS)
                 thumbnail.save(resp_image, "JPEG")
                 resp_image.flush()
