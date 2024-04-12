@@ -1,7 +1,9 @@
 """NATS manager for Dreambot."""
+
 import asyncio
 import json
 import logging
+import sys
 import traceback
 
 from asyncio import Task
@@ -59,9 +61,16 @@ class NatsManager:
         Args:
             workers (list[DreambotWorkerBase]): A list of Dreambot workers.
         """
+
+        async def nats_error(e: nats.errors.Error):
+            """Slow Consumer errors mean NATS has stopped talking to us. We could try to reconnect, but we'll rely on Docker to restart us."""
+            if isinstance(e, nats.errors.SlowConsumerError):
+                self.logger.critical("NATS slow consumer detected. Exiting.")
+                sys.exit(1)
+
         self.logger.info("NATS booting")
         try:
-            self.nats = await nats.connect(self.nats_uri, name=self.name)  # type: ignore
+            self.nats = await nats.connect(self.nats_uri, name=self.name, error_cb=nats_error)  # type: ignore
             self.logger.info("NATS connected to %s", self.nats.connected_url.netloc)  # type: ignore
             self.jets = self.nats.jetstream()  # type: ignore
             self.jsm = self.nats.jsm()  # type: ignore
