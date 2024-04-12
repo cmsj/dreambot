@@ -35,7 +35,7 @@ dependencies = [
     "requests",
     "discord.py",
     "slack_bolt",
-    "Pillow==10.2.0",
+    "Pillow==10.3.0",
     "accelerate",
     "transformers",
     "einops",
