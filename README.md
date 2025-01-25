@@ -142,7 +142,6 @@ See their docs for this
 
 Notes:
 
-* Triggers need to have a trailing space (this is an obvious deficiency that I should just fix - I can add the space in code)
 * `uri_base` should be where your webserver has this container's `/data` volume mounted
 
 ```json
