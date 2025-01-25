@@ -68,7 +68,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
             if args.list_models:
                 message["reply-text"] = f"Available models: {', '.join(self.options['a1111']['models'].keys())}"
             else:
-                payload = self.options["a1111"]["models"][self.options["model"]]["payload"].copy()
+                payload = self.options["a1111"]["models"][args.model]["payload"].copy()
                 payload["prompt"] = args.prompt
 
                 post_url = f"{self.api_uri}/txt2img"
