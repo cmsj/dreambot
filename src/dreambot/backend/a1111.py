@@ -153,7 +153,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
         """
         parser = super().arg_parser()
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
-        parser.add_argument("-m", "--model", help="Model to use", default="sdxl")
+        parser.add_argument("-m", "--model", help="Model to use", default=self.options["a1111"]["default_model"])
         parser.add_argument("-l", "--list-models", help="List available models", action="store_true")
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
