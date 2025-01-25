@@ -65,33 +65,36 @@ class DreambotBackendA1111(DreambotWorkerBase):
             if "image_url" in message:
                 args.imgurl = message["image_url"]
 
-            payload = self.options["a1111"]["payload"].copy()
-            payload["prompt"] = args.prompt
+            if args.list_models:
+                message["reply-text"] = f"Available models: {', '.join(self.options['a1111']['models'].keys())}"
+            else:
+                payload = self.options["a1111"]["models"][self.options["model"]]["payload"].copy()
+                payload["prompt"] = args.prompt
 
-            post_url = f"{self.api_uri}/txt2img"
-            if args.imgurl:
-                image = await self.fetch_image(args.imgurl)
-                post_url = f"{self.api_uri}/img2img"
-                payload["init_images"] = [base64.b64encode(image.getvalue()).decode("utf8")]
+                post_url = f"{self.api_uri}/txt2img"
+                if args.imgurl:
+                    image = await self.fetch_image(args.imgurl)
+                    post_url = f"{self.api_uri}/img2img"
+                    payload["init_images"] = [base64.b64encode(image.getvalue()).decode("utf8")]
 
-            self.logger.info(
-                "POSTing graph to A1111: %s :: %s",
-                post_url,
-                {k: payload[k] for k in set(list(payload.keys())) - set(["init_images"])},
-            )
+                self.logger.info(
+                    "POSTing graph to A1111: %s :: %s",
+                    post_url,
+                    {k: payload[k] for k in set(list(payload.keys())) - set(["init_images"])},
+                )
 
-            async with aiohttp.ClientSession() as session:
-                async with session.post(post_url, json=payload) as req:
-                    if not req.ok:
-                        message["error"] = f"Error from A1111: {req.reason}"  # type: ignore
-                        await self.send_message(message)
-                        return True
-                    response = await req.json()
-                    if "images" not in response:
-                        raise ImageFetchException("A1111 did not return any images")
-                    i = response["images"][0]
-                    # A1111 returns a base64 encoded image, so we can just send that as a reply
-                    message["reply-image"] = i.split(",", 1)[0]
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(post_url, json=payload) as req:
+                        if not req.ok:
+                            message["error"] = f"Error from A1111: {req.reason}"  # type: ignore
+                            await self.send_message(message)
+                            return True
+                        response = await req.json()
+                        if "images" not in response:
+                            raise ImageFetchException("A1111 did not return any images")
+                        i = response["images"][0]
+                        # A1111 returns a base64 encoded image, so we can just send that as a reply
+                        message["reply-image"] = i.split(",", 1)[0]
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
@@ -150,5 +153,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
         """
         parser = super().arg_parser()
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
+        parser.add_argument("-m", "--model", help="Model to use", default="sdxl")
+        parser.add_argument("-l", "--list-models", help="List available models", action="store_true")
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
