@@ -51,6 +51,10 @@ Backends:
 
 * [OpenAI](https://www.openai.com)'s GPT [Chat Completions](https://platform.openai.com/docs/api-reference/chat/create)
 * [A1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui)'s fork of Stable Diffusion
+* Commands - simple bot commands, which currently include:
+  * chance:
+    * Usage: `!chance rain tomorrow`
+    * Action: Returns a random percentage chance of `rain tomorrow`
 
 ## Why is this architecture so complicated for a simple chat bot?
 
@@ -264,6 +268,18 @@ The A1111 backend supports arguments for choosing between several models. Instal
 ```
 
 </details></blockquote>
+
+<blockquote>
+<details><summary>/srv/docker/dreambot/config/config-backend-commands.json</summary>
+
+```json
+{
+  "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
+  "nats_queue_name": "!commands"
+}
+```
+</details>
+</blockquote>
 
 </details>
 
