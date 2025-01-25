@@ -24,12 +24,12 @@ flowchart LR
         E([GPT Backend])
         D([Discord Frontend])
         F([A1111 Backend])
-        G([Command Backend])
+        I([Command Backend])
         NATS
     end
     A((Users)) <-. IRC Servers .-> B <--> NATS <--> E <-.-> G{{OpenAI API}}
     A <-. Discord Servers .-> D <--> NATS <--> F <-.-> H{{A1111 API}} <--> L{{GPU}}
-    NATS <--> G
+    NATS <--> I
 
 ```
 
