@@ -221,11 +221,41 @@ Sign up for a developer account at [https://openai.com](https://openai.com) and 
 <blockquote>
 <details><summary>/srv/docker/dreambot/config/config-backend-a1111.json</summary>
 
+The A1111 backend supports arguments for choosing between several models. Install the models you want in A1111 and (optionally, but recommendedly) configure it to keep several models in VRAM at the same time. Play with the settings to get what you want and then configure the settings that will be sent with each request, in the json config:
+
 ```json
 {
   "a1111": {
       "host": "a1111",
-      "port": "9090"
+      "port": "9090",
+      "default_model": "sdxl",
+      "models": {
+        "sdxl": {
+                "payload": {
+                  "hr_upscaler": "SwinIR_4x",
+                  "sampler_name": "Euler a",
+                  "seed": -1,
+                  "restore_faces": "True",
+                  "cfg_scale": 1.0,
+                  "override_settings": {
+                      "sd_model_checkpoint": "sd_xl_turbo_1.0_fp16"
+                  },
+                  "steps": 1
+                }
+        },
+        "real": {
+           "payload": {
+                  "sampler_name": "DPM++ SDE",
+                  "scheduler": "Karras",
+                  "seed": -1,
+                  "restore_faces": "True",
+                  "steps": 5,
+                  "cfg_scale": 1.6,
+                  "override_settings": {
+                      "sd_model_checkpoint": "realisticVisionV60B1_v51HyperVAE"
+                  }
+           }
+        }
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
 }
