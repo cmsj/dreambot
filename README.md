@@ -30,7 +30,7 @@ flowchart LR
     end
     A((Users)) <-. IRC Servers .-> B <--> NATS <--> E <-.-> G{{OpenAI API}}
     A <-. Discord Servers .-> D <--> NATS <--> F <-.-> H{{A1111 API}} <--> L{{GPU}}
-    NATS <--> M <-.-> N{{A1111 API}} <-> L
+    NATS <--> M <-.-> N{{A1111 API}} <--> L
     NATS <--> K
 
 ```
