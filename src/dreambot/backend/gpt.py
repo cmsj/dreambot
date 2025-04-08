@@ -1,17 +1,14 @@
 """OpenAI GPT backend for Dreambot."""
+
 import traceback
 
 from typing import Any
 from argparse import REMAINDER, ArgumentError
 
 import openai
-from openai.error import (
-    APIError,
-    Timeout,
-    ServiceUnavailableError,
+from openai import (
     RateLimitError,
     AuthenticationError,
-    InvalidRequestError,
 )
 from dreambot.shared.custom_argparse import UsageException, ErrorCatchingArgumentParser
 from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
@@ -89,12 +86,8 @@ class DreambotBackendGPT(DreambotWorkerBase):
         except UsageException as exc:
             # This isn't strictly an error, but it's the easiest way to reply with our --help text, which is in the UsageException
             message["reply-text"] = str(exc)
-        except (APIError, Timeout, ServiceUnavailableError) as exc:
-            message["error"] = f"GPT service unavailable, try again: {exc}"
         except (RateLimitError, AuthenticationError) as exc:
             message["error"] = f"GPT service query error: {exc}"
-        except InvalidRequestError as exc:
-            message["error"] = f"GPT request error: {exc}"
         except (ValueError, ArgumentError) as exc:
             message["error"] = f"Something is wrong with your arguments, try {message['trigger']} --help ({exc})"
         except Exception as exc:

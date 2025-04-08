@@ -33,7 +33,7 @@
         "python.analysis.exclude": [
             "tests/*.py",
             "typings/",
-            "**/site-packages/**/*.py"
+            "**/site-packages/**/*.py*"
         ],
         "python.analysis.inlayHints.functionReturnTypes": false,
         "python.analysis.inlayHints.variableTypes": false,
@@ -47,7 +47,7 @@
             "editor.defaultFormatter": "ms-python.black-formatter"
         },
         "python.linting.ignorePatterns": [
-            "**/site-packages/**/*.py",
+            "**/site-packages/**/*.py*",
             ".vscode/*.py",
             "tests/*.py"
         ],

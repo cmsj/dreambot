@@ -1,11 +1,12 @@
 """IRC frontend for Dreambot."""
+
 import asyncio
 import base64
 import logging
 import os
 import textwrap
 import traceback
-from typing import NamedTuple, Any, Self
+from typing import NamedTuple, Any, Self, Dict
 from dreambot.shared.worker import DreambotWorkerBase, DreambotWorkerEndType, CallbackSendWorkload
 
 
@@ -68,7 +69,7 @@ class Message(NamedTuple):
                     if line:
                         line = line[0]
 
-        return Message(prefix, command, params)
+        return Message(prefix, command, params)  # type: ignore
 
     def full_ident(self) -> str:
         """Return the full ident of the message."""
@@ -216,7 +217,7 @@ class FrontendIRC(DreambotWorkerBase):
             return True
 
         for chunk in self.split_lines(message, reply_message):
-            await self.send_cmd("PRIVMSG", *[message["channel"], chunk])
+            await self.send_cmd("PRIVMSG", *[message["channel"], chunk])  # type: ignore
         return True
 
     async def send_line(self, line: str):
@@ -320,7 +321,7 @@ class FrontendIRC(DreambotWorkerBase):
             if text.startswith(f"{trigger} "):
                 self.logger.info("INPUT: %s:%s <%s> %s", self.server["host"], target, source, text)
                 prompt = text[len(trigger) + 1 :]
-                reply = {
+                reply: Dict[str, Any] = {
                     "to": self.options["triggers"][trigger],
                     "reply-to": self.address,
                     "frontend": "irc",

@@ -4,7 +4,7 @@ import base64
 import io
 import traceback
 
-from typing import Any
+from typing import Any, Dict
 
 import discord
 
@@ -140,7 +140,7 @@ class FrontendDiscord(DreambotWorkerBase):
             if text.startswith(trigger + " "):
                 prompt = text[len(trigger) + 1 :]
 
-                reply = {
+                reply: Dict[str, Any] = {
                     "to": self.options["triggers"][trigger],
                     "reply-to": self.address,
                     "frontend": "discord",
