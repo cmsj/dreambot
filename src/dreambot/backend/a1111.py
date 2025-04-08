@@ -68,7 +68,18 @@ class DreambotBackendA1111(DreambotWorkerBase):
             if args.list_models:
                 message["reply-text"] = f"Available models: {', '.join(self.options['a1111']['models'].keys())}"
             else:
-                payload = self.options["a1111"]["models"][args.model]["payload"].copy()
+                # Figure out which model we should use
+                if args.model != None:
+                    # User specified a model, go with that
+                    model_name = args.model
+                elif message["trigger"][1:] in self.options["a1111"]["models"]:
+                    # Trigger word matches the name of a model, go with that
+                    model_name = message["trigger"][1:]
+                else:
+                    # Go with our default
+                    model_name = self.options["a1111"]["default_model"]
+
+                payload = self.options["a1111"]["models"][model_name]["payload"].copy()
                 payload["prompt"] = args.prompt
 
                 post_url = f"{self.api_uri}/txt2img"

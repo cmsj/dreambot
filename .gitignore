@@ -9,3 +9,4 @@ junit/
 **/config.json
 config-*.json
 Pipfile
+.venv
