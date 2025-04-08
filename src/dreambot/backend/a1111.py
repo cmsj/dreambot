@@ -74,7 +74,7 @@ class DreambotBackendA1111(DreambotWorkerBase):
                     model_name = args.model
                 elif message["trigger"][1:] in self.options["a1111"]["models"]:
                     # Trigger word matches the name of a model, go with that
-                    model_name = message["trigger"]
+                    model_name = message["trigger"][1:]
                 else:
                     # Go with our default
                     model_name = self.options["a1111"]["default_model"]
