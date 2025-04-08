@@ -1,6 +1,7 @@
 # pylint: skip-file
 import pytest
 import asyncio
+import json
 import nats
 import signal
 import time
@@ -96,7 +97,8 @@ async def test_nats_publish(mocker):
 
     await nm.publish(data)
     assert nm.jets.publish.call_count == 1
-    assert nm.jets.publish.has_calls([call(data)])
+    dataString = json.dumps(data).encode("utf-8")
+    nm.jets.publish.assert_has_awaits([call("!test", dataString)])
 
 
 # FIXME: No idea why this one is broken

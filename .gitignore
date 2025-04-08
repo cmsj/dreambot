@@ -8,3 +8,4 @@ junit/
 **/coverage.xml
 **/config.json
 config-*.json
+Pipfile

@@ -81,10 +81,18 @@ async def test_callback_send_workload(mocker):
     await cli.callback_send_workload(data)
 
     assert cli.nats.publish.call_count == 1
-    assert cli.nats.publish.has_calls([call(data)])
+    cli.nats.publish.assert_has_calls([call(data)])
+
+
+@pytest.mark.asyncio
+async def test_callback_send_workload_image(mocker):
+    cli = dreambot.shared.cli.DreambotCLI("test_callback_send_workload_image")
+    cli.nats = AsyncMock()
+    cli.logger = MagicMock()
 
     data = {"reply-image": "to be removed"}
     await cli.callback_send_workload(data)
 
-    assert cli.nats.publish.call_count == 2
-    assert cli.nats.publish.has_calls([call({"reply-image": "** IMAGE **"})])
+    assert cli.nats.publish.call_count == 1
+    cli.logger.info.assert_has_calls([call("callback_send_workload: %s", {"reply-image": "** IMAGE **"})])
+    cli.nats.publish.assert_has_calls([call(data)])

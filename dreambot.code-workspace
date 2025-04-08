@@ -6,7 +6,7 @@
     ],
     "settings": {
         "editor.detectIndentation": false,
-        "pytest.command": "",
+        "pytest.command": "pipenv run pytest",
         "python.testing.unittestEnabled": false,
         "python.testing.pytestEnabled": true,
         "python.testing.pytestArgs": [
@@ -32,7 +32,8 @@
         "python.analysis.diagnosticMode": "workspace",
         "python.analysis.exclude": [
             "tests/*.py",
-            "typings/"
+            "typings/",
+            "**/site-packages/**/*.py"
         ],
         "python.analysis.inlayHints.functionReturnTypes": false,
         "python.analysis.inlayHints.variableTypes": false,

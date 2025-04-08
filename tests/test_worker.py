@@ -2,6 +2,7 @@
 import pytest
 import dreambot.shared.worker
 import dreambot.shared.custom_argparse
+import argparse
 
 
 class TestWorker(dreambot.shared.worker.DreambotWorkerBase):
@@ -64,5 +65,5 @@ def test_arg_parser():
     args = parser.parse_args(["-t", "testvalue"])
     assert args.test == "testvalue"
 
-    with pytest.raises(ValueError):
+    with pytest.raises(argparse.ArgumentError):
         args = parser.parse_args(["--unknown"])
