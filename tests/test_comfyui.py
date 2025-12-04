@@ -112,3 +112,36 @@ async def test_comfyui_list_workflows():
     assert "reply-text" in message
     assert "txt2img" in message["reply-text"]
     assert "img2img" in message["reply-text"]
+
+
+@pytest.mark.asyncio
+async def test_comfyui_invalid_workflow():
+    """Test error handling for invalid workflow name."""
+    options = {
+        "comfyui": {
+            "host": "localhost",
+            "port": "8188",
+            "default_workflow": "txt2img",
+            "workflows": {
+                "txt2img": {
+                    "workflow": {}
+                }
+            }
+        }
+    }
+    callback = AsyncMock()
+    backend = DreambotBackendComfyUI(options, callback)
+
+    message = {
+        "prompt": "-w invalid_workflow test prompt",
+        "trigger": "!comfy",
+        "to": "backend.comfyui",
+        "reply-to": "frontend.test"
+    }
+
+    await backend.callback_receive_workload("test_queue", message)
+
+    assert "error" in message
+    assert "Unknown workflow" in message["error"]
+    assert "invalid_workflow" in message["error"]
+    assert "txt2img" in message["error"]

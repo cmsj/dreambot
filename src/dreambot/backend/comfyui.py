@@ -51,7 +51,7 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
 
         Args:
             queue_name (str): The name of the queue we received the message from.
-            message (bytes): The message we received, as a dictionary.
+            message (dict[str, Any]): The message we received, as a dictionary.
 
         Returns:
             bool: True if the message should be ack'd to NATS, False otherwise.
@@ -80,6 +80,12 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
                 else:
                     # Go with our default
                     workflow_name = self.options["comfyui"]["default_workflow"]
+
+                # Validate that the workflow exists
+                if workflow_name not in self.options["comfyui"]["workflows"]:
+                    message["error"] = f"Unknown workflow: {workflow_name}. Available workflows: {', '.join(self.options['comfyui']['workflows'].keys())}"
+                    await self.send_message(message)
+                    return True
 
                 workflow = self.options["comfyui"]["workflows"][workflow_name]["workflow"].copy()
 
@@ -227,7 +233,6 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
                     raise ImageFetchException(f"URL was not an image: {resp.content_type}")
 
                 image = await resp.read()
-                resp.close()
                 self.logger.info("Fetched %s bytes of %s", len(image), resp.content_type)
 
                 # Resize the image so it's not too big for our VRAM
