@@ -25,12 +25,14 @@ flowchart LR
         D([Discord Frontend])
         F([A1111 Backend])
         M([A1111 Backend])
+        O([ComfyUI Backend])
         K([Command Backend])
         NATS
     end
     A((Users)) <-. IRC Servers .-> B <--> NATS <--> E <-.-> G{{OpenAI API}}
     A <-. Discord Servers .-> D <--> NATS <--> F <-.-> H{{A1111 API}} <--> L{{GPU}}
     NATS <--> M <-.-> N{{A1111 API}} <--> L
+    NATS <--> O <-.-> P{{ComfyUI API}} <--> L
     NATS <--> K
 
 ```
@@ -53,6 +55,7 @@ Backends:
 
 * [OpenAI](https://www.openai.com)'s GPT [Chat Completions](https://platform.openai.com/docs/api-reference/chat/create)
 * [A1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui)'s fork of Stable Diffusion
+* [ComfyUI](https://github.com/comfyanonymous/ComfyUI) for Stable Diffusion image generation
 * Commands - simple bot commands, which currently include:
   * chance:
     * Usage: `!chance rain tomorrow`
@@ -150,7 +153,8 @@ Notes:
 {
   "triggers": {
           "!gpt": "backend.gpt",
-          "!dream": "backend.a1111"
+          "!dream": "backend.a1111",
+          "!comfy": "backend.comfyui"
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
   "output_dir": "/data",
@@ -195,7 +199,8 @@ There is a bunch of Discord developer website stuff you need to do to get the to
 {
   "triggers": {
           "!gpt": "backend.gpt",
-          "!dream": "backend.a1111"
+          "!dream": "backend.a1111",
+          "!comfy": "backend.comfyui"
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
   "output_dir": "/data",
@@ -265,6 +270,87 @@ The A1111 backend supports arguments for choosing between several models. Instal
         }
   },
   "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ],
+}
+```
+
+</details></blockquote>
+
+<blockquote>
+<details><summary>/srv/docker/dreambot/config/config-backend-comfyui.json</summary>
+
+ComfyUI backend uses workflow definitions for image generation. You can export workflows from the ComfyUI web interface and use them in the configuration. The backend will automatically update the text prompt in the workflow.
+
+```json
+{
+  "comfyui": {
+      "host": "comfyui",
+      "port": "8188",
+      "default_workflow": "txt2img",
+      "workflows": {
+        "txt2img": {
+                "workflow": {
+                  "3": {
+                    "class_type": "KSampler",
+                    "inputs": {
+                      "seed": -1,
+                      "steps": 20,
+                      "cfg": 8.0,
+                      "sampler_name": "euler",
+                      "scheduler": "normal",
+                      "denoise": 1.0,
+                      "model": ["4", 0],
+                      "positive": ["6", 0],
+                      "negative": ["7", 0],
+                      "latent_image": ["5", 0]
+                    }
+                  },
+                  "4": {
+                    "class_type": "CheckpointLoaderSimple",
+                    "inputs": {
+                      "ckpt_name": "sd_xl_base_1.0.safetensors"
+                    }
+                  },
+                  "5": {
+                    "class_type": "EmptyLatentImage",
+                    "inputs": {
+                      "width": 512,
+                      "height": 512,
+                      "batch_size": 1
+                    }
+                  },
+                  "6": {
+                    "class_type": "CLIPTextEncode",
+                    "inputs": {
+                      "text": "beautiful scenery",
+                      "clip": ["4", 1]
+                    }
+                  },
+                  "7": {
+                    "class_type": "CLIPTextEncode",
+                    "inputs": {
+                      "text": "text, watermark",
+                      "clip": ["4", 1]
+                    }
+                  },
+                  "8": {
+                    "class_type": "VAEDecode",
+                    "inputs": {
+                      "samples": ["3", 0],
+                      "vae": ["4", 2]
+                    }
+                  },
+                  "9": {
+                    "class_type": "SaveImage",
+                    "inputs": {
+                      "filename_prefix": "ComfyUI",
+                      "images": ["8", 0]
+                    }
+                  }
+                }
+        }
+      }
+  },
+  "nats_uri": [ "nats://nats-1:4222", "nats://nats-2:4222", "nats://nats-3:4222" ]
 }
 ```
 
