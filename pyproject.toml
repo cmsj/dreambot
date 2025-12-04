@@ -58,6 +58,7 @@ dreambot_backend_gpt = "dreambot.dreambot_backend_gpt:main"
 dreambot_backend_a1111 = "dreambot.dreambot_backend_a1111:main"
 dreambot_backend_invokeai = "dreambot.dreambot_backend_invokeai:main"
 dreambot_backend_commands = "dreambot.dreambot_backend_commands:main"
+dreambot_backend_comfyui = "dreambot.dreambot_backend_comfyui:main"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
