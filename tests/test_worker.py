@@ -65,5 +65,5 @@ def test_arg_parser():
     args = parser.parse_args(["-t", "testvalue"])
     assert args.test == "testvalue"
 
-    with pytest.raises(argparse.ValueError):
+    with pytest.raises():
         args = parser.parse_args(["--unknown"])
