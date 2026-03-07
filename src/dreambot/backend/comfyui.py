@@ -123,7 +123,7 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
                 # Queue the prompt
                 prompt_request = {"prompt": workflow, "client_id": client_id}
 
-                self.logger.info("POSTing workflow to ComfyUI: %s/prompt", self.api_uri)
+                self.logger.info(f"POSTing workflow to ComfyUI: {self.api_uri}/prompt ({workflow_name})")
 
                 async with aiohttp.ClientSession() as session:
                     async with session.post(f"{self.api_uri}/prompt", json=prompt_request) as req:
