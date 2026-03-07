@@ -12,11 +12,7 @@ async def test_comfyui_boot():
             "host": "localhost",
             "port": "8188",
             "default_workflow": "txt2img",
-            "workflows": {
-                "txt2img": {
-                    "workflow": {}
-                }
-            }
+            "workflows": {"txt2img": {"workflow": {}}},
         }
     }
     backend = DreambotBackendComfyUI(options, MagicMock())
@@ -32,11 +28,7 @@ async def test_comfyui_shutdown():
             "host": "localhost",
             "port": "8188",
             "default_workflow": "txt2img",
-            "workflows": {
-                "txt2img": {
-                    "workflow": {}
-                }
-            }
+            "workflows": {"txt2img": {"workflow": {}}},
         }
     }
     backend = DreambotBackendComfyUI(options, MagicMock())
@@ -52,11 +44,7 @@ async def test_comfyui_arg_parser():
             "host": "localhost",
             "port": "8188",
             "default_workflow": "txt2img",
-            "workflows": {
-                "txt2img": {
-                    "workflow": {}
-                }
-            }
+            "workflows": {"txt2img": {"workflow": {}}},
         }
     }
     backend = DreambotBackendComfyUI(options, MagicMock())
@@ -66,7 +54,7 @@ async def test_comfyui_arg_parser():
     args = parser.parse_args(["test", "prompt"])
     assert args.prompt == ["test", "prompt"]
     assert args.imgurl is None
-    assert args.workflow == "txt2img"
+    assert args.workflow == None
 
     # Test with workflow argument
     args = parser.parse_args(["-w", "custom", "test", "prompt"])
@@ -87,25 +75,13 @@ async def test_comfyui_list_workflows():
             "host": "localhost",
             "port": "8188",
             "default_workflow": "txt2img",
-            "workflows": {
-                "txt2img": {
-                    "workflow": {}
-                },
-                "img2img": {
-                    "workflow": {}
-                }
-            }
+            "workflows": {"txt2img": {"workflow": {}}, "img2img": {"workflow": {}}},
         }
     }
     callback = AsyncMock()
     backend = DreambotBackendComfyUI(options, callback)
 
-    message = {
-        "prompt": "-l",
-        "trigger": "!comfy",
-        "to": "backend.comfyui",
-        "reply-to": "frontend.test"
-    }
+    message = {"prompt": "-l", "trigger": "!comfy", "to": "backend.comfyui", "reply-to": "frontend.test"}
 
     await backend.callback_receive_workload("test_queue", message)
 
@@ -122,11 +98,7 @@ async def test_comfyui_invalid_workflow():
             "host": "localhost",
             "port": "8188",
             "default_workflow": "txt2img",
-            "workflows": {
-                "txt2img": {
-                    "workflow": {}
-                }
-            }
+            "workflows": {"txt2img": {"workflow": {}}},
         }
     }
     callback = AsyncMock()
@@ -136,7 +108,7 @@ async def test_comfyui_invalid_workflow():
         "prompt": "-w invalid_workflow test prompt",
         "trigger": "!comfy",
         "to": "backend.comfyui",
-        "reply-to": "frontend.test"
+        "reply-to": "frontend.test",
     }
 
     await backend.callback_receive_workload("test_queue", message)
