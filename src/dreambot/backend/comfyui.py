@@ -77,13 +77,18 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
                 elif message["trigger"][1:] in self.options["comfyui"]["workflows"]:
                     # Trigger word matches the name of a workflow, go with that
                     workflow_name = message["trigger"][1:]
+                elif message["channel_name"] in self.options["comfyui"]["workflow_map"]:
+                    # We have a mapping of channel name to workflow, so use that
+                    workflow_name = self.options["comfyui"]["workflow_map"][message["channel_name"]]
                 else:
                     # Go with our default
                     workflow_name = self.options["comfyui"]["default_workflow"]
 
                 # Validate that the workflow exists
                 if workflow_name not in self.options["comfyui"]["workflows"]:
-                    message["error"] = f"Unknown workflow: {workflow_name}. Available workflows: {', '.join(self.options['comfyui']['workflows'].keys())}"
+                    message["error"] = (
+                        f"Unknown workflow: {workflow_name}. Available workflows: {', '.join(self.options['comfyui']['workflows'].keys())}"
+                    )
                     await self.send_message(message)
                     return True
 
@@ -116,10 +121,7 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
                 client_id = str(uuid.uuid4())
 
                 # Queue the prompt
-                prompt_request = {
-                    "prompt": workflow,
-                    "client_id": client_id
-                }
+                prompt_request = {"prompt": workflow, "client_id": client_id}
 
                 self.logger.info("POSTing workflow to ComfyUI: %s/prompt", self.api_uri)
 
@@ -199,11 +201,7 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
                                     folder_type = image_info.get("type", "output")
 
                                     # Download the image
-                                    params = {
-                                        "filename": filename,
-                                        "subfolder": subfolder,
-                                        "type": folder_type
-                                    }
+                                    params = {"filename": filename, "subfolder": subfolder, "type": folder_type}
 
                                     async with session.get(f"{self.api_uri}/view", params=params) as img_req:
                                         if img_req.ok:
@@ -280,7 +278,9 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
         """
         parser = super().arg_parser()
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
-        parser.add_argument("-w", "--workflow", help="Workflow to use", default=self.options["comfyui"]["default_workflow"])
+        parser.add_argument(
+            "-w", "--workflow", help="Workflow to use", default=self.options["comfyui"]["default_workflow"]
+        )
         parser.add_argument("-l", "--list-workflows", help="List available workflows", action="store_true")
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
