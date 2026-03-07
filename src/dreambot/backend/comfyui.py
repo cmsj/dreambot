@@ -74,15 +74,19 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
                 if args.workflow is not None:
                     # User specified a workflow, go with that
                     workflow_name = args.workflow
+                    self.logger.info("Chose workflow based on user argument: %s", workflow_name)
                 elif message["trigger"][1:] in self.options["comfyui"]["workflows"]:
                     # Trigger word matches the name of a workflow, go with that
                     workflow_name = message["trigger"][1:]
+                    self.logger.info("Chose workflow based on trigger word: %s", workflow_name)
                 elif message["channel_name"] in self.options["comfyui"]["workflow_map"]:
                     # We have a mapping of channel name to workflow, so use that
                     workflow_name = self.options["comfyui"]["workflow_map"][message["channel_name"]]
+                    self.logger.info("Chose workflow based on channel name: %s", workflow_name)
                 else:
                     # Go with our default
                     workflow_name = self.options["comfyui"]["default_workflow"]
+                    self.logger.info("Chose workflow based on default: %s", workflow_name)
 
                 # Validate that the workflow exists
                 if workflow_name not in self.options["comfyui"]["workflows"]:
@@ -278,9 +282,7 @@ class DreambotBackendComfyUI(DreambotWorkerBase):
         """
         parser = super().arg_parser()
         parser.add_argument("-i", "--imgurl", help="Start with an image from URL", default=None)
-        parser.add_argument(
-            "-w", "--workflow", help="Workflow to use", default=self.options["comfyui"]["default_workflow"]
-        )
+        parser.add_argument("-w", "--workflow", help="Workflow to use")
         parser.add_argument("-l", "--list-workflows", help="List available workflows", action="store_true")
         parser.add_argument("prompt", nargs=REMAINDER)
         return parser
