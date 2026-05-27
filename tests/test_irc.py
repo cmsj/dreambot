@@ -218,7 +218,7 @@ async def test_handle_response_image(caplog, mock_builtins_open, mock_send_cmd):
             "reply-image": "UE5HIHRlc3QK",
             "prompt": "test prompt",
             "server": "test.server.com",
-            "channel": "#testchannel",
+            "channel_name": "#testchannel",
             "user": "testuser",
         },
     )
@@ -252,7 +252,7 @@ async def test_handle_response_text(mock_send_cmd):
         {
             "reply-text": "test text",
             "server": "test.server.com",
-            "channel": "#testchannel",
+            "channel_name": "#testchannel",
             "user": "testuser",
         },
     )
@@ -274,7 +274,7 @@ async def test_handle_response_error(mock_send_cmd):
         {
             "error": "test error",
             "server": "test.server.com",
-            "channel": "#testchannel",
+            "channel_name": "#testchannel",
             "user": "testuser",
         },
     )
@@ -304,7 +304,7 @@ async def test_handle_response_usage(mock_send_cmd):
         {
             "usage": "test usage",
             "server": "test.server.com",
-            "channel": "#testchannel",
+            "channel_name": "#testchannel",
             "user": "testuser",
         },
     )
@@ -323,7 +323,7 @@ async def test_handle_response_unknown(mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        {"server": "test.server.com", "channel": "#testchannel", "user": "testuser"},
+        {"server": "test.server.com", "channel_name": "#testchannel", "user": "testuser"},
     )
 
     assert irc.send_cmd.call_count == 1
@@ -348,7 +348,7 @@ async def test_handle_response_silence(mock_send_cmd):
 
     await irc.callback_receive_workload(
         None,
-        {"reply-none": "test reply", "server": "test.server.com", "channel": "#testchannel", "user": "testuser"},
+        {"reply-none": "test reply", "server": "test.server.com", "channel_name": "#testchannel", "user": "testuser"},
     )
 
     assert irc.send_cmd.call_count == 0
@@ -433,7 +433,7 @@ async def test_handle_line_privmsg_publish_raises(mock_send_cmd):
                     "reply-to": "",
                     "frontend": "irc",
                     "server": "abc123",
-                    "channel": "#testchannel",
+                    "channel_name": "#testchannel",
                     "user": "testuser",
                     "trigger": "!test",
                     "prompt": "some text",
