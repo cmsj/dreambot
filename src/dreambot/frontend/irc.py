@@ -217,7 +217,7 @@ class FrontendIRC(DreambotWorkerBase):
             return True
 
         for chunk in self.split_lines(message, reply_message):
-            await self.send_cmd("PRIVMSG", *[message["channel"], chunk])  # type: ignore
+            await self.send_cmd("PRIVMSG", *[message["channel_name"], chunk])  # type: ignore
         return True
 
     async def send_line(self, line: str):
@@ -326,7 +326,7 @@ class FrontendIRC(DreambotWorkerBase):
                     "reply-to": self.address,
                     "frontend": "irc",
                     "server": self.server["host"],
-                    "channel": target,
+                    "channel_name": target,
                     "user": source,
                     "trigger": trigger,
                     "prompt": prompt,
@@ -354,10 +354,10 @@ class FrontendIRC(DreambotWorkerBase):
         for line in reply_message.splitlines():
             # IRC has a max line length of 512 bytes, so we need to split the line into chunks
             max_chunk_size = 510  # Start with 510 because send_cmd() adds 2 bytes for the CRLF
-            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel']} :")
+            max_chunk_size -= len(f"{self.full_ident} PRIVMSG {message['channel_name']} :")
             chunks += textwrap.wrap(line, max_chunk_size)
         return chunks
 
     def log_reply(self, message: dict[str, Any], reply: str, kind: str = "OUTPUT", level: int = logging.INFO):
         """Log reply messages with a consistent format."""
-        self.logger.log(level, "%s: %s:%s %s", kind, message["server"], message["channel"], reply)
+        self.logger.log(level, "%s: %s:%s %s", kind, message["server"], message["channel_name"], reply)
